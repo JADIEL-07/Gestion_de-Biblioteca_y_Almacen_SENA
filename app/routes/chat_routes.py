@@ -397,6 +397,7 @@ def escalate_to_support():
     user_query = (data.get('user_query') or '').strip()
     ai_response = (data.get('ai_response') or '').strip()
     extra_context = (data.get('extra_context') or '').strip()
+    source_thread_id = (data.get('thread_id') or '').strip() or None
 
     if not user_query:
         return jsonify({'error': 'No hay contexto suficiente para crear el ticket.'}), 400
@@ -419,6 +420,7 @@ def escalate_to_support():
         description=description,
         severity='MEDIUM',
         status='OPEN',
+        source_thread_id=source_thread_id,
     )
     db.session.add(ticket)
     db.session.commit()
@@ -448,8 +450,8 @@ def accept_ticket(ticket_id):
         return jsonify({'error': 'Usuario no encontrado'}), 404
 
     role_name = _role_name(user)
-    if not (_is_support(role_name) or role_name == 'ADMIN'):
-        return jsonify({'error': 'Solo Soporte o Admin pueden aceptar solicitudes.'}), 403
+    if not _is_support(role_name):
+        return jsonify({'error': 'Solo el personal de Soporte puede aceptar solicitudes.'}), 403
 
     ticket = Ticket.query.filter_by(id=ticket_id, is_deleted=False).first()
     if not ticket:
@@ -495,5 +497,6 @@ def get_active_ticket():
             'subject': ticket.subject,
             'assigned_to': ticket.assigned_to,
             'assigned_name': assignee.name if assignee else 'Soporte',
+            'source_thread_id': ticket.source_thread_id,
         }
     }), 200

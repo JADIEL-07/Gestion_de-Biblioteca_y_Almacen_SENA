@@ -23,5 +23,6 @@ class Ticket(Base):
     closed_at = db.Column(db.DateTime, nullable=True)
     
     photo = db.Column(db.Text, nullable=True) # Foto adjunta de la incidencia en base64
-    
+    source_thread_id = db.Column(db.String(100), nullable=True)  # Thread del asistente que originó el ticket
+
     is_deleted = db.Column(db.Boolean, default=False)

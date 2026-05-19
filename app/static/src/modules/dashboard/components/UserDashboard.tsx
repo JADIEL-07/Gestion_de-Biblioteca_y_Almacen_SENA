@@ -193,7 +193,6 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           {activeSection === 'loans' && currentRole === 'APRENDIZ' && <AprendizLoans />}
           {activeSection === 'reservations' && currentRole === 'APRENDIZ' && <AprendizReservations />}
           {activeSection === 'history' && currentRole === 'APRENDIZ' && <AprendizHistory />}
-          {activeSection === 'solicitudes' && currentRole === 'APRENDIZ' && <AprendizSolicitudes />}
           {(activeSection === 'config' || activeSection === 'update') && !isGuest && (
             <UserConfig user={user} />
           )}

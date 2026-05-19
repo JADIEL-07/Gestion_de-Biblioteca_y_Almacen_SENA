@@ -139,7 +139,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       } catch {}
     };
     poll();
-    const interval = setInterval(poll, 5000);
+    const interval = setInterval(poll, 15000); // cada 15s para reducir carga
     return () => clearInterval(interval);
   }, [isGuest]);
 
@@ -182,7 +182,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       } catch {}
     };
     pollTicketMessages();
-    const interval = setInterval(pollTicketMessages, 3000);
+    const interval = setInterval(pollTicketMessages, 8000); // cada 8s para reducir carga
     return () => clearInterval(interval);
   }, [activeTicket, activeThreadId, isGuest]);
 
@@ -414,8 +414,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     setAttachedMedia(null);
     setIsTyping(true);
 
-    // Si hay un ticket activo (soporte tomó el caso), enviar al ticket y NO llamar a la IA
-    if (activeTicket) {
+    // Si hay un ticket activo Y este es el hilo que lo originó, enviar al soporte y NO llamar a la IA
+    const isActiveTicketThread = activeTicket && (
+      !activeTicket.source_thread_id || activeTicket.source_thread_id === activeThreadId
+    );
+    if (isActiveTicketThread) {
       try {
         const token = getToken();
         await fetch(`/api/v1/chat/tickets/${activeTicket.id}/messages`, {
@@ -535,6 +538,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
         body: JSON.stringify({
           user_query: userQuery,
           ai_response: aiResponse,
+          thread_id: activeThreadId,
         }),
       });
       if (!res.ok) {
@@ -559,13 +563,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       setThreads(updatedThreads);
       saveThreadsToStorage(updatedThreads);
 
-      // Confirmar y ofrecer ir a Solicitudes
-      const goNow = confirm(
-        `${data.message}\n\nTu ticket #${data.ticket_id} fue creado. ¿Quieres ir a "Solicitudes" para esperar la respuesta?`
-      );
-      if (goNow) {
-        navigate('/dashboard/solicitudes');
-      }
+      alert(`${data.message}\n\nTicket #${data.ticket_id} creado. El equipo de Soporte te responderá en esta misma conversación.`);
     } catch (err: any) {
       alert(err.message || 'No se pudo crear la solicitud.');
     } finally {
@@ -682,7 +680,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
                     <div className="support-escalation-box">
                       <div className="support-escalation-text">
                         <FiHeadphones size={16} />
-                        <span>Lo lamento mucho. ¿Deseas que te contacte con un <strong>administrador</strong>?</span>
+                        <span>Lo lamento mucho. ¿Deseas que te contacte con el equipo de <strong>Soporte</strong>?</span>
                       </div>
                       <button
                         className="support-escalation-btn"
@@ -696,7 +694,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
 
                   {msg.escalated && (
                     <div className="support-escalation-done">
-                      <FiCheckCircle size={14} /> Solicitud #{msg.escalated.ticketId} creada. Revisa tu sección <strong>Solicitudes</strong>.
+                      <FiCheckCircle size={14} /> Solicitud #{msg.escalated.ticketId} creada. El equipo de Soporte te responderá aquí pronto.
                     </div>
                   )}
 
@@ -776,11 +774,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
             </div>
           )}
 
-          {/* BANNER: SOPORTE ACTIVO */}
-          {activeTicket && (
+          {/* BANNER: SOPORTE ACTIVO (solo en el hilo escalado) */}
+          {activeTicket && (!activeTicket.source_thread_id || activeTicket.source_thread_id === activeThreadId) && (
             <div className="support-active-banner">
               <FiHeadphones size={15} />
-              <span>Estás siendo atendido por <strong>{activeTicket.assigned_name}</strong> · Soporte Técnico. La IA está pausada.</span>
+              <span>Estás siendo atendido por <strong>{activeTicket.assigned_name}</strong> · Soporte Técnico. La IA está pausada en esta conversación.</span>
             </div>
           )}
 
@@ -792,7 +790,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
             <input type="file" accept="image/*" style={{ display: 'none' }} ref={fileInputRef} onChange={handleFileUpload} />
             <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} ref={cameraInputRef} onChange={handleFileUpload} />
 
-            {!activeTicket && (
+            {!(activeTicket && (!activeTicket.source_thread_id || activeTicket.source_thread_id === activeThreadId)) && (
               <>
                 <button type="button" className="attachment-btn" title="Subir imagen" onClick={() => fileInputRef.current?.click()} disabled={isTyping}>
                   <FiImage size={18} />

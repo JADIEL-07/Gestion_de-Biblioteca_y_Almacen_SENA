@@ -43,7 +43,6 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({
       { id: 'loans', label: 'Mis préstamos', icon: <FiBookOpen />, restricted: true },
       { id: 'reservations', label: 'Mis reservas', icon: <FiCalendar />, restricted: true },
       { id: 'history', label: 'Historial', icon: <FiClock />, restricted: true },
-      { id: 'solicitudes', label: 'Solicitudes', icon: <FiHeadphones />, restricted: true },
     ] : []),
   ];
 
