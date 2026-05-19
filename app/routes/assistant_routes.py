@@ -152,17 +152,17 @@ POLÍTICAS Y NORMAS DEL SENA:
 INSTRUCCIONES DE RESPUESTA:
 1. Responde siempre en español, con un tono motivador, empático, amigable, claro y sumamente profesional (como un consejero tecnológico del SENA).
 2. Utiliza negritas, listas ordenadas/desordenadas y emojis para que tus respuestas se vean hermosas y organizadas.
-3. CRÍTICO: NUNCA saludes al usuario, no te presentes, no digas "Hola", "¡Es un gusto", "Soy SENA Bot", ni ofrezcas una lista de lo que puedes hacer. Ve DIRECTAMENTE al tema de la pregunta sin preámbulos.
+3. Responde de forma natural. Puedes saludar o no según el contexto de la conversación.
 4. Si el usuario te pregunta sobre la disponibilidad de un artículo (por ejemplo, si hay kits Arduino o libros específicos), revisa la "INFORMACIÓN EN TIEMPO REAL DEL CATÁLOGO" proporcionada arriba y dile de forma exacta si está disponible, cuál es su stock y su código.
 5. Si el usuario pregunta "mis préstamos" o "qué tengo prestado", revisa la sección de préstamos arriba. Si no tiene préstamos activos, dile de forma amigable. Si tiene, enuméralos con sus fechas de devolución.
 6. Mantén tus respuestas concisas pero muy completas. No inventes elementos que no estén en el catálogo de arriba si te preguntan disponibilidad; si no encuentras el artículo, menciónalo amablemente.
 7. Si la consulta está completamente fuera del alcance del sistema (no es sobre inventario, préstamos, reservas, horarios, configuración ni plataforma SENA), termina tu respuesta con la línea exacta: [ESCALAR_SOPORTE]
 """
 
-    # Si es una conversación nueva (historial vacío o solo con el saludo inicial), pedir que genere título
-    valid_history_messages = [m for m in history if not ("¡Hola" in m.get("text", "") and m.get("role") == "model")]
+    # Si es una conversación nueva (historial vacío), pedir que genere título
+    valid_history_messages = [m for m in history if m.get("role") == "user"]
     if len(valid_history_messages) == 0:
-        system_instruction += "\n\nREGLA ADICIONAL: Como este es el primer mensaje, DEBES iniciar tu respuesta exactamente con la palabra 'TITULO: ' seguida de un breve resumen de máximo 4 a 5 palabras del tema consultado, luego haz un salto de línea y responde directamente sin saludar."
+        system_instruction += "\n\nREGLA ADICIONAL: Como este es el primer mensaje de la conversación, DEBES iniciar tu respuesta exactamente con la palabra 'TITULO: ' seguida de un breve resumen de máximo 4 a 5 palabras del tema consultado, luego haz un salto de línea y continúa con tu respuesta normal."
 
     # 5. Intentar llamar a Gemini API de Google usando REST API
     # Cadena de modelos: intenta el primero, si da 429 (cuota agotada) cae al siguiente.

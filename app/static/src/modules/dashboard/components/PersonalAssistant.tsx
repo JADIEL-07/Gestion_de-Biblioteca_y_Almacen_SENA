@@ -189,19 +189,12 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   // Load chat threads from localStorage on mount
   useEffect(() => {
     const stored = localStorage.getItem('sena_bot_threads');
-    
+
     const newId = 'thread_' + Date.now();
-    const defaultMsg: Message = {
-      id: 'welcome_' + Date.now(),
-      sender: 'bot',
-      text: `Estoy listo para ayudarte. ¿Qué necesitas hoy?`,
-      timestamp: new Date().toISOString(),
-      type: 'text'
-    };
     const newThread: ChatThread = {
       id: newId,
       title: 'Nueva conversación',
-      messages: [defaultMsg],
+      messages: [],
       updatedAt: new Date().toISOString()
     };
 
@@ -209,7 +202,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       try {
         const parsed: ChatThread[] = JSON.parse(stored);
         if (parsed.length > 0) {
-          const updated = [newThread, ...parsed.filter((t: any) => t.messages.length > 1)];
+          const updated = [newThread, ...parsed.filter((t: any) => t.messages.length > 0)];
           setThreads(updated);
           setActiveThreadId(newId);
           return;
@@ -289,17 +282,10 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
 
   const handleCreateNewChat = () => {
     const newId = 'thread_' + Date.now();
-    const defaultMsg: Message = {
-      id: 'welcome_' + Date.now(),
-      sender: 'bot',
-      text: `Estoy listo para ayudarte. ¿Qué necesitas hoy?`,
-      timestamp: new Date().toISOString(),
-      type: 'text'
-    };
     const newThread: ChatThread = {
       id: newId,
       title: 'Nueva conversación',
-      messages: [defaultMsg],
+      messages: [],
       updatedAt: new Date().toISOString()
     };
     const updated = [newThread, ...threads];
@@ -313,19 +299,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     const filtered = threads.filter(t => t.id !== threadId);
     
     if (filtered.length === 0) {
-      // If no threads remain, create a new blank one
       const newId = 'thread_' + Date.now();
-      const defaultMsg: Message = {
-        id: 'welcome_' + Date.now(),
-        sender: 'bot',
-        text: `Estoy listo para ayudarte. ¿Qué necesitas hoy?`,
-        timestamp: new Date().toISOString(),
-        type: 'text'
-      };
       const newThread: ChatThread = {
         id: newId,
         title: 'Nueva conversación',
-        messages: [defaultMsg],
+        messages: [],
         updatedAt: new Date().toISOString()
       };
       const updated = [newThread];
@@ -569,19 +547,12 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
 
   const clearChat = () => {
     if (!activeThreadId) return;
-    const defaultMsg: Message = {
-      id: 'reset_' + Date.now(),
-      sender: 'bot',
-      text: `Estoy listo para ayudarte. ¿Qué necesitas hoy?`,
-      timestamp: new Date().toISOString(),
-      type: 'text'
-    };
     const updatedThreads = threads.map(t => {
       if (t.id === activeThreadId) {
         return {
           ...t,
           title: 'Nueva conversación',
-          messages: [defaultMsg],
+          messages: [],
           updatedAt: new Date().toISOString()
         };
       }
