@@ -1,4 +1,5 @@
 import os
+import json
 import requests
 import string
 import time
@@ -8,6 +9,7 @@ from ..models.item import Item
 from ..models.loan import Loan
 from ..models.user import User
 from ..models.ai_knowledge import AILearnedResponse
+from ..models.assistant_thread import AssistantThread
 from .. import db
 
 assistant_bp = Blueprint('assistant', __name__)
@@ -474,4 +476,65 @@ INSTRUCCIONES DE RESPUESTA:
         "suggest_support": suggest_support,
         "source": "rules",
     })
+
+
+# ─── Threads del Asistente Personal (persistencia por usuario) ───────────────
+
+@assistant_bp.route('/threads', methods=['GET'])
+@jwt_required()
+def get_threads():
+    user_id = str(get_jwt_identity())
+    threads = AssistantThread.query.filter_by(user_id=user_id).order_by(AssistantThread.updated_at.desc()).all()
+    return jsonify([{
+        'id': t.id,
+        'title': t.title,
+        'messages': json.loads(t.messages or '[]'),
+        'updatedAt': t.updated_at.isoformat() if t.updated_at else t.created_at.isoformat(),
+    } for t in threads])
+
+
+@assistant_bp.route('/threads', methods=['POST'])
+@jwt_required()
+def create_thread():
+    user_id = str(get_jwt_identity())
+    data = request.get_json() or {}
+    thread = AssistantThread(
+        id=data.get('id', f"thread_{int(time.time() * 1000)}"),
+        user_id=user_id,
+        title=data.get('title', 'Nueva conversación'),
+        messages=json.dumps(data.get('messages', [])),
+    )
+    db.session.add(thread)
+    db.session.commit()
+    return jsonify({'id': thread.id}), 201
+
+
+@assistant_bp.route('/threads/<thread_id>', methods=['PUT'])
+@jwt_required()
+def update_thread(thread_id):
+    user_id = str(get_jwt_identity())
+    thread = AssistantThread.query.filter_by(id=thread_id, user_id=user_id).first()
+    if not thread:
+        return jsonify({'error': 'No encontrado'}), 404
+    data = request.get_json() or {}
+    if 'title' in data:
+        thread.title = data['title']
+    if 'messages' in data:
+        thread.messages = json.dumps(data['messages'])
+    from datetime import datetime
+    thread.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'ok': True})
+
+
+@assistant_bp.route('/threads/<thread_id>', methods=['DELETE'])
+@jwt_required()
+def delete_thread(thread_id):
+    user_id = str(get_jwt_identity())
+    thread = AssistantThread.query.filter_by(id=thread_id, user_id=user_id).first()
+    if not thread:
+        return jsonify({'error': 'No encontrado'}), 404
+    db.session.delete(thread)
+    db.session.commit()
+    return jsonify({'ok': True})
 

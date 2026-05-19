@@ -12,3 +12,4 @@ from .chat_message import TicketMessage, StaffMessage
 from .item_output import ItemOutput, OutputType, OutputStatus
 from .ai_knowledge import AILearnedResponse
 from .spare_part import SparePartRequest
+from .assistant_thread import AssistantThread

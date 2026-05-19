@@ -186,35 +186,40 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     return () => clearInterval(interval);
   }, [activeTicket, activeThreadId, isGuest]);
 
-  // Load chat threads from localStorage on mount
+  // Cargar threads desde la API (persistidos por cuenta)
   useEffect(() => {
-    const stored = localStorage.getItem('sena_bot_threads');
+    const loadThreads = async () => {
+      const newId = 'thread_' + Date.now();
+      const newThread: ChatThread = {
+        id: newId,
+        title: 'Nueva conversación',
+        messages: [],
+        updatedAt: new Date().toISOString()
+      };
 
-    const newId = 'thread_' + Date.now();
-    const newThread: ChatThread = {
-      id: newId,
-      title: 'Nueva conversación',
-      messages: [],
-      updatedAt: new Date().toISOString()
-    };
-
-    if (stored) {
-      try {
-        const parsed: ChatThread[] = JSON.parse(stored);
-        if (parsed.length > 0) {
-          const updated = [newThread, ...parsed.filter((t: any) => t.messages.length > 0)];
-          setThreads(updated);
-          setActiveThreadId(newId);
-          return;
+      if (!isGuest) {
+        try {
+          const token = getToken();
+          const res = await fetch('/api/v1/assistant/threads', {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (res.ok) {
+            const data: ChatThread[] = await res.json();
+            const updated = [newThread, ...data];
+            setThreads(updated);
+            setActiveThreadId(newId);
+            return;
+          }
+        } catch (e) {
+          console.error('Error cargando threads:', e);
         }
-      } catch (e) {
-        console.error("Error parsing chat threads:", e);
       }
-    }
 
-    setThreads([newThread]);
-    setActiveThreadId(newId);
-  }, [userName]);
+      setThreads([newThread]);
+      setActiveThreadId(newId);
+    };
+    loadThreads();
+  }, [user.id]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -266,9 +271,42 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     }
   };
 
-  // Save chat threads to localStorage whenever they change
-  const saveThreadsToStorage = (updatedThreads: ChatThread[]) => {
-    localStorage.setItem('sena_bot_threads', JSON.stringify(updatedThreads));
+  const getToken = () => localStorage.getItem('token');
+
+  const apiSaveThread = async (thread: ChatThread) => {
+    if (isGuest) return;
+    const token = getToken();
+    await fetch(`/api/v1/assistant/threads/${thread.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ title: thread.title, messages: thread.messages }),
+    }).catch(() => {});
+  };
+
+  const apiCreateThread = async (thread: ChatThread) => {
+    if (isGuest) return;
+    const token = getToken();
+    await fetch('/api/v1/assistant/threads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ id: thread.id, title: thread.title, messages: thread.messages }),
+    }).catch(() => {});
+  };
+
+  const apiDeleteThread = async (threadId: string) => {
+    if (isGuest) return;
+    const token = getToken();
+    await fetch(`/api/v1/assistant/threads/${threadId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
+  };
+
+  // Guardar estado local (para renderizado inmediato) y sincronizar con API
+  const saveThreadsToStorage = (updatedThreads: ChatThread[], changedThread?: ChatThread) => {
+    if (changedThread) {
+      apiSaveThread(changedThread);
+    }
   };
 
   // Scroll to bottom on new messages
@@ -291,13 +329,14 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     const updated = [newThread, ...threads];
     setThreads(updated);
     setActiveThreadId(newId);
-    saveThreadsToStorage(updated);
+    apiCreateThread(newThread);
   };
 
   const handleDeleteChat = (e: React.MouseEvent, threadId: string) => {
     e.stopPropagation();
+    apiDeleteThread(threadId);
     const filtered = threads.filter(t => t.id !== threadId);
-    
+
     if (filtered.length === 0) {
       const newId = 'thread_' + Date.now();
       const newThread: ChatThread = {
@@ -306,13 +345,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
         messages: [],
         updatedAt: new Date().toISOString()
       };
-      const updated = [newThread];
-      setThreads(updated);
+      setThreads([newThread]);
       setActiveThreadId(newId);
-      saveThreadsToStorage(updated);
+      apiCreateThread(newThread);
     } else {
       setThreads(filtered);
-      saveThreadsToStorage(filtered);
       if (activeThreadId === threadId) {
         setActiveThreadId(filtered[0].id);
       }
@@ -350,9 +387,13 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     let originalTitle = activeThread?.title || 'Nueva conversación';
     let newTitle = originalTitle;
 
-    // Auto rename on first user message
+    // Auto rename on first user message y crear thread en BD si aún no existe
+    const isFirstMessage = messages.length === 0;
     if (originalTitle === 'Nueva conversación') {
       newTitle = generateSmartTitle(text);
+    }
+    if (isFirstMessage) {
+      apiCreateThread({ id: activeThreadId, title: newTitle, messages: [], updatedAt: new Date().toISOString() });
     }
 
     const updatedThreads = threads.map(t => {
@@ -372,12 +413,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     const sentMedia = attachedMedia;
     setAttachedMedia(null);
     setIsTyping(true);
-    saveThreadsToStorage(updatedThreads);
 
     // Si hay un ticket activo (soporte tomó el caso), enviar al ticket y NO llamar a la IA
     if (activeTicket) {
       try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         await fetch(`/api/v1/chat/tickets/${activeTicket.id}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -392,11 +432,9 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
 
     // Call Advanced AI Backend Endpoint with offline fallback
     try {
-      const token = localStorage.getItem('token');
+      const token = getToken();
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
+      if (token) headers['Authorization'] = `Bearer ${token}`;
 
       const chatHistory = messages.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'model',
@@ -411,11 +449,9 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
 
       if (response.ok) {
         const data = await response.json();
-        
+
         let finalTitle = newTitle;
-        if (data.title) {
-           finalTitle = data.title;
-        }
+        if (data.title) finalTitle = data.title;
 
         const botMsgId = Date.now().toString();
         const newBotMsg: Message = {
@@ -432,30 +468,25 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
         const finalMessages = [...updatedMessages, newBotMsg];
         const finalThreads = updatedThreads.map(t => {
           if (t.id === activeThreadId) {
-            return {
-              ...t,
-              title: finalTitle,
-              messages: finalMessages,
-              updatedAt: new Date().toISOString()
-            };
+            return { ...t, title: finalTitle, messages: finalMessages, updatedAt: new Date().toISOString() };
           }
           return t;
         });
+        const changedThread = finalThreads.find(t => t.id === activeThreadId);
 
         setThreads(finalThreads);
         setIsTyping(false);
-        saveThreadsToStorage(finalThreads);
-        return; // Success, exit early!
+        if (changedThread) saveThreadsToStorage(finalThreads, changedThread);
+        return;
       }
     } catch (error) {
       console.warn("Advanced backend AI failed. Running local rule-based fallback:", error);
     }
 
-    // LOCAL FALLBACK (Runs if fetch fails or backend returns non-200)
+    // LOCAL FALLBACK
     setTimeout(() => {
       const responseText = generateBotResponse(text);
       const botMsgId = (Date.now() + 1).toString();
-      
       const newBotMsg: Message = {
         id: botMsgId,
         sender: 'bot',
@@ -468,18 +499,15 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       const finalMessages = [...updatedMessages, newBotMsg];
       const finalThreads = updatedThreads.map(t => {
         if (t.id === activeThreadId) {
-          return {
-            ...t,
-            messages: finalMessages,
-            updatedAt: new Date().toISOString()
-          };
+          return { ...t, messages: finalMessages, updatedAt: new Date().toISOString() };
         }
         return t;
       });
+      const changedThread = finalThreads.find(t => t.id === activeThreadId);
 
       setThreads(finalThreads);
       setIsTyping(false);
-      saveThreadsToStorage(finalThreads);
+      if (changedThread) saveThreadsToStorage(finalThreads, changedThread);
     }, 1100);
   };
 
@@ -547,19 +575,10 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
 
   const clearChat = () => {
     if (!activeThreadId) return;
-    const updatedThreads = threads.map(t => {
-      if (t.id === activeThreadId) {
-        return {
-          ...t,
-          title: 'Nueva conversación',
-          messages: [],
-          updatedAt: new Date().toISOString()
-        };
-      }
-      return t;
-    });
+    const cleared = { id: activeThreadId, title: 'Nueva conversación', messages: [], updatedAt: new Date().toISOString() };
+    const updatedThreads = threads.map(t => t.id === activeThreadId ? cleared : t);
     setThreads(updatedThreads);
-    saveThreadsToStorage(updatedThreads);
+    saveThreadsToStorage(updatedThreads, cleared);
   };
 
   return (
