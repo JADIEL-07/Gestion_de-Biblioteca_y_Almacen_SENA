@@ -152,16 +152,17 @@ POLÍTICAS Y NORMAS DEL SENA:
 INSTRUCCIONES DE RESPUESTA:
 1. Responde siempre en español, con un tono motivador, empático, amigable, claro y sumamente profesional (como un consejero tecnológico del SENA).
 2. Utiliza negritas, listas ordenadas/desordenadas y emojis para que tus respuestas se vean hermosas y organizadas.
-3. IMPORTANTE: Esta es una conversación continua. **NUNCA** saludes al usuario ni te presentes de nuevo ("Hola", "Soy SENA Bot") en tus respuestas. Ve directo a responder la pregunta sin saludos innecesarios.
+3. CRÍTICO: NUNCA saludes al usuario, no te presentes, no digas "Hola", "¡Es un gusto", "Soy SENA Bot", ni ofrezcas una lista de lo que puedes hacer. Ve DIRECTAMENTE al tema de la pregunta sin preámbulos.
 4. Si el usuario te pregunta sobre la disponibilidad de un artículo (por ejemplo, si hay kits Arduino o libros específicos), revisa la "INFORMACIÓN EN TIEMPO REAL DEL CATÁLOGO" proporcionada arriba y dile de forma exacta si está disponible, cuál es su stock y su código.
 5. Si el usuario pregunta "mis préstamos" o "qué tengo prestado", revisa la sección de préstamos arriba. Si no tiene préstamos activos, dile de forma amigable. Si tiene, enuméralos con sus fechas de devolución.
 6. Mantén tus respuestas concisas pero muy completas. No inventes elementos que no estén en el catálogo de arriba si te preguntan disponibilidad; si no encuentras el artículo, menciónalo amablemente.
+7. Si la consulta está completamente fuera del alcance del sistema (no es sobre inventario, préstamos, reservas, horarios, configuración ni plataforma SENA), termina tu respuesta con la línea exacta: [ESCALAR_SOPORTE]
 """
 
     # Si es una conversación nueva (historial vacío o solo con el saludo inicial), pedir que genere título
     valid_history_messages = [m for m in history if not ("¡Hola" in m.get("text", "") and m.get("role") == "model")]
     if len(valid_history_messages) == 0:
-        system_instruction += "\n\nREGLA MUY IMPORTANTE: Como este es el primer mensaje de la conversación, DEBES iniciar tu respuesta exactamente con la palabra 'TITULO: ' seguida de un breve resumen de máximo 4 a 5 palabras de lo que el usuario está consultando, luego haz un salto de línea y continúa con tu respuesta normal."
+        system_instruction += "\n\nREGLA ADICIONAL: Como este es el primer mensaje, DEBES iniciar tu respuesta exactamente con la palabra 'TITULO: ' seguida de un breve resumen de máximo 4 a 5 palabras del tema consultado, luego haz un salto de línea y responde directamente sin saludar."
 
     # 5. Intentar llamar a Gemini API de Google usando REST API
     # Cadena de modelos: intenta el primero, si da 429 (cuota agotada) cae al siguiente.
@@ -217,6 +218,14 @@ INSTRUCCIONES DE RESPUESTA:
                         title = parts_text[0].replace("TITULO:", "").strip()
                         bot_text = parts_text[1].strip() if len(parts_text) > 1 else bot_text
 
+                    # Detectar si Gemini indica que no puede ayudar
+                    gemini_suggest_support = False
+                    if '[ESCALAR_SOPORTE]' in bot_text:
+                        bot_text = bot_text.replace('[ESCALAR_SOPORTE]', '').strip()
+                        if user and user.role:
+                            role_up = (user.role.name or '').upper().strip()
+                            gemini_suggest_support = role_up in ('APRENDIZ', 'USUARIO')
+
                     json_response = {
                         "text": bot_text,
                         "type": "text",
@@ -224,6 +233,7 @@ INSTRUCCIONES DE RESPUESTA:
                         "metadata": active_loans_list if active_loans_list else None,
                         "source": "gemini",
                         "model": model,
+                        "suggest_support": gemini_suggest_support,
                     }
 
                     if cache_key:
@@ -298,13 +308,7 @@ INSTRUCCIONES DE RESPUESTA:
 
     # CATEGORÍA 1: Saludos, Presentación y Ayuda General
     if any(k in q for k in ['hola', 'saludos', 'buenos dias', 'buenas tardes', 'buen dia', 'buena tarde', 'que tal', 'como estas', 'quien eres', 'quién eres', 'ayuda', 'asistente', 'sena bot']):
-        fallback_text = f"🤖 ¡Hola de nuevo, **{user_name}**! Soy **SENA Bot**, tu asistente inteligente.\n\n" \
-                        "Aunque actualmente estoy operando en **modo local de respaldo (offline)** debido a restricciones de conexión con la API de Google, puedo guiarte con total precisión en temas como:\n" \
-                        "*   📅 **Reservas y préstamos:** Normas, tiempos límite y cómo realizarlos.\n" \
-                        "*   🕒 **Horarios y ubicaciones:** De biblioteca, almacén y bloques.\n" \
-                        "*   ⚙️ **Configuración y Perfil:** Cómo cambiar contraseña, correo, 2FA o eliminar tu cuenta.\n" \
-                        "*   ⚠️ **Sanciones y pérdidas:** Qué hacer en caso de daños o demoras.\n" \
-                        "¿Qué deseas consultar hoy?"
+        fallback_text = f"Puedo ayudarte con reservas, préstamos, horarios, ubicaciones y configuración de la plataforma. ¿Con qué necesitas ayuda?"
 
     # CATEGORÍA 2: Préstamos y deudas (RAG en tiempo real)
     elif any(k in q for k in ['prestamo', 'préstamo', 'tengo prestado', 'mis herramientas', 'mis libros', 'mis prestamos', 'mis deudas', 'debo', 'entregar']):

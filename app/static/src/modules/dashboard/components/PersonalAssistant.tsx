@@ -194,7 +194,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     const defaultMsg: Message = {
       id: 'welcome_' + Date.now(),
       sender: 'bot',
-      text: `¡Hola **${userName}**! 👋 ¿En qué puedo ayudarte hoy?`,
+      text: `Estoy listo para ayudarte. ¿Qué necesitas hoy?`,
       timestamp: new Date().toISOString(),
       type: 'text'
     };
@@ -292,7 +292,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     const defaultMsg: Message = {
       id: 'welcome_' + Date.now(),
       sender: 'bot',
-      text: `¡Hola **${userName}**! 👋 ¿En qué puedo ayudarte hoy?`,
+      text: `Estoy listo para ayudarte. ¿Qué necesitas hoy?`,
       timestamp: new Date().toISOString(),
       type: 'text'
     };
@@ -318,7 +318,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       const defaultMsg: Message = {
         id: 'welcome_' + Date.now(),
         sender: 'bot',
-        text: `¡Hola **${userName}**! 👋 ¿En qué puedo ayudarte hoy?`,
+        text: `Estoy listo para ayudarte. ¿Qué necesitas hoy?`,
         timestamp: new Date().toISOString(),
         type: 'text'
       };
@@ -572,7 +572,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     const defaultMsg: Message = {
       id: 'reset_' + Date.now(),
       sender: 'bot',
-      text: `¡Hola **${userName}**! 👋 ¿En qué puedo ayudarte hoy?`,
+      text: `Estoy listo para ayudarte. ¿Qué necesitas hoy?`,
       timestamp: new Date().toISOString(),
       type: 'text'
     };
