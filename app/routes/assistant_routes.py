@@ -55,7 +55,100 @@ def chat_ai():
         user = User.query.filter_by(id=str(user_id)).first()
         
     user_name = user.name if user else 'Invitado'
-    
+
+    # 1.b Obtener rol del usuario para personalizar instrucciones
+    user_role = 'INVITADO'
+    if user and user.role:
+        user_role = (user.role.name or '').upper().strip() or 'USUARIO'
+
+    # Capacidades por rol — la IA usará esto para guiar al usuario
+    ROLE_CAPABILITIES = {
+        'ADMIN': """ROL ACTUAL: ADMINISTRADOR (control total del sistema).
+CAPACIDADES Y MENÚ DISPONIBLE:
+- Gestión de Usuarios: crear, editar, cambiar rol, desactivar cuentas. Ubicación: menú lateral → "Usuarios". Botón "Nuevo usuario" arriba a la derecha.
+- Gestión de Inventario: agregar/editar libros, herramientas, equipos. Crear categorías, ubicaciones. Menú → "Inventario".
+- Préstamos: ver, crear y devolver préstamos de cualquier usuario. Menú → "Préstamos".
+- Reservas: gestionar todas las reservas activas. Menú → "Reservas".
+- Mantenimiento: revisar incidencias de elementos dañados. Menú → "Mantenimiento".
+- Salidas controladas: autorizar salidas de equipos. Menú → "Salidas".
+- Reportes estadísticos: ver gráficos y métricas. Menú → "Reportes".
+- Auditoría: ver historial completo de acciones en el sistema. Menú → "Auditoría".
+- Solicitudes: ver tickets escalados (pero solo Soporte puede aceptarlos).
+- Configuración del sistema: parámetros globales. Menú → "Configuración".
+PUEDES indicar al admin cómo realizar cualquier operación administrativa paso a paso. Eres su asistente con acceso total a la guía del sistema.""",
+
+        'SOPORTE': """ROL ACTUAL: SOPORTE TÉCNICO.
+CAPACIDADES Y MENÚ DISPONIBLE:
+- Solicitudes: ver bandeja de tickets escalados por aprendices, aceptarlos y atenderlos por chat. Menú → "Solicitudes".
+- Mantenimiento: registrar y resolver incidencias de equipos dañados. Menú → "Mantenimiento".
+- Repuestos: gestionar solicitudes de repuestos.
+- Chat interno: comunicación con Bibliotecario, Almacenista y Admin.
+NO tienes acceso a: gestión de usuarios, inventario general, reportes ejecutivos.
+Guía a Soporte a usar sus herramientas. No le sugieras tareas de admin.""",
+
+        'BIBLIOTECARIO': """ROL ACTUAL: BIBLIOTECARIO.
+CAPACIDADES Y MENÚ DISPONIBLE:
+- Gestión de libros: agregar, editar, ver disponibilidad. Menú → "Libros".
+- Préstamos de libros: registrar entregas y devoluciones. Menú → "Préstamos".
+- Reservas de libros: gestionar apartados de la biblioteca.
+- Chat interno con otros funcionarios.
+NO tienes acceso a: gestión de usuarios, herramientas/equipos del almacén, reportes administrativos.
+Guía al bibliotecario en sus tareas específicas de biblioteca.""",
+
+        'ALMACENISTA': """ROL ACTUAL: ALMACENISTA.
+CAPACIDADES Y MENÚ DISPONIBLE:
+- Gestión de herramientas y equipos del almacén: agregar, editar, ver stock. Menú → "Almacén".
+- Préstamos de equipos: registrar entregas y devoluciones de herramientas.
+- Reservas de equipos: gestionar apartados.
+- Salidas controladas: registrar salidas autorizadas de equipos.
+- Chat interno con otros funcionarios.
+NO tienes acceso a: gestión de usuarios, libros, reportes administrativos.
+Guía al almacenista en sus tareas específicas del almacén.""",
+
+        'INSTRUCTOR': """ROL ACTUAL: INSTRUCTOR.
+CAPACIDADES Y MENÚ DISPONIBLE:
+- Explorar el catálogo y solicitar préstamos de libros y equipos.
+- Ver sus préstamos activos y reservas.
+- Autorizar préstamos de herramientas pesadas a sus aprendices (firma).
+NO tienes acceso a: gestión de usuarios, modificar inventario, reportes administrativos, eliminar cuentas.
+Guía al instructor en consultas y solicitudes.""",
+
+        'APRENDIZ': """ROL ACTUAL: APRENDIZ.
+CAPACIDADES Y MENÚ DISPONIBLE:
+- Explorar el catálogo: libros y herramientas disponibles.
+- Reservar elementos (15 minutos para retirar).
+- Ver sus préstamos activos y fechas de devolución.
+- Ver sus reservas pendientes.
+- Ver su historial de movimientos.
+- Asistente personal (este chat).
+- Configurar su perfil.
+- Escalar conversaciones al equipo de Soporte si la IA no resuelve.
+NO tienes acceso a: gestión de usuarios, modificar inventario, ver préstamos de otros, reportes administrativos, eliminar usuarios, auditoría.
+IMPORTANTE: Si el aprendiz pide algo fuera de sus permisos (eliminar usuario, modificar inventario, ver préstamos de terceros, acceder a reportes administrativos), explícale amablemente que esas acciones son exclusivas del personal autorizado y NO le sugieras formas de saltarse la restricción.""",
+
+        'USUARIO': """ROL ACTUAL: USUARIO (similar a Aprendiz).
+CAPACIDADES Y MENÚ DISPONIBLE:
+- Explorar el catálogo.
+- Reservar elementos.
+- Ver sus préstamos y reservas.
+- Asistente personal.
+- Configurar su perfil.
+NO tienes acceso a: gestión administrativa de ningún tipo.
+Si pide acciones administrativas, indica que necesita un rol con esos permisos.""",
+
+        'PROVEEDOR': """ROL ACTUAL: PROVEEDOR.
+CAPACIDADES: ver órdenes de suministro y entregas pendientes.
+Guía al proveedor en su flujo específico.""",
+
+        'INVITADO': """ROL ACTUAL: INVITADO (sin sesión iniciada).
+CAPACIDADES LIMITADAS:
+- Solo puede explorar el catálogo en modo lectura.
+- No puede reservar, prestar, ni ver datos personales.
+- Para hacer cualquier acción debe iniciar sesión o registrarse.
+Sugiérele iniciar sesión cuando pida algo restringido.""",
+    }
+    role_caps = ROLE_CAPABILITIES.get(user_role, ROLE_CAPABILITIES['USUARIO'])
+
     # 2. RAG: Obtener información de Préstamos Activos
     user_loans_text = "No tienes préstamos activos actualmente."
     active_loans_list = []
@@ -135,8 +228,15 @@ GUÍA DE NAVEGACIÓN DE LA PLATAFORMA (Menú Lateral):
 INFORMACIÓN EN TIEMPO REAL DEL USUARIO (RAG):
 - Nombre del Usuario: {user_name}
 - Estado de autenticación: {'Iniciado sesión' if user else 'Invitado'}
+- Rol del usuario: {user_role}
 - Préstamos activos del usuario:
   {user_loans_text}
+
+═══════════════════════════════════════════════
+CAPACIDADES Y PERMISOS DEL ROL ACTUAL
+═══════════════════════════════════════════════
+{role_caps}
+═══════════════════════════════════════════════
 
 INFORMACIÓN EN TIEMPO REAL DEL CATÁLOGO DE INVENTARIO (RAG):
 {inventory_context}
@@ -155,10 +255,15 @@ INSTRUCCIONES DE RESPUESTA:
 1. Responde siempre en español, con un tono motivador, empático, amigable, claro y sumamente profesional (como un consejero tecnológico del SENA).
 2. Utiliza negritas, listas ordenadas/desordenadas y emojis para que tus respuestas se vean hermosas y organizadas.
 3. Responde de forma natural. Puedes saludar libremente según el contexto de la conversación.
-4. Si el usuario te pregunta sobre la disponibilidad de un artículo (por ejemplo, si hay kits Arduino o libros específicos), revisa la "INFORMACIÓN EN TIEMPO REAL DEL CATÁLOGO" proporcionada arriba y dile de forma exacta si está disponible, cuál es su stock y su código.
-5. Si el usuario pregunta "mis préstamos" o "qué tengo prestado", revisa la sección de préstamos arriba. Si no tiene préstamos activos, dile de forma amigable. Si tiene, enuméralos con sus fechas de devolución.
-6. Mantén tus respuestas concisas pero muy completas. No inventes elementos que no estén en el catálogo de arriba si te preguntan disponibilidad; si no encuentras el artículo, menciónalo amablemente.
-7. Si la consulta está completamente fuera del alcance del sistema (no es sobre inventario, préstamos, reservas, horarios, configuración ni plataforma SENA), termina tu respuesta con la línea exacta: [ESCALAR_SOPORTE]
+4. CRÍTICO — RESPETA EL ROL: Antes de responder cualquier pregunta sobre acciones del sistema (crear/editar/eliminar usuarios, modificar inventario, ver reportes, etc.), REVISA las CAPACIDADES Y PERMISOS DEL ROL ACTUAL arriba.
+   - Si la acción ESTÁ permitida para este rol: guía paso a paso (dónde está en el menú, qué botón presionar, qué campos llenar). Eres un asistente con acceso total a esa función.
+   - Si la acción NO está permitida para este rol: explícalo amablemente y sugiere a quién pedírselo o si necesita escalar a soporte. NUNCA expliques cómo saltarse la restricción.
+   - EJEMPLO: si un ADMIN pregunta "cómo agrego un usuario", debes explicarle exactamente que vaya a Menú → Usuarios → botón "Nuevo usuario". NO le digas "no tengo permisos" — ese rol SÍ puede hacerlo.
+   - EJEMPLO: si un APRENDIZ pregunta "cómo elimino a otro usuario", debes responder que esa acción está reservada al administrador del sistema.
+5. Si el usuario te pregunta sobre la disponibilidad de un artículo, revisa la "INFORMACIÓN EN TIEMPO REAL DEL CATÁLOGO" y responde con exactitud (stock, código).
+6. Si el usuario pregunta por sus préstamos, revisa la sección de préstamos arriba.
+7. Mantén tus respuestas concisas pero completas. No inventes elementos del catálogo.
+8. Si la consulta es completamente fuera del sistema SENA (matemáticas, vida personal, otros temas), termina tu respuesta con la línea exacta: [ESCALAR_SOPORTE]
 """
 
     # Si es una conversación nueva (historial vacío), pedir que genere título
@@ -341,14 +446,14 @@ INSTRUCCIONES DE RESPUESTA:
                         "2. 🔒 Ve a la pestaña interna que dice **'Eliminar cuenta'** (abajo en la sección de seguridad).\n" \
                         "3. ✍️ Lee detalladamente el mensaje de advertencia (esto borrará permanentemente tus préstamos, historial y registros) y escribe la frase de confirmación exacta solicitada para proceder."
 
-    # CATEGORÍA 5: Roles, Permisos y Seguridad (Administrador y Seguridad de Acceso)
-    elif any(k in q for k in ['rol', 'admin', 'administrador', 'permisos', 'rango', 'acceso admin', 'subir de rol', 'ser admin', 'privilegios', 'cuenta de instructor', 'cuenta de aprendiz', 'borrar usuarios', 'eliminar usuarios', 'borrar base de datos', 'eliminar base de datos', 'destruir', 'hackear', 'modificar base de datos', 'drop table', 'delete from']):
-        fallback_text = f"🔒 **Políticas de Seguridad de Datos y Consola Administrativa:**\n\n" \
-                        "Como asistente virtual del SENA, **tengo restringido estrictamente cualquier tipo de comando de escritura, borrado o modificación de registros de producción**.\n\n" \
-                        "El sistema está diseñado bajo estrictos protocolos de seguridad y aislamiento:\n" \
-                        "*   🛡️ **Aislamiento de Consultas:** El asistente funciona bajo un modelo RAG de **solo consulta (Read-Only)**. No existen conexiones de escritura vinculadas a esta interfaz de chat.\n" \
-                        "*   🚫 **Acceso Restringido:** Comandos administrativos destructivos (como eliminar usuarios o borrar registros) solo pueden ser ejecutados por superadministradores autenticados directamente en la consola del servidor local, previa verificación de credenciales de seguridad físicas.\n\n" \
-                        "Por lo tanto, la información de los aprendices, instructores e inventarios se encuentra completamente protegida contra inyecciones de código o solicitudes destructivas por esta vía."
+    # CATEGORÍA 5: Roles, Permisos y Acciones Administrativas (consciente del rol)
+    elif any(k in q for k in ['agregar usuario', 'crear usuario', 'nuevo usuario', 'añadir usuario', 'añadir aprendiz', 'agregar aprendiz', 'borrar usuario', 'eliminar usuario', 'modificar usuario', 'cambiar rol', 'subir de rol', 'ser admin', 'modificar inventario', 'agregar libro', 'agregar herramienta', 'borrar item', 'reportes', 'auditoria', 'auditoría']):
+        if user_role == 'ADMIN':
+            fallback_text = "Como **Administrador**, tienes acceso completo. Para gestionar usuarios ve al menú lateral → **Usuarios** y usa el botón **Nuevo usuario** arriba a la derecha. Para inventario → **Inventario**, para reportes → **Reportes**, para auditoría → **Auditoría**. Dime exactamente qué operación quieres realizar y te guío paso a paso."
+        elif user_role in ('BIBLIOTECARIO', 'ALMACENISTA', 'SOPORTE'):
+            fallback_text = f"Como **{user_role.capitalize()}**, no tienes permisos para gestionar usuarios ni realizar acciones de administrador del sistema. Esas tareas son exclusivas del Administrador. Sin embargo, tienes acceso completo a tus propias herramientas según tu rol — pregúntame qué quieres hacer dentro de tu área."
+        else:
+            fallback_text = "Esa acción está reservada para el **Administrador** del sistema. Como aprendiz/usuario solo puedes consultar el catálogo, hacer reservas y ver tus préstamos. Si necesitas que se modifique algo (por ejemplo, recuperar tu cuenta), escala al equipo de Soporte."
 
     # CATEGORÍA 6: Horarios de Atención
     elif any(k in q for k in ['horario', 'hora', 'abierto', 'cierran', 'abren', 'atencion', 'atención', 'sabado', 'domingo', 'festivo', 'calendario', 'dias', 'días']):
