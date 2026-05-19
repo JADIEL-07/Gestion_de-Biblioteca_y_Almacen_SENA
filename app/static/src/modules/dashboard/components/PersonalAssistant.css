@@ -1084,3 +1084,31 @@
   gap: 0.5rem;
 }
 
+
+/* ── SOPORTE ACTIVO ── */
+.support-active-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem;
+  background: linear-gradient(90deg, rgba(57,169,0,0.12), rgba(57,169,0,0.06));
+  border-top: 1px solid rgba(57,169,0,0.25);
+  border-bottom: 1px solid rgba(57,169,0,0.15);
+  font-size: 0.82rem;
+  color: var(--text-primary, #e2e8f0);
+}
+.support-active-banner strong {
+  color: #39a900;
+}
+
+.support-human-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #39a900, #2d8200);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 2px 6px rgba(57,169,0,0.4);
+}

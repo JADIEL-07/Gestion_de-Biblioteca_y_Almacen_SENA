@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   FiHeadphones, FiClock, FiMessageSquare, FiArrowLeft,
-  FiInbox, FiUser, FiCheckCircle
+  FiInbox, FiUser, FiCheckCircle, FiPlay
 } from 'react-icons/fi';
 import { ChatWindow } from '../../../shared/ChatWindow';
 import './SoporteSolicitudes.css';
@@ -31,6 +31,7 @@ export const SoporteSolicitudes: React.FC<SoporteSolicitudesProps> = ({ user }) 
   const [loading, setLoading] = useState(true);
   const [selectedTicket, setSelectedTicket] = useState<AssignedTicket | null>(null);
   const [activeTab, setActiveTab] = useState<'inbox' | 'mine' | 'closed'>('inbox');
+  const [accepting, setAccepting] = useState(false);
 
   const fetchTickets = useCallback(async () => {
     try {
@@ -81,13 +82,67 @@ export const SoporteSolicitudes: React.FC<SoporteSolicitudesProps> = ({ user }) 
     }
   };
 
+  const handleAcceptTicket = async () => {
+    if (!selectedTicket) return;
+    setAccepting(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/v1/chat/tickets/${selectedTicket.id}/accept`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Actualizar el ticket seleccionado a IN_PROGRESS y asignado a mí
+        setSelectedTicket(prev => prev ? {
+          ...prev, status: 'IN_PROGRESS', is_mine: true, is_unassigned: false,
+          assigned_to: data.assigned_to,
+        } : prev);
+        await fetchTickets();
+      } else {
+        const err = await res.json();
+        alert(err.error || 'No se pudo aceptar la solicitud.');
+      }
+    } catch {
+      alert('Error de conexión al aceptar la solicitud.');
+    } finally {
+      setAccepting(false);
+    }
+  };
+
   if (selectedTicket) {
     const isClosed = selectedTicket.status === 'CLOSED' || selectedTicket.status === 'CANCELLED';
+    const isUnassigned = selectedTicket.is_unassigned || selectedTicket.status === 'OPEN';
     return (
       <div className="soporte-solicitudes-container fade-in">
-        <button className="back-to-list-btn" onClick={() => { setSelectedTicket(null); fetchTickets(); }}>
-          <FiArrowLeft size={16} /> Volver a la bandeja
-        </button>
+        <div className="soporte-ticket-toolbar">
+          <button className="back-to-list-btn" onClick={() => { setSelectedTicket(null); fetchTickets(); }}>
+            <FiArrowLeft size={16} /> Volver a la bandeja
+          </button>
+          <div className="ticket-toolbar-info">
+            <span className={`ticket-status-badge status-${selectedTicket.status.toLowerCase()}`}>
+              {selectedTicket.status === 'OPEN' ? 'Abierto' : selectedTicket.status === 'IN_PROGRESS' ? 'En atención' : 'Cerrado'}
+            </span>
+            <span className="ticket-toolbar-subject">#{selectedTicket.id} · {selectedTicket.subject}</span>
+          </div>
+          {isUnassigned && !isClosed && (
+            <button
+              className="accept-ticket-btn"
+              onClick={handleAcceptTicket}
+              disabled={accepting}
+            >
+              <FiPlay size={14} />
+              {accepting ? 'Aceptando...' : 'Aceptar solicitud'}
+            </button>
+          )}
+        </div>
+
+        {isUnassigned && !isClosed && (
+          <div className="ticket-pending-notice">
+            Estás viendo esta solicitud en modo lectura. Haz clic en <strong>Aceptar solicitud</strong> para tomar el caso y comenzar a chatear con el usuario.
+          </div>
+        )}
+
         <ChatWindow
           endpoint={`/api/v1/chat/tickets/${selectedTicket.id}/messages`}
           title={`Aprendiz: ${selectedTicket.reporter_name}`}
@@ -95,8 +150,11 @@ export const SoporteSolicitudes: React.FC<SoporteSolicitudesProps> = ({ user }) 
           showCloseButton={selectedTicket.is_mine && !isClosed}
           closeEndpoint={`/api/v1/chat/tickets/${selectedTicket.id}/close`}
           onClose={() => { setSelectedTicket(null); fetchTickets(); }}
-          disabled={isClosed}
-          disabledReason={isClosed ? 'Esta solicitud está cerrada.' : undefined}
+          disabled={isClosed || isUnassigned}
+          disabledReason={
+            isClosed ? 'Esta solicitud está cerrada.' :
+            isUnassigned ? 'Acepta la solicitud para poder chatear.' : undefined
+          }
         />
       </div>
     );

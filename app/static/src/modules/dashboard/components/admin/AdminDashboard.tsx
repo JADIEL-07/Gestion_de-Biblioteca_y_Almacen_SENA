@@ -18,6 +18,7 @@ import './AdminDashboard.css';
 import '../UserDashboard.css';
 import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from '../PersonalAssistant';
+import { SoporteSolicitudes } from '../soporte/SoporteSolicitudes';
 
 interface UserData {
   id: number;
@@ -170,6 +171,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             {activeSection === 'inventory-categories' && <InventoryManagement activeTab="categories" />}
             {activeSection === 'exits' && <OutputManagement />}
             {activeSection === 'help' && <PersonalAssistant user={user} />}
+            {activeSection === 'solicitudes' && <SoporteSolicitudes user={user} />}
             {!sectionTitle[activeSection] && (
               <div className="placeholder-view">
                 <h2>Sección en construcción</h2>

@@ -436,3 +436,64 @@ def escalate_to_support():
         'message': 'Tu solicitud fue enviada a Soporte. Pronto te responderán por este chat.',
         'ticket_id': ticket.id,
     }), 201
+
+
+@chat_bp.route('/tickets/<int:ticket_id>/accept', methods=['POST'])
+@jwt_required()
+def accept_ticket(ticket_id):
+    """Soporte o Admin acepta explícitamente un ticket (lo toma y pone IN_PROGRESS)."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({'error': 'Usuario no encontrado'}), 404
+
+    role_name = _role_name(user)
+    if not (_is_support(role_name) or role_name == 'ADMIN'):
+        return jsonify({'error': 'Solo Soporte o Admin pueden aceptar solicitudes.'}), 403
+
+    ticket = Ticket.query.filter_by(id=ticket_id, is_deleted=False).first()
+    if not ticket:
+        return jsonify({'error': 'Ticket no encontrado'}), 404
+
+    if ticket.status not in ('OPEN',):
+        return jsonify({'error': 'Este ticket ya fue tomado o está cerrado.'}), 400
+
+    ticket.assigned_to = user.id
+    ticket.status = 'IN_PROGRESS'
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Solicitud aceptada. Ahora estás atendiendo a este usuario.',
+        'ticket_id': ticket.id,
+        'assigned_to': user.id,
+        'assigned_name': user.name,
+    }), 200
+
+
+@chat_bp.route('/tickets/active', methods=['GET'])
+@jwt_required(optional=True)
+def get_active_ticket():
+    """Devuelve el ticket IN_PROGRESS del usuario actual, si existe.
+    Usado por el Asistente Personal para saber si hay un humano atendiendo."""
+    user_id = get_jwt_identity()
+    if not user_id:
+        return jsonify({'active_ticket': None}), 200
+
+    ticket = Ticket.query.filter_by(
+        user_id=user_id,
+        status='IN_PROGRESS',
+        is_deleted=False,
+    ).order_by(Ticket.created_at.desc()).first()
+
+    if not ticket:
+        return jsonify({'active_ticket': None}), 200
+
+    assignee = User.query.get(ticket.assigned_to) if ticket.assigned_to else None
+    return jsonify({
+        'active_ticket': {
+            'id': ticket.id,
+            'subject': ticket.subject,
+            'assigned_to': ticket.assigned_to,
+            'assigned_name': assignee.name if assignee else 'Soporte',
+        }
+    }), 200

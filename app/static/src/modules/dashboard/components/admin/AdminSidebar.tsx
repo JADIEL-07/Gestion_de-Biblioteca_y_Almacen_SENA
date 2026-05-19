@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { 
-  FiHome, FiBox, FiBook, FiCalendar, FiTool, 
-  FiArrowRightCircle, FiBarChart2, FiUsers, 
+import {
+  FiHome, FiBox, FiBook, FiCalendar, FiTool,
+  FiArrowRightCircle, FiBarChart2, FiUsers,
   FiSettings, FiShield, FiHelpCircle, FiChevronDown, FiLogOut, FiMenu, FiEdit3, FiPackage, FiActivity,
-  FiList, FiMapPin, FiLayers
+  FiList, FiMapPin, FiLayers, FiHeadphones
 } from 'react-icons/fi';
 import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 
@@ -65,6 +65,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
   ];
 
   const adminBottomItems = [
+    { id: 'solicitudes', label: 'Solicitudes', icon: <FiHeadphones /> },
     { id: 'config', label: 'Configuración', icon: <FiSettings /> },
     { id: 'audit', label: 'Auditoría', icon: <FiShield /> },
     { id: 'help', label: 'Asistente personal', icon: <AnimatedRobotIcon /> },

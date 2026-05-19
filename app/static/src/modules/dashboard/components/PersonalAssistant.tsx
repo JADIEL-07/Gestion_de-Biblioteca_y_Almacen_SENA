@@ -57,13 +57,15 @@ interface Message {
   id: string;
   sender: 'user' | 'bot';
   text: string;
-  timestamp: string; // ISO string for reliable JSON serialization
+  timestamp: string;
   type?: 'text' | 'loans' | 'help' | 'rules';
   metadata?: any;
   media?: { data: string, mimeType: string, type: 'image' | 'audio', preview: string };
-  suggestSupport?: boolean;       // La IA no pudo ayudar: ofrecer escalar a Soporte
-  userQueryRef?: string;          // Pregunta que originó este mensaje (para el ticket)
-  escalated?: { ticketId: number }; // Marcador: ya se escaló este mensaje
+  suggestSupport?: boolean;
+  userQueryRef?: string;
+  escalated?: { ticketId: number };
+  isFromSupport?: boolean;  // Mensaje enviado por un humano de Soporte (no IA)
+  supportName?: string;     // Nombre del agente de soporte
 }
 
 interface ChatThread {
@@ -81,7 +83,9 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   const [userLoans, setUserLoans] = useState<any[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inputText, setInputText] = useState('');
-  const [escalating, setEscalating] = useState<string | null>(null); // ID del mensaje siendo escalado
+  const [escalating, setEscalating] = useState<string | null>(null);
+  const [activeTicket, setActiveTicket] = useState<{id: number, subject: string, assigned_name: string} | null>(null);
+  const [seenSupportMsgIds, setSeenSupportMsgIds] = useState<Set<number>>(new Set());
 
   const currentRole = (user as any)?.role?.name || (user as any)?.rol?.nombre || '';
   const isApprentice = ['APRENDIZ', 'USUARIO'].includes((currentRole || '').toUpperCase());
@@ -118,6 +122,69 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       fetchLoans();
     }
   }, [isGuest]);
+
+  // Polling: detectar si hay un ticket IN_PROGRESS (soporte activo) para este usuario
+  useEffect(() => {
+    if (isGuest) return;
+    const poll = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('/api/v1/chat/tickets/active', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setActiveTicket(data.active_ticket);
+        }
+      } catch {}
+    };
+    poll();
+    const interval = setInterval(poll, 5000);
+    return () => clearInterval(interval);
+  }, [isGuest]);
+
+  // Cuando hay ticket activo, hacer polling de mensajes del soporte para mostrarlos en el chat
+  useEffect(() => {
+    if (!activeTicket || isGuest) return;
+    const pollTicketMessages = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/v1/chat/tickets/${activeTicket.id}/messages`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const msgs: any[] = data.messages || [];
+        const newSupportMsgs = msgs.filter((m: any) => !m.is_mine && !seenSupportMsgIds.has(m.id));
+        if (newSupportMsgs.length === 0) return;
+        setSeenSupportMsgIds(prev => {
+          const next = new Set(prev);
+          newSupportMsgs.forEach((m: any) => next.add(m.id));
+          return next;
+        });
+        setThreads(prev => prev.map(t => {
+          if (t.id !== activeThreadId) return t;
+          const existingIds = new Set(t.messages.map(m => m.id));
+          const toAdd: Message[] = newSupportMsgs
+            .filter((sm: any) => !existingIds.has(`support_${sm.id}`))
+            .map((sm: any): Message => ({
+              id: `support_${sm.id}`,
+              sender: 'bot',
+              text: sm.body,
+              timestamp: sm.created_at || new Date().toISOString(),
+              type: 'text',
+              isFromSupport: true,
+              supportName: sm.sender_name || activeTicket.assigned_name,
+            }));
+          if (toAdd.length === 0) return t;
+          return { ...t, messages: [...t.messages, ...toAdd], updatedAt: new Date().toISOString() };
+        }));
+      } catch {}
+    };
+    pollTicketMessages();
+    const interval = setInterval(pollTicketMessages, 3000);
+    return () => clearInterval(interval);
+  }, [activeTicket, activeThreadId, isGuest]);
 
   // Load chat threads from localStorage on mount
   useEffect(() => {
@@ -328,6 +395,22 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     setAttachedMedia(null);
     setIsTyping(true);
     saveThreadsToStorage(updatedThreads);
+
+    // Si hay un ticket activo (soporte tomó el caso), enviar al ticket y NO llamar a la IA
+    if (activeTicket) {
+      try {
+        const token = localStorage.getItem('token');
+        await fetch(`/api/v1/chat/tickets/${activeTicket.id}/messages`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ body: text }),
+        });
+      } catch (err) {
+        console.warn('Error enviando mensaje al soporte:', err);
+      }
+      setIsTyping(false);
+      return;
+    }
 
     // Call Advanced AI Backend Endpoint with offline fallback
     try {
@@ -572,8 +655,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
             {messages.map((msg) => (
               <div key={msg.id} className={`message-bubble-wrapper ${msg.sender}`}>
                 {msg.sender === 'bot' && (
-                  <div className="bot-avatar-wrapper">
-                    <AnimatedRobotIcon className="bot-chat-avatar" />
+                  <div className="bot-avatar-wrapper" title={msg.isFromSupport ? (msg.supportName || 'Soporte') : 'SENA Bot'}>
+                    {msg.isFromSupport
+                      ? <div className="support-human-avatar"><FiHeadphones size={16} /></div>
+                      : <AnimatedRobotIcon className="bot-chat-avatar" />
+                    }
                   </div>
                 )}
                 
@@ -601,19 +687,19 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
                     })}
                   </div>
 
-                  {/* ESCALACIÓN A SOPORTE — visible solo para aprendices cuando la IA no pudo ayudar */}
+                  {/* ESCALACIÓN A SOPORTE — visible para aprendices/usuarios cuando la IA no pudo ayudar */}
                   {msg.sender === 'bot' && msg.suggestSupport && !msg.escalated && (
                     <div className="support-escalation-box">
                       <div className="support-escalation-text">
                         <FiHeadphones size={16} />
-                        <span>¿Quieres que un agente de <strong>Soporte Técnico</strong> te ayude con esto?</span>
+                        <span>Lo lamento mucho. ¿Deseas que te contacte con un <strong>administrador</strong>?</span>
                       </div>
                       <button
                         className="support-escalation-btn"
                         onClick={() => handleEscalateToSupport(msg.id, msg.userQueryRef || '', msg.text)}
                         disabled={escalating === msg.id || !msg.userQueryRef}
                       >
-                        {escalating === msg.id ? 'Creando solicitud...' : 'Sí, hablar con Soporte'}
+                        {escalating === msg.id ? 'Creando solicitud...' : 'Sí, contactar soporte'}
                       </button>
                     </div>
                   )}
@@ -700,27 +786,41 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
             </div>
           )}
 
+          {/* BANNER: SOPORTE ACTIVO */}
+          {activeTicket && (
+            <div className="support-active-banner">
+              <FiHeadphones size={15} />
+              <span>Estás siendo atendido por <strong>{activeTicket.assigned_name}</strong> · Soporte Técnico. La IA está pausada.</span>
+            </div>
+          )}
+
           {/* INPUT BAR */}
-          <form 
-            className="chat-input-bar" 
+          <form
+            className="chat-input-bar"
             onSubmit={(e) => { e.preventDefault(); handleSendMessage(inputText); }}
           >
             <input type="file" accept="image/*" style={{ display: 'none' }} ref={fileInputRef} onChange={handleFileUpload} />
             <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} ref={cameraInputRef} onChange={handleFileUpload} />
-            
-            <button type="button" className="attachment-btn" title="Subir imagen" onClick={() => fileInputRef.current?.click()} disabled={isTyping}>
-              <FiImage size={18} />
-            </button>
-            <button type="button" className="attachment-btn" title="Tomar foto" onClick={() => cameraInputRef.current?.click()} disabled={isTyping}>
-              <FiCamera size={18} />
-            </button>
-            <button type="button" className={`attachment-btn ${isRecording ? 'recording' : ''}`} title="Grabar audio" onClick={toggleRecording} disabled={isTyping}>
-              <FiMic size={18} />
-            </button>
+
+            {!activeTicket && (
+              <>
+                <button type="button" className="attachment-btn" title="Subir imagen" onClick={() => fileInputRef.current?.click()} disabled={isTyping}>
+                  <FiImage size={18} />
+                </button>
+                <button type="button" className="attachment-btn" title="Tomar foto" onClick={() => cameraInputRef.current?.click()} disabled={isTyping}>
+                  <FiCamera size={18} />
+                </button>
+                <button type="button" className={`attachment-btn ${isRecording ? 'recording' : ''}`} title="Grabar audio" onClick={toggleRecording} disabled={isTyping}>
+                  <FiMic size={18} />
+                </button>
+              </>
+            )}
 
             <input
               type="text"
-              placeholder="Hazme una pregunta sobre biblioteca, herramientas, horarios..."
+              placeholder={activeTicket
+                ? `Escribe un mensaje para ${activeTicket.assigned_name}...`
+                : 'Hazme una pregunta sobre biblioteca, herramientas, horarios...'}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               disabled={isTyping}
