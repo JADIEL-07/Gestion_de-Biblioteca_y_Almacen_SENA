@@ -25,14 +25,6 @@ services:
       - FLASK_APP=run.py
       - FLASK_ENV=production
       - DATABASE_URL=postgresql://${POSTGRES_USER:-sena_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biblioteca_db}
-      - SECRET_KEY=${SECRET_KEY}
-      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
-      - MAIL_SERVER=${MAIL_SERVER}
-      - MAIL_PORT=${MAIL_PORT}
-      - MAIL_USE_TLS=${MAIL_USE_TLS}
-      - MAIL_USERNAME=${MAIL_USERNAME}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
-      - MAIL_DEFAULT_SENDER=${MAIL_DEFAULT_SENDER}
     expose:
       - "5000"
     volumes:
