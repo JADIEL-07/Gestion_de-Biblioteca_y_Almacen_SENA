@@ -5,6 +5,7 @@ from ..models.user import User, Role
 from ..models.loan import Loan
 from ..models.reservation import Reservation
 from ..models.audit_log import AuditLog
+from ..models.user_preference import UserPreference
 from sqlalchemy import func, or_, String
 import bcrypt
 
@@ -194,6 +195,234 @@ def create_user():
 def get_roles():
     roles = Role.query.all()
     return jsonify([r.name for r in roles]), 200
+
+# ─────────────────────────  PERFIL PROPIO  ─────────────────────────
+
+@user_bp.route('/me', methods=['GET'])
+@jwt_required()
+def get_me():
+    """Devuelve el perfil completo del usuario autenticado."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    return jsonify({
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "phone": user.phone or '',
+        "document_type": user.document_type,
+        "formation_ficha": user.formation_ficha or '',
+        "role": user.role.name if user.role else None,
+        "profile_image": user.profile_image,
+        "is_active": user.is_active,
+        "last_login": user.last_login.isoformat() if user.last_login else None,
+        "created_at": user.created_at.isoformat() if user.created_at else None,
+    }), 200
+
+
+@user_bp.route('/me', methods=['PATCH'])
+@jwt_required()
+def update_me():
+    """Actualiza los datos personales del usuario autenticado."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    data = request.get_json() or {}
+    changed = []
+
+    name_val = (data.get('name') or '').strip()
+    if 'name' in data and name_val:
+        user.name = name_val
+        changed.append('name')
+
+    if 'phone' in data:
+        user.phone = (data.get('phone') or '').strip() or None
+        changed.append('phone')
+
+    doc_val = (data.get('document_type') or '').strip()
+    if 'document_type' in data and doc_val:
+        user.document_type = doc_val
+        changed.append('document_type')
+
+    if 'formation_ficha' in data:
+        user.formation_ficha = (data.get('formation_ficha') or '').strip() or None
+        changed.append('formation_ficha')
+
+    if changed:
+        log = AuditLog(user_id=user_id, action="PROFILE_UPDATED",
+                       entity="User", details=f"Campos: {', '.join(changed)}")
+        db.session.add(log)
+        db.session.commit()
+
+    return jsonify({"success": True, "message": "Perfil actualizado"}), 200
+
+
+@user_bp.route('/me/preferences', methods=['GET'])
+@jwt_required()
+def get_preferences():
+    """Devuelve las preferencias de notificaciones y privacidad."""
+    user_id = get_jwt_identity()
+    pref = UserPreference.query.filter_by(user_id=user_id).first()
+    if not pref:
+        # Crear con valores por defecto
+        pref = UserPreference(user_id=user_id)
+        db.session.add(pref)
+        db.session.commit()
+
+    return jsonify({
+        "notifications": {
+            "loanReminder":     pref.notif_loan_reminder,
+            "loanOverdue":      pref.notif_loan_overdue,
+            "reservationReady": pref.notif_reservation,
+            "newCatalogItems":  pref.notif_new_items,
+            "weeklySummary":    pref.notif_weekly_summary,
+            "promotions":       pref.notif_promotions,
+        },
+        "channels": {
+            "email":  pref.channel_email,
+            "inapp":  pref.channel_inapp,
+            "sms":    pref.channel_sms,
+        },
+        "alerts": {
+            "reminderDays": pref.alert_reminder_days,
+            "quietStart":   pref.quiet_start,
+            "quietEnd":     pref.quiet_end,
+        },
+        "privacy": {
+            "profileVisible": pref.privacy_profile_visible,
+            "showActivity":   pref.privacy_show_activity,
+            "analytics":      pref.privacy_analytics,
+        }
+    }), 200
+
+
+@user_bp.route('/me/preferences', methods=['PATCH'])
+@jwt_required()
+def update_preferences():
+    """Guarda preferencias de notificaciones/alertas/privacidad."""
+    user_id = get_jwt_identity()
+    pref = UserPreference.query.filter_by(user_id=user_id).first()
+    if not pref:
+        pref = UserPreference(user_id=user_id)
+        db.session.add(pref)
+
+    data = request.get_json() or {}
+
+    notif = data.get('notifications', {})
+    if 'loanReminder'     in notif: pref.notif_loan_reminder  = bool(notif['loanReminder'])
+    if 'loanOverdue'      in notif: pref.notif_loan_overdue   = bool(notif['loanOverdue'])
+    if 'reservationReady' in notif: pref.notif_reservation    = bool(notif['reservationReady'])
+    if 'newCatalogItems'  in notif: pref.notif_new_items      = bool(notif['newCatalogItems'])
+    if 'weeklySummary'    in notif: pref.notif_weekly_summary = bool(notif['weeklySummary'])
+    if 'promotions'       in notif: pref.notif_promotions     = bool(notif['promotions'])
+
+    channels = data.get('channels', {})
+    if 'email' in channels: pref.channel_email = bool(channels['email'])
+    if 'inapp' in channels: pref.channel_inapp = bool(channels['inapp'])
+    if 'sms'   in channels: pref.channel_sms   = bool(channels['sms'])
+
+    alerts = data.get('alerts', {})
+    if 'reminderDays' in alerts: pref.alert_reminder_days = int(alerts['reminderDays'])
+    if 'quietStart'   in alerts: pref.quiet_start = alerts['quietStart']
+    if 'quietEnd'     in alerts: pref.quiet_end   = alerts['quietEnd']
+
+    privacy = data.get('privacy', {})
+    if 'profileVisible' in privacy: pref.privacy_profile_visible = bool(privacy['profileVisible'])
+    if 'showActivity'   in privacy: pref.privacy_show_activity   = bool(privacy['showActivity'])
+    if 'analytics'      in privacy: pref.privacy_analytics       = bool(privacy['analytics'])
+
+    db.session.commit()
+    return jsonify({"success": True, "message": "Preferencias guardadas"}), 200
+
+
+@user_bp.route('/me/export-data', methods=['GET'])
+@jwt_required()
+def export_my_data():
+    """Exporta todos los datos del usuario en formato JSON."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    loans = Loan.query.filter_by(user_id=user_id).all()
+    reservations = Reservation.query.filter_by(user_id=user_id).all()
+    logs = AuditLog.query.filter_by(user_id=user_id).order_by(AuditLog.created_at.desc()).limit(50).all()
+
+    export = {
+        "perfil": {
+            "id": user.id,
+            "nombre": user.name,
+            "correo": user.email,
+            "telefono": user.phone,
+            "tipo_documento": user.document_type,
+            "ficha_formacion": user.formation_ficha,
+            "rol": user.role.name if user.role else None,
+            "cuenta_creada": user.created_at.isoformat() if user.created_at else None,
+            "ultimo_acceso": user.last_login.isoformat() if user.last_login else None,
+        },
+        "prestamos": [
+            {
+                "id": l.id,
+                "estado": l.status,
+                "fecha_prestamo": l.loan_date.isoformat() if l.loan_date else None,
+                "fecha_devolucion": l.return_date.isoformat() if l.return_date else None,
+            } for l in loans
+        ],
+        "reservas": [
+            {
+                "id": r.id,
+                "estado": r.status,
+                "fecha_creacion": r.created_at.isoformat() if r.created_at else None,
+            } for r in reservations
+        ],
+        "historial_accesos": [
+            {
+                "accion": lg.action,
+                "fecha": lg.created_at.isoformat(),
+                "ip": lg.ip,
+                "dispositivo": lg.user_agent,
+            } for lg in logs
+        ]
+    }
+    return jsonify(export), 200
+
+
+@user_bp.route('/me', methods=['DELETE'])
+@jwt_required()
+def delete_my_account():
+    """Elimina (soft delete) la cuenta del usuario autenticado."""
+    user_id = get_jwt_identity()
+    data = request.get_json() or {}
+    password = data.get('password', '')
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    if not bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
+        return jsonify({"error": "Contraseña incorrecta"}), 401
+
+    # Verificar préstamos activos
+    active_loans = Loan.query.filter_by(user_id=user_id, status='ACTIVE').count()
+    if active_loans > 0:
+        return jsonify({"error": f"Tienes {active_loans} préstamo(s) activo(s). Debes devolverlos antes de eliminar tu cuenta."}), 400
+
+    user.is_deleted = True
+    user.is_active = False
+
+    log = AuditLog(user_id=user_id, action="ACCOUNT_DELETED", entity="User",
+                   details="Usuario eliminó su propia cuenta")
+    db.session.add(log)
+    db.session.commit()
+
+    return jsonify({"success": True, "message": "Cuenta eliminada. Hasta pronto."}), 200
+
+
+# ─────────────────────────  IMAGEN DE PERFIL  ─────────────────────────
 
 @user_bp.route('/profile-image', methods=['PATCH'])
 @jwt_required()

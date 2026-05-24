@@ -650,3 +650,26 @@
   .event-date { grid-column: 1 / -1; padding-left: 2.7rem; font-size: 0.7rem; }
   .info-row { flex-direction: column; align-items: flex-start; gap: 0.4rem; }
 }
+
+/* ── TOAST INLINE ── */
+.toast-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  animation: fadeIn 0.25s ease;
+}
+.toast-success {
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  color: #22c55e;
+}
+.toast-error {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
