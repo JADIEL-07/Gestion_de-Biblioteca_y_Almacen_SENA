@@ -14,6 +14,11 @@ from .. import db
 
 assistant_bp = Blueprint('assistant', __name__)
 
+# Roles que pueden escalar conversaciones al equipo de Soporte desde el asistente.
+# INVITADO no aparece aquí porque no tiene sesión: el frontend le pide iniciar sesión primero.
+ESCALATABLE_ROLES = {'APRENDIZ', 'USUARIO', 'ALMACENISTA', 'BIBLIOTECARIO'}
+
+
 def get_query_keywords(text):
     stopwords = {'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'y', 'o', 'de', 'para', 'en', 'por', 'a', 'con', 'que', 'qué', 'como', 'cómo', 'cual', 'cuál', 'te', 'me', 'se', 'lo', 'al', 'del'}
     words = text.lower().translate(str.maketrans('', '', string.punctuation)).split()
@@ -271,6 +276,89 @@ INSTRUCCIONES DE RESPUESTA:
     if len(valid_history_messages) == 0:
         system_instruction += "\n\nREGLA ADICIONAL: Como este es el primer mensaje de la conversación, DEBES iniciar tu respuesta exactamente con la palabra 'TITULO: ' seguida de un breve resumen de máximo 4 a 5 palabras del tema consultado, luego haz un salto de línea y continúa con tu respuesta normal."
 
+    q_lower = user_query.lower()
+
+    # 4.4 INTENCIÓN EXPLÍCITA: el usuario pide hablar con soporte/humano
+    # Detectamos esto ANTES de llamar a la IA propia o Gemini — no tiene sentido
+    # gastar tokens si lo que quiere es escalar.
+    SUPPORT_REQUEST_KEYWORDS = [
+        'quiero soporte', 'quiero hablar con soporte', 'contactar soporte',
+        'contactar a soporte', 'hablar con soporte', 'necesito soporte',
+        'solicitar soporte', 'solicitar a un soporte', 'solicitar un soporte',
+        'hablar con un humano', 'hablar con una persona', 'necesito ayuda humana',
+        'atención humana', 'atencion humana', 'crear ticket', 'abrir ticket',
+        'reportar problema', 'reportar un problema'
+    ]
+    if any(k in q_lower for k in SUPPORT_REQUEST_KEYWORDS):
+        can_escalate_now = False
+        if user and user.role:
+            role_up = (user.role.name or '').upper().strip()
+            can_escalate_now = role_up in ESCALATABLE_ROLES
+        if can_escalate_now:
+            return jsonify({
+                "text": "Entendido. Puedo crear una solicitud al equipo de Soporte para que te atiendan en este mismo chat.",
+                "type": "text",
+                "suggest_support": True,
+                "source": "intent-support",
+            })
+        elif not user:
+            return jsonify({
+                "text": "Para contactar al equipo de Soporte necesitas iniciar sesión primero. Una vez dentro, vuelve a pedírmelo y te crearé la solicitud.",
+                "type": "text",
+                "source": "intent-support-guest",
+            })
+        else:
+            return jsonify({
+                "text": "Tu rol no tiene habilitada la escalación al equipo de Soporte desde este chat. Si necesitas ayuda, dirígete directamente al área correspondiente.",
+                "type": "text",
+                "source": "intent-support-norole",
+            })
+
+    # 4.5 PRIORIDAD: consultar primero la IA propia (AILearnedResponse)
+    # Solo si NO hay multimedia y NO es una consulta que necesite RAG dinámico
+    # (préstamos personales, stock actual). Esto ahorra tokens de Gemini.
+    RAG_TRIGGERS = ['mis prestamos', 'mis préstamos', 'mi prestamo', 'mi préstamo',
+                    'cuanto debo', 'cuánto debo', 'tengo prestamo', 'tengo préstamo',
+                    'stock', 'disponible', 'disponibilidad', 'cuantos hay', 'cuántos hay',
+                    'tengo multa', 'tengo sancion', 'tengo sanción']
+    needs_fresh_data = any(t in q_lower for t in RAG_TRIGGERS)
+
+    if not media and not needs_fresh_data:
+        try:
+            # Caso especial: saludos → buscar el saludo guardado de Gemini
+            GREETING_KEYWORDS = ['hola', 'saludos', 'buenos dias', 'buenas tardes',
+                                 'buen dia', 'buena tarde', 'quien eres', 'quién eres']
+            is_greeting = any(k in q_lower for k in GREETING_KEYWORDS) and len(user_query) < 40
+            if is_greeting:
+                saved = AILearnedResponse.query.filter_by(query_keywords='saludo bienvenida inicial').first()
+                if saved:
+                    saved.use_count += 1
+                    db.session.commit()
+                    print(f"[IA-PROPIA] Saludo servido desde BD (uso #{saved.use_count})")
+                    return jsonify({"text": saved.response_text, "type": "text", "source": "own-ai-greeting"})
+
+            # Búsqueda general por keywords
+            user_kws = get_query_keywords(user_query)
+            if len(user_kws) > 5:
+                words = user_kws.split()
+                if words:
+                    search_filter = AILearnedResponse.query_keywords.ilike(f"%{words[0]}%")
+                    for w in words[1:]:
+                        search_filter = db.and_(search_filter, AILearnedResponse.query_keywords.ilike(f"%{w}%"))
+                    learned = AILearnedResponse.query.filter(search_filter).order_by(AILearnedResponse.use_count.desc()).first()
+                    if learned:
+                        learned.use_count += 1
+                        db.session.commit()
+                        print(f"[IA-PROPIA] Respuesta servida desde BD (uso #{learned.use_count})")
+                        return jsonify({
+                            "text": learned.response_text,
+                            "type": "text",
+                            "source": "own-ai",
+                        })
+        except Exception as e:
+            print(f"[IA-PROPIA] Error buscando en BD: {e}")
+            db.session.rollback()
+
     # 5. Intentar llamar a Gemini API de Google usando REST API
     # Cadena de modelos: intenta el primero, si da 429 (cuota agotada) cae al siguiente.
     api_key = os.environ.get('GEMINI_API_KEY')
@@ -331,7 +419,7 @@ INSTRUCCIONES DE RESPUESTA:
                         bot_text = bot_text.replace('[ESCALAR_SOPORTE]', '').strip()
                         if user and user.role:
                             role_up = (user.role.name or '').upper().strip()
-                            gemini_suggest_support = role_up in ('APRENDIZ', 'USUARIO')
+                            gemini_suggest_support = role_up in ESCALATABLE_ROLES
 
                     json_response = {
                         "text": bot_text,
@@ -349,15 +437,27 @@ INSTRUCCIONES DE RESPUESTA:
                     # APRENDER: guardar la respuesta de Gemini para el modo offline futuro
                     try:
                         kws = get_query_keywords(user_query)
-                        if len(kws) > 5 and len(bot_text) > 15:
-                            existing = AILearnedResponse.query.filter_by(query_keywords=kws).first()
-                            if not existing:
+                        # Detectar saludos PUROS (corto y solo contiene palabras de saludo)
+                        # — debe coincidir con la lógica de búsqueda en el paso 4.5
+                        GREETING_KEYWORDS = ['hola', 'saludos', 'buenos dias', 'buenas tardes',
+                                             'buen dia', 'buena tarde', 'quien eres', 'quién eres']
+                        is_pure_greeting = (
+                            any(k in user_query.lower() for k in GREETING_KEYWORDS)
+                            and len(user_query) < 40
+                        )
+                        save_kws = 'saludo bienvenida inicial' if is_pure_greeting else kws
+                        if len(bot_text) > 15 and (is_pure_greeting or len(kws) > 5):
+                            existing = AILearnedResponse.query.filter_by(query_keywords=save_kws).first()
+                            if existing:
+                                existing.response_text = bot_text
+                                existing.use_count += 1
+                            else:
                                 db.session.add(AILearnedResponse(
                                     query_text=user_query,
-                                    query_keywords=kws,
+                                    query_keywords=save_kws,
                                     response_text=bot_text
                                 ))
-                                db.session.commit()
+                            db.session.commit()
                     except Exception as db_e:
                         db.session.rollback()
                         print("Error guardando conocimiento IA:", db_e)
@@ -384,34 +484,17 @@ INSTRUCCIONES DE RESPUESTA:
     suggest_support = False  # Se activa cuando la IA no puede ayudar y el usuario es aprendiz
     q = user_query.lower()
 
-    # Determinar si el usuario actual puede escalar a soporte (solo aprendices logueados)
+    # Determinar si el usuario actual puede escalar a soporte
+    # Roles permitidos: APRENDIZ, USUARIO, ALMACENISTA, BIBLIOTECARIO
+    # (INVITADO también pero requiere login primero — el frontend lo gestiona)
     can_escalate = False
     if user and user.role:
         role_name_upper = (user.role.name or '').upper().strip()
-        can_escalate = role_name_upper in ('APRENDIZ', 'USUARIO')
+        can_escalate = role_name_upper in ESCALATABLE_ROLES
     
-    # 6.A BÚSQUEDA EN MEMORIA CACHÉ (DYNAMIC KNOWLEDGE CACHE)
-    try:
-        user_kws = get_query_keywords(user_query)
-        if len(user_kws) > 5:
-            words = user_kws.split()
-            if words:
-                search_filter = AILearnedResponse.query_keywords.ilike(f"%{words[0]}%")
-                for w in words[1:]:
-                    search_filter = db.and_(search_filter, AILearnedResponse.query_keywords.ilike(f"%{w}%"))
-                
-                learned = AILearnedResponse.query.filter(search_filter).order_by(AILearnedResponse.use_count.desc()).first()
-                if learned:
-                    learned.use_count += 1
-                    db.session.commit()
-                    fallback_text = f"🧠 *(Aprendido de IA anterior)*\n\n{learned.response_text}"
-                    return jsonify({
-                        "text": fallback_text,
-                        "type": "text",
-                        "source": "learned",
-                    })
-    except Exception as e:
-        print("Error buscando en memoria IA:", e)
+    # Nota: la búsqueda en AILearnedResponse ya se hizo arriba (paso 4.5) con prioridad.
+    # Si llegamos aquí es porque no había respuesta aprendida o necesitaba datos frescos
+    # y Gemini también falló. Solo nos queda el rule-based básico.
 
     # CATEGORÍA 1: Saludos, Presentación y Ayuda General
     if any(k in q for k in ['hola', 'saludos', 'buenos dias', 'buenas tardes', 'buen dia', 'buena tarde', 'que tal', 'como estas', 'quien eres', 'quién eres', 'ayuda', 'asistente', 'sena bot']):
@@ -563,15 +646,11 @@ INSTRUCCIONES DE RESPUESTA:
                         "*   🔴 **Modo Offline (Local de Respaldo):** El procesamiento de imágenes y la transcripción de voz a texto requieren un poder de computación de redes neuronales masivo. Por ende, cuando opero de forma local, **estas funciones multimedia se desactivan temporalmente** y solo puedo responder a consultas que me escribas directamente por teclado.\n\n" \
                         "¡Si estás en modo offline, escríbeme tu pregunta por texto para poder ayudarte al instante!"
 
-    # CASO POR DEFECTO: Preguntas diversas o fuera del contexto de inventario
+    # CASO POR DEFECTO: pregunta fuera del catálogo de reglas conocidas.
+    # No exponemos al usuario detalles internos de "modo offline" — solo le ofrecemos
+    # escalar al equipo de Soporte si su rol lo permite.
     else:
-        fallback_text = f"Actualmente me encuentro operando en **modo local de respaldo (offline)** debido a limitaciones de cuota con la API de Google, por lo que mi conocimiento para temas generales o fuera de la biblioteca/almacén está restringido.\n\n" \
-                        f"No tengo información sobre *\"{user_query}\"* en mi registro local de contingencia. Sin embargo, te puedo asistir al instante con:\n" \
-                        f"*   📅 **Cómo realizar una reserva** o ver tus préstamos de herramientas o libros.\n" \
-                        f"*   🕒 **Horarios de atención** y ubicación de los bloques de biblioteca y almacén.\n" \
-                        f"*   ⚠️ **Sanciones, pérdidas o daños** en materiales.\n" \
-                        f"*   ⚙️ **Cómo cambiar tu contraseña**, actualizar tu perfil o eliminar tu cuenta.\n\n" \
-                        f"¿Deseas consultar alguno de estos temas, o prefieres buscar un elemento en el catálogo usando el buscador de arriba?"
+        fallback_text = "No tengo una respuesta precisa para esa consulta. ¿Quieres reformularla o prefieres que te contacte con el equipo de Soporte?"
         suggest_support = can_escalate
 
     return jsonify({

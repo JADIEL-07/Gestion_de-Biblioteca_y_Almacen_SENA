@@ -88,7 +88,10 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   const [seenSupportMsgIds, setSeenSupportMsgIds] = useState<Set<number>>(new Set());
 
   const currentRole = (user as any)?.role?.name || (user as any)?.rol?.nombre || '';
-  const isApprentice = ['APRENDIZ', 'USUARIO'].includes((currentRole || '').toUpperCase());
+  // Roles que pueden escalar al equipo de Soporte desde el asistente.
+  // Debe coincidir con ESCALATABLE_ROLES en app/routes/assistant_routes.py
+  const ESCALATABLE_ROLES = ['APRENDIZ', 'USUARIO', 'ALMACENISTA', 'BIBLIOTECARIO'];
+  const canEscalate = ESCALATABLE_ROLES.includes((currentRole || '').toUpperCase());
 
   const [attachedMedia, setAttachedMedia] = useState<{data: string, mimeType: string, type: 'image' | 'audio', preview: string} | null>(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -205,9 +208,15 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
           });
           if (res.ok) {
             const data: ChatThread[] = await res.json();
-            const updated = [newThread, ...data];
-            setThreads(updated);
-            setActiveThreadId(newId);
+            if (data.length > 0) {
+              // Hay conversaciones previas: mostrar la más reciente, no crear una nueva
+              setThreads(data);
+              setActiveThreadId(data[0].id);
+            } else {
+              // Sin historial: arrancar con un hilo vacío
+              setThreads([newThread]);
+              setActiveThreadId(newId);
+            }
             return;
           }
         } catch (e) {
@@ -464,7 +473,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
           timestamp: new Date().toISOString(),
           type: data.type || 'text',
           metadata: data.metadata,
-          suggestSupport: !!data.suggest_support && isApprentice && !isGuest,
+          suggestSupport: !!data.suggest_support && canEscalate && !isGuest,
           userQueryRef: text,
         };
 
@@ -525,7 +534,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
 
 
   const handleEscalateToSupport = async (msgId: string, userQuery: string, aiResponse: string) => {
-    if (!isApprentice || isGuest) return;
+    if (!canEscalate || isGuest) return;
     setEscalating(msgId);
     try {
       const token = localStorage.getItem('token');

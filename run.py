@@ -48,44 +48,35 @@ def _find_free_port():
 
 def start_ssh_tunnel():
     """Levanta tunel SSH si hay credenciales SSH_* en .env.
-    - Descubre IP del container Postgres en Docker dinamicamente.
-    - Elige un puerto local libre (no choca con Postgres local instalado).
-    - Parchea DATABASE_URL en os.environ antes de que Flask arranque.
+    Reenvía el puerto expuesto por el contenedor Postgres en el VPS
+    (REMOTE_DB_PORT) a un puerto local libre.
     Retorna el tunnel o None si no hay credenciales."""
     ssh_host = os.environ.get('SSH_HOST')
     ssh_user = os.environ.get('SSH_USER')
     ssh_password = os.environ.get('SSH_PASSWORD')
-    container_name = os.environ.get(
-        'REMOTE_DB_CONTAINER',
-        'db-fn9ed6r5qkr5l1t2fg3ug20b-025215602365'
-    )
+    remote_db_port = int(os.environ.get('REMOTE_DB_PORT', 5437))
 
     if not all([ssh_host, ssh_user, ssh_password]):
         return None
 
-    print(f"  Descubriendo IP del container {container_name}...")
-    container_ip = _discover_container_ip(ssh_host, ssh_user, ssh_password, container_name)
-    if not container_ip:
-        print("  [WARN] No se pudo obtener IP del container; tunel no levantado")
-        return None
-    print(f"  IP del container: {container_ip}")
+    local_port = _find_free_port()
 
     import paramiko
     if not hasattr(paramiko, 'DSSKey'):
         paramiko.DSSKey = paramiko.RSAKey
-
-    local_port = _find_free_port()
 
     from sshtunnel import SSHTunnelForwarder
     tunnel = SSHTunnelForwarder(
         (ssh_host, 22),
         ssh_username=ssh_user,
         ssh_password=ssh_password,
-        remote_bind_address=(container_ip, 5432),
+        remote_bind_address=('127.0.0.1', remote_db_port),
         local_bind_address=('127.0.0.1', local_port),
+        allow_agent=False,
+        host_pkey_directories=[],
     )
     tunnel.start()
-    print(f"  Tunel SSH activo: 127.0.0.1:{local_port} -> {container_ip}:5432 (via {ssh_host})")
+    print(f"  Tunel SSH activo: 127.0.0.1:{local_port} -> {ssh_host}:{remote_db_port} (Postgres)")
 
     # Parchear DATABASE_URL para que Flask use el puerto del tunel
     from urllib.parse import urlparse, urlunparse
@@ -156,8 +147,8 @@ if __name__ == "__main__":
 
     try:
         # Solo en el padre (no reloader): verificar si hay BD remota activa
-        ssh_activo = os.environ.get('SSH_HOST') and not is_reloader_child
-        if not ssh_activo:
+        ssh_configurado = bool(os.environ.get('SSH_HOST'))
+        if not ssh_configurado:
             with app.app_context():
                 db.create_all()
                 _seed_basic_roles()
