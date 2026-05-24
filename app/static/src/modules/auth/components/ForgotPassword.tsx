@@ -34,6 +34,8 @@ export const ForgotPassword: React.FC = () => {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
+  const EMAIL_RE = /^[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}$/;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -43,19 +45,23 @@ export const ForgotPassword: React.FC = () => {
       setError('Por favor ingresa tu correo institucional');
       return;
     }
+    if (!EMAIL_RE.test(email.trim())) {
+      setError('Formato de correo inválido (ej: usuario@correo.com)');
+      return;
+    }
 
     setLoading(true);
     try {
       const response = await fetch('/api/v1/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ correo: email })
+        body: JSON.stringify({ email: email.trim().toLowerCase() })
       });
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Error al procesar solicitud');
+      if (!response.ok) throw new Error(data.error || data.message || 'Error al procesar solicitud');
 
-      setMessage(data.message);
+      setMessage(data.message || 'Si la cuenta existe, recibirás una contraseña temporal en breve.');
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -79,7 +85,7 @@ export const ForgotPassword: React.FC = () => {
           
           <div className="form-header">
             <h3 className="login-title">Recuperar Contraseña</h3>
-            <p>Ingresa tu correo para recibir un enlace de restauración</p>
+            <p>Ingresa tu correo institucional. Te enviaremos una <strong>contraseña temporal</strong> para que ingreses, y al entrar el sistema te pedirá una nueva.</p>
           </div>
 
           {error && <div className="alert-error fade-in"><FiAlertCircle /> {error}</div>}
@@ -102,7 +108,7 @@ export const ForgotPassword: React.FC = () => {
             </div>
 
             <button type="submit" className="submit-btn" disabled={loading}>
-              {loading ? 'Enviando...' : 'Enviar enlace'}
+              {loading ? 'Enviando...' : 'Enviar contraseña temporal'}
             </button>
           </form>
 

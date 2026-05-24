@@ -321,13 +321,16 @@ const EmailPanel: React.FC<{ currentEmail: string }> = ({ currentEmail }) => {
   );
 };
 
-// ── Contraseña ─────────────────────────────────────────────────────────
+// ── Contraseña (flujo en 2 pasos con código por email) ────────────────
 
 const PasswordPanel: React.FC = () => {
   const { show, Toast } = useToast();
+  const [step, setStep]   = useState<'form' | 'verify'>('form');
   const [oldP, setOldP]   = useState('');
   const [newP, setNewP]   = useState('');
   const [confP, setConfP] = useState('');
+  const [code, setCode]   = useState('');
+  const [emailMasked, setEmailMasked] = useState('');
   const [showOld, setShowOld] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [busy, setBusy]   = useState(false);
@@ -342,22 +345,83 @@ const PasswordPanel: React.FC = () => {
   })();
   const strengthLabel = ['Muy débil', 'Débil', 'Regular', 'Buena', 'Fuerte'][strength];
 
-  const submit = async () => {
+  const requestChange = async () => {
     if (newP !== confP)  { show('Las contraseñas no coinciden.', 'err'); return; }
     if (strength < 3)    { show('La contraseña debe ser al menos "Buena".', 'err'); return; }
     setBusy(true);
-    const { ok, data } = await apiFetch('/auth/change-password', {
+    const { ok, data } = await apiFetch('/auth/request-password-change', {
       method: 'POST',
       body: JSON.stringify({ old_password: oldP, new_password: newP }),
     });
     setBusy(false);
-    show(ok ? 'Contraseña actualizada correctamente.' : (data.error || 'No se pudo cambiar.'), ok ? 'ok' : 'err');
-    if (ok) { setOldP(''); setNewP(''); setConfP(''); }
+    if (ok) {
+      setEmailMasked(data.email_masked || '');
+      setStep('verify');
+      show(data.message || 'Código enviado a tu correo.');
+    } else {
+      show(data.error || 'No se pudo iniciar el cambio.', 'err');
+    }
   };
+
+  const confirmChange = async () => {
+    if (code.length !== 6) { show('El código debe tener 6 dígitos.', 'err'); return; }
+    setBusy(true);
+    const { ok, data } = await apiFetch('/auth/confirm-password-change', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    });
+    setBusy(false);
+    if (ok) {
+      show('Contraseña actualizada correctamente.');
+      setStep('form');
+      setOldP(''); setNewP(''); setConfP(''); setCode('');
+    } else {
+      show(data.error || 'Código incorrecto.', 'err');
+    }
+  };
+
+  if (step === 'verify') {
+    return (
+      <div className="config-section fade-in">
+        {Toast}
+        <div className="config-card">
+          <h3>Confirma el cambio</h3>
+          <p className="card-hint">
+            Te enviamos un código de 6 dígitos a <strong>{emailMasked || 'tu correo'}</strong>.
+            Ingresalo aquí para aplicar el cambio. El código expira en 10 minutos.
+          </p>
+          <div className="form-group">
+            <label>Código de verificación</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={6}
+              value={code}
+              onChange={e => setCode(e.target.value.replace(/\D/g, ''))}
+              placeholder="••••••"
+              style={{ letterSpacing: '0.5em', textAlign: 'center', fontSize: '1.2em' }}
+            />
+          </div>
+          <div className="form-actions">
+            <button className="btn-save" disabled={code.length !== 6 || busy} onClick={confirmChange}>
+              {busy ? 'Confirmando...' : 'Confirmar cambio'}
+            </button>
+            <button className="btn-secondary" onClick={() => { setStep('form'); setCode(''); }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="config-section fade-in">
       {Toast}
+      <div className="config-card info-card">
+        <FiInfo />
+        <p>Por seguridad, cuando cambies tu contraseña te enviaremos un código de 6 dígitos a tu correo para confirmar el cambio.</p>
+      </div>
       <div className="config-card">
         <div className="form-grid">
           <div className="form-group full-width">
@@ -393,8 +457,8 @@ const PasswordPanel: React.FC = () => {
           </div>
         </div>
         <div className="form-actions">
-          <button className="btn-save" disabled={!oldP || !newP || !confP || busy} onClick={submit}>
-            {busy ? 'Actualizando...' : 'Actualizar contraseña'}
+          <button className="btn-save" disabled={!oldP || !newP || !confP || busy} onClick={requestChange}>
+            {busy ? 'Enviando código...' : 'Enviar código y continuar'}
           </button>
         </div>
       </div>

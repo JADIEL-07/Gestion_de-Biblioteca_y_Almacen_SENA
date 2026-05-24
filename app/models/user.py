@@ -31,6 +31,8 @@ class User(Base):
     # Status
     is_active = db.Column(db.Boolean, default=True)
     is_deleted = db.Column(db.Boolean, default=False)
+    is_verified = db.Column(db.Boolean, default=False)   # Correo verificado al registrar
+    must_change_password = db.Column(db.Boolean, default=False)   # Forzar cambio (post-recuperación)
     
     # Security & Tracking
     failed_attempts = db.Column(db.Integer, default=0)

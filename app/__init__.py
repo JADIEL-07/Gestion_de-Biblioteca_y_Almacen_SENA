@@ -5,6 +5,42 @@ from .extensions import db, ma, migrate, jwt, mail, limiter
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 
+
+def _apply_runtime_migrations():
+    """Aplica migraciones idempotentes al iniciar la app.
+
+    - Ejecuta `db.create_all()` (idempotente) para crear tablas nuevas
+      sin tocar las existentes.
+    - Aplica ALTER TABLE con `ADD COLUMN IF NOT EXISTS` (PostgreSQL 9.6+).
+
+    Nota sobre `is_verified`: la columna se crea con `DEFAULT TRUE` para que
+    todos los usuarios pre-existentes queden verificados al añadirla.
+    Los usuarios nuevos se insertan con `is_verified=False` explícito desde
+    SQLAlchemy (el default de BD solo se aplica cuando el INSERT no incluye
+    la columna).
+    """
+    from sqlalchemy import text
+
+    # 1) Crear tablas nuevas (no toca existentes)
+    try:
+        db.create_all()
+    except Exception as e:
+        print(f"[runtime-migration] db.create_all aviso: {e}")
+
+    # 2) Agregar columnas nuevas a tablas existentes (idempotente con IF NOT EXISTS).
+    #    `is_verified` se añade con DEFAULT TRUE para no romper usuarios legítimos preexistentes.
+    column_migrations = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT TRUE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE",
+    ]
+    for stmt in column_migrations:
+        try:
+            db.session.execute(text(stmt))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"[runtime-migration] aviso ({stmt[:60]}...): {e}")
+
 def create_app():
     config = get_config()
     app = Flask(
@@ -41,6 +77,12 @@ def create_app():
     from .utils.audit_listener import register_audit_listeners_v2
     with app.app_context():
         register_audit_listeners_v2()
+
+    # ── Runtime migrations (idempotentes) ─────────────────────────────────────
+    # Aplica columnas nuevas a tablas existentes sin requerir Flask-Migrate.
+    # Cada sentencia usa `ADD COLUMN IF NOT EXISTS` (PostgreSQL 9.6+).
+    with app.app_context():
+        _apply_runtime_migrations()
 
     # ── Scheduler (cola FIFO de reservas) ─────────────────────────────────────
     # Evitar doble-lanzamiento bajo el reloader de Flask en desarrollo.

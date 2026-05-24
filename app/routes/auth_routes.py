@@ -86,16 +86,83 @@ def reset_password():
     result, status = AuthService.reset_password(token, new_password)
     return jsonify(result), status
 
-@auth_bp.route('/change-password', methods=['POST'])
+# ─── Cambio de contraseña en 2 pasos (configuración) ──────────────────
+
+@auth_bp.route('/request-password-change', methods=['POST'])
 @jwt_required()
-def change_password():
-    data = request.get_json()
+def request_password_change():
+    """Paso 1: valida actual + nueva, envía código de 6 dígitos al correo."""
+    data = request.get_json() or {}
     old_password = data.get('old_password')
     new_password = data.get('new_password')
     if not old_password or not new_password:
         return jsonify({"error": "Contraseña actual y nueva son requeridas"}), 400
     user_id = get_jwt_identity()
-    result, status = AuthService.change_password(user_id, old_password, new_password)
+    result, status = AuthService.request_password_change(user_id, old_password, new_password)
+    return jsonify(result), status
+
+
+@auth_bp.route('/confirm-password-change', methods=['POST'])
+@jwt_required()
+def confirm_password_change():
+    """Paso 2: valida el código y aplica el cambio preparado."""
+    data = request.get_json() or {}
+    code = data.get('code', '').strip()
+    if not code:
+        return jsonify({"error": "Código requerido"}), 400
+    user_id = get_jwt_identity()
+    result, status = AuthService.confirm_password_change(user_id, code)
+    return jsonify(result), status
+
+
+# ─── Cambio forzado tras login con contraseña temporal ───────────────
+
+@auth_bp.route('/force-change-password', methods=['POST'])
+@jwt_required()
+def force_change_password():
+    """Cambia la contraseña SIN código cuando must_change_password=True (recuperación)."""
+    data = request.get_json() or {}
+    new_password = data.get('new_password')
+    if not new_password:
+        return jsonify({"error": "Nueva contraseña requerida"}), 400
+    user_id = get_jwt_identity()
+    result, status = AuthService.force_change_password(user_id, new_password)
+    return jsonify(result), status
+
+
+# Alias legacy: el frontend antiguo todavía puede llamar /change-password
+@auth_bp.route('/change-password', methods=['POST'])
+@jwt_required()
+def change_password_legacy():
+    """[Legacy] Redirige al flujo en 2 pasos: envía código en lugar de cambiar al instante."""
+    data = request.get_json() or {}
+    old_password = data.get('old_password')
+    new_password = data.get('new_password')
+    if not old_password or not new_password:
+        return jsonify({"error": "Contraseña actual y nueva son requeridas"}), 400
+    user_id = get_jwt_identity()
+    result, status = AuthService.request_password_change(user_id, old_password, new_password)
+    return jsonify(result), status
+
+
+# ─── Verificación de cuenta tras registro ────────────────────────────
+
+@auth_bp.route('/verify-account', methods=['POST'])
+def verify_account():
+    """Verifica la cuenta del usuario con código de 6 dígitos. Auto-loguea al confirmar."""
+    data = request.get_json() or {}
+    email = data.get('email', '').strip().lower()
+    code = data.get('code', '').strip()
+    result, status = AuthService.verify_account(email, code)
+    return jsonify(result), status
+
+
+@auth_bp.route('/resend-verification', methods=['POST'])
+def resend_verification():
+    """Reenvía el código de verificación si la cuenta sigue sin verificar."""
+    data = request.get_json() or {}
+    email = data.get('email', '').strip().lower()
+    result, status = AuthService.resend_verification(email)
     return jsonify(result), status
 
 

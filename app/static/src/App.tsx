@@ -7,6 +7,7 @@ const Terms = React.lazy(() => import('./modules/legal/components/Terms').then(m
 const Privacy = React.lazy(() => import('./modules/legal/components/Privacy').then(m => ({ default: m.Privacy })));
 const ForgotPassword = React.lazy(() => import('./modules/auth/components/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
 const ResetPassword = React.lazy(() => import('./modules/auth/components/ResetPassword').then(m => ({ default: m.ResetPassword })));
+const ForcePasswordChange = React.lazy(() => import('./modules/auth/components/ForcePasswordChange').then(m => ({ default: m.ForcePasswordChange })));
 const UserDashboard = React.lazy(() => import('./modules/dashboard/components/UserDashboard').then(m => ({ default: m.UserDashboard })));
 const AdminDashboard = React.lazy(() => import('./modules/dashboard/components/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const BibliotecarioDashboard = React.lazy(() => import('./modules/dashboard/components/bibliotecario/BibliotecarioDashboard').then(m => ({ default: m.BibliotecarioDashboard })));
@@ -268,6 +269,10 @@ function AppRoutes() {
   };
 
   const handleLoginSuccess = (user: any) => {
+    // Si el login marcó must_change_password, también lo guardamos en el flag local
+    if (user?.must_change_password) {
+      localStorage.setItem('force_password_change', '1');
+    }
     setLoggedUser(user);
   };
 
@@ -284,6 +289,21 @@ function AppRoutes() {
   const isAlmacenista = userRole === 'ALMACENISTA';
   const isSoporte = userRole === 'SOPORTE TÉCNICO' || userRole === 'SOPORTE TECNICO' || userRole === 'SOPORTE_TECNICO' || userRole === 'SOPORTE';
   const isStaff = isBibliotecario || isAlmacenista || isSoporte;
+
+  // ── Si el usuario tiene contraseña temporal, bloquear toda la app hasta que la cambie
+  const mustChangePassword = loggedUser && (loggedUser.must_change_password === true
+    || localStorage.getItem('force_password_change') === '1');
+
+  if (mustChangePassword) {
+    return (
+      <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Cargando...</div>}>
+        <ForcePasswordChange
+          onDone={(u) => { setLoggedUser(u); }}
+          onLogout={handleLogout}
+        />
+      </Suspense>
+    );
+  }
 
   return (
     <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw', background: 'var(--bg-main, #f0f2f5)' }}><div className="loading-spinner" style={{ border: '4px solid rgba(0,0,0,0.1)', borderLeftColor: '#39A900', borderRadius: '50%', width: '50px', height: '50px', animation: 'spin 1s linear infinite' }}></div><style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style></div>}>
