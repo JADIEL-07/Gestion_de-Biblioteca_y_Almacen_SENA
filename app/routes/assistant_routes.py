@@ -290,10 +290,11 @@ INSTRUCCIONES DE RESPUESTA:
         'reportar problema', 'reportar un problema'
     ]
     if any(k in q_lower for k in SUPPORT_REQUEST_KEYWORDS):
-        can_escalate_now = False
+        role_up = ''
         if user and user.role:
             role_up = (user.role.name or '').upper().strip()
-            can_escalate_now = role_up in ESCALATABLE_ROLES
+        can_escalate_now = role_up in ESCALATABLE_ROLES
+
         if can_escalate_now:
             return jsonify({
                 "text": "Entendido. Puedo crear una solicitud al equipo de Soporte para que te atiendan en este mismo chat.",
@@ -307,23 +308,38 @@ INSTRUCCIONES DE RESPUESTA:
                 "type": "text",
                 "source": "intent-support-guest",
             })
+        elif 'SOPORTE' in role_up:
+            return jsonify({
+                "text": f"Hola **{user_name}**, ¡tú eres parte del equipo de Soporte! 😊 No tiene sentido que escales un ticket a ti mismo. Si necesitas atender solicitudes pendientes, ve al menú lateral → **Solicitudes**. Si necesitas hablar con un Administrador, contáctalo por el chat interno de staff.",
+                "type": "text",
+                "source": "intent-support-isstaff",
+            })
+        elif role_up == 'ADMIN':
+            return jsonify({
+                "text": f"Hola **{user_name}**, como **Administrador** tienes acceso total al sistema. No requieres escalar tickets a Soporte. Si necesitas revisar tickets activos, ve a **Solicitudes** en el menú lateral.",
+                "type": "text",
+                "source": "intent-support-isadmin",
+            })
         else:
             return jsonify({
-                "text": "Tu rol no tiene habilitada la escalación al equipo de Soporte desde este chat. Si necesitas ayuda, dirígete directamente al área correspondiente.",
+                "text": f"Tu rol (**{role_up.capitalize()}**) no tiene habilitada la escalación a Soporte desde este chat. Para asistencia, dirígete al área correspondiente del SENA.",
                 "type": "text",
                 "source": "intent-support-norole",
             })
 
-    # 4.5 PRIORIDAD: consultar primero la IA propia (AILearnedResponse)
-    # Solo si NO hay multimedia y NO es una consulta que necesite RAG dinámico
-    # (préstamos personales, stock actual). Esto ahorra tokens de Gemini.
+    # 4.5 PRIORIDAD: consultar primero la IA propia (AILearnedResponse).
+    # SOLO si es el PRIMER mensaje (sin historial) y no hay multimedia ni RAG dinámico.
+    # Razón: los mensajes de seguimiento ("es de manera educativa", "sí", "no", etc.)
+    # solo tienen sentido en el contexto de la conversación previa, y la IA propia
+    # busca por keywords sin contexto — devolvería respuestas absurdas.
     RAG_TRIGGERS = ['mis prestamos', 'mis préstamos', 'mi prestamo', 'mi préstamo',
                     'cuanto debo', 'cuánto debo', 'tengo prestamo', 'tengo préstamo',
                     'stock', 'disponible', 'disponibilidad', 'cuantos hay', 'cuántos hay',
                     'tengo multa', 'tengo sancion', 'tengo sanción']
     needs_fresh_data = any(t in q_lower for t in RAG_TRIGGERS)
+    has_conversation_history = len([m for m in history if m.get("role") == "user"]) > 0
 
-    if not media and not needs_fresh_data:
+    if not media and not needs_fresh_data and not has_conversation_history:
         try:
             # Caso especial: saludos → buscar el saludo guardado de Gemini
             GREETING_KEYWORDS = ['hola', 'saludos', 'buenos dias', 'buenas tardes',
@@ -659,6 +675,33 @@ INSTRUCCIONES DE RESPUESTA:
         "metadata": active_loans_list if active_loans_list else None,
         "suggest_support": suggest_support,
         "source": "rules",
+    })
+
+
+# ─── Saludo inicial automático ───────────────────────────────────────────────
+
+@assistant_bp.route('/greeting', methods=['GET'])
+@jwt_required(optional=True)
+def get_greeting():
+    """Devuelve el saludo guardado en BD para mostrarlo automáticamente al
+    iniciar una conversación nueva. No gasta tokens de Gemini si ya está aprendido."""
+    user_id = get_jwt_identity()
+    user_name = 'Aprendiz'
+    if user_id:
+        user = User.query.filter_by(id=str(user_id)).first()
+        if user and user.name:
+            user_name = user.name.split()[0]  # primer nombre
+
+    saved = AILearnedResponse.query.filter_by(query_keywords='saludo bienvenida inicial').first()
+    if saved:
+        saved.use_count += 1
+        db.session.commit()
+        return jsonify({"text": saved.response_text, "source": "own-ai-greeting"})
+
+    # Sin saludo guardado todavía — devolver uno genérico mínimo
+    return jsonify({
+        "text": f"¡Hola **{user_name}**! 👋 Soy SENA Bot, tu asistente virtual. ¿En qué puedo ayudarte hoy?",
+        "source": "default-greeting",
     })
 
 

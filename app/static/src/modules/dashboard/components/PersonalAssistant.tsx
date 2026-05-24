@@ -189,6 +189,27 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     return () => clearInterval(interval);
   }, [activeTicket, activeThreadId, isGuest]);
 
+  // Trae el saludo guardado del backend (proviene de Gemini, cacheado en BD)
+  const fetchGreetingMessage = async (): Promise<Message | null> => {
+    try {
+      const token = getToken();
+      const headers: HeadersInit = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch('/api/v1/assistant/greeting', { headers });
+      if (!res.ok) return null;
+      const data = await res.json();
+      return {
+        id: 'greeting_' + Date.now(),
+        sender: 'bot',
+        text: data.text,
+        timestamp: new Date().toISOString(),
+        type: 'text',
+      };
+    } catch {
+      return null;
+    }
+  };
+
   // Cargar threads desde la API (persistidos por cuenta)
   useEffect(() => {
     const loadThreads = async () => {
@@ -213,7 +234,9 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
               setThreads(data);
               setActiveThreadId(data[0].id);
             } else {
-              // Sin historial: arrancar con un hilo vacío
+              // Sin historial: arrancar con un hilo vacío + saludo automático del bot
+              const greeting = await fetchGreetingMessage();
+              if (greeting) newThread.messages = [greeting];
               setThreads([newThread]);
               setActiveThreadId(newId);
             }
@@ -224,6 +247,9 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
         }
       }
 
+      // Sin sesión: saludo genérico
+      const greeting = await fetchGreetingMessage();
+      if (greeting) newThread.messages = [greeting];
       setThreads([newThread]);
       setActiveThreadId(newId);
     };
@@ -327,12 +353,13 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   const messages = activeThread ? activeThread.messages : [];
 
 
-  const handleCreateNewChat = () => {
+  const handleCreateNewChat = async () => {
     const newId = 'thread_' + Date.now();
+    const greeting = await fetchGreetingMessage();
     const newThread: ChatThread = {
       id: newId,
       title: 'Nueva conversación',
-      messages: [],
+      messages: greeting ? [greeting] : [],
       updatedAt: new Date().toISOString()
     };
     const updated = [newThread, ...threads];
@@ -365,18 +392,21 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     }
   };
 
+  // Genera un título de máximo 5 palabras a partir de la consulta del usuario.
+  // Filtra stopwords y signos de puntuación para quedarse con palabras informativas.
   const generateSmartTitle = (query: string): string => {
-    const q = query.toLowerCase();
-    if (q.includes('libro') || q.includes('biblioteca')) return '📚 Consulta de libros';
-    if (q.includes('prestamo') || q.includes('préstamo') || q.includes('mis prestamos') || q.includes('mis préstamos')) return '📋 Préstamos activos';
-    if (q.includes('herramienta') || q.includes('almacen') || q.includes('almacén') || q.includes('equipo')) return '🛠️ Pedir herramientas';
-    if (q.includes('horario') || q.includes('hora') || q.includes('abierto')) return '🕒 Horarios de atención';
-    if (q.includes('ubicacion') || q.includes('ubicación') || q.includes('donde') || q.includes('dónde')) return '📍 Ubicación de sede';
-    if (q.includes('retraso') || q.includes('multa') || q.includes('sancion') || q.includes('sanción')) return '⚠️ Sanciones y demoras';
-    
-    const words = query.trim().split(/\s+/);
-    const truncated = words.slice(0, 3).join(' ');
-    return truncated.length > 20 ? truncated.substring(0, 18) + '...' : truncated;
+    const stopwords = new Set([
+      'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'y', 'o', 'de', 'del',
+      'para', 'en', 'por', 'a', 'con', 'que', 'qué', 'como', 'cómo', 'cual', 'cuál',
+      'te', 'me', 'se', 'lo', 'al', 'mi', 'tu', 'su', 'es', 'esta', 'está', 'ese',
+      'eso', 'esto', 'son', 'soy', 'fue', 'ser', 'estar', 'hay', 'ha', 'he'
+    ]);
+    const cleaned = query.replace(/[¿?¡!.,;:()]/g, '').trim();
+    const words = cleaned.split(/\s+/);
+    const meaningful = words.filter(w => !stopwords.has(w.toLowerCase()) && w.length > 1);
+    const picked = (meaningful.length >= 2 ? meaningful : words).slice(0, 5);
+    const title = picked.join(' ');
+    return title.length > 40 ? title.substring(0, 38) + '...' : title || 'Nueva conversación';
   };
 
   const handleSendMessage = async (text: string) => {
