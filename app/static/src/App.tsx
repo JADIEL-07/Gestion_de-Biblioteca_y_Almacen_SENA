@@ -77,8 +77,11 @@ function RevealOnScroll({ children, delay = 0 }: { children: React.ReactNode; de
 }
 
 // ── Landing Page ──────────────────────────────────────────────────────────────
+const PersonalAssistant = React.lazy(() => import('./modules/dashboard/components/PersonalAssistant').then(m => ({ default: m.PersonalAssistant })));
+
 function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => void }) {
   const navigate = useNavigate();
+  const [showAssistant, setShowAssistant] = useState(false);
   const [menuOpenLanding, setMenuOpenLanding] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>(
@@ -143,7 +146,7 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
           <a href="#contact" onClick={() => setMobileNavOpen(false)}>
             <FiMail className="nav-icon" /> CONTACTO
           </a>
-          <a href="#help" onClick={() => setMobileNavOpen(false)}>
+          <a href="#" onClick={(e) => { e.preventDefault(); setMobileNavOpen(false); setShowAssistant(true); }}>
             <AnimatedRobotIcon className="nav-icon" /> ASISTENTE PERSONAL
           </a>
 
@@ -253,6 +256,23 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
           </div>
         </div>
       </footer>
+
+      {showAssistant && (
+        <div className="assistant-overlay">
+          <button className="assistant-close-btn" onClick={() => setShowAssistant(false)}>
+            <FiX size={24} />
+          </button>
+          <Suspense fallback={
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', color: 'var(--text-primary)' }}>
+              Cargando asistente...
+            </div>
+          }>
+            <PersonalAssistant
+              user={{ nombre: 'Invitado SENA', rol: { nombre: 'Invitado' }, id: 0 }}
+            />
+          </Suspense>
+        </div>
+      )}
     </div>
   );
 }

@@ -3,7 +3,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
 from ..models.maintenance import Maintenance
 from ..models.item import Item, Status, Category
-from ..models.user import User
+from ..models.movement import Notification
+from ..models.user import User, Role
 from sqlalchemy import func, or_, String
 from datetime import datetime
 
@@ -109,6 +110,26 @@ def create_maintenance():
     
     db.session.add(new_m)
     db.session.commit()
+
+    soporte_role = Role.query.filter(
+        Role.name.in_(['SOPORTE_TECNICO', 'SOPORTE', 'SOPORTE TÉCNICO', 'SOPORTE TECNICO'])
+    ).first()
+    if soporte_role:
+        soporte_users = User.query.filter(
+            User.role_id == soporte_role.id,
+            User.is_deleted == False,
+            User.is_active == True,
+        ).all()
+        for su in soporte_users:
+            db.session.add(Notification(
+                user_id=str(su.id),
+                type='MAINTENANCE_CREATED',
+                title='Nuevo reporte de mantenimiento',
+                message=f'Se reportó una falla en "{item.name}": {new_m.failure_description[:100]}',
+                related_type='item',
+                related_id=new_m.id,
+            ))
+        db.session.commit()
     
     return jsonify({"success": True, "id": new_m.id}), 201
 

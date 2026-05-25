@@ -25,12 +25,13 @@ def _serialize(n):
 def list_notifications():
     user_id = get_jwt_identity()
     limit = min(int(request.args.get('limit', 30)), 100)
+    offset = max(int(request.args.get('offset', 0)), 0)
     only_unread = request.args.get('unread_only', 'false').lower() == 'true'
 
     q = Notification.query.filter_by(user_id=str(user_id))
     if only_unread:
         q = q.filter_by(is_read=False)
-    items = q.order_by(Notification.date.desc()).limit(limit).all()
+    items = q.order_by(Notification.date.desc()).offset(offset).limit(limit).all()
     return jsonify([_serialize(n) for n in items]), 200
 
 

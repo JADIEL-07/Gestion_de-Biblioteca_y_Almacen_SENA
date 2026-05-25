@@ -2,6 +2,8 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from ..extensions import db
 from ..models.item import Item, Category, Status, Location
+from ..models.movement import Notification
+from ..models.user import User, Role
 from sqlalchemy import or_, String
 
 items_bp = Blueprint('items', __name__)
@@ -138,6 +140,25 @@ def add_item():
     try:
         db.session.add(new_item)
         db.session.commit()
+
+        staff_roles = Role.query.filter(Role.name.in_(['BIBLIOTECARIO', 'ALMACENISTA'])).all()
+        staff_role_ids = [r.id for r in staff_roles]
+        staff_users = User.query.filter(
+            User.role_id.in_(staff_role_ids),
+            User.is_deleted == False,
+            User.is_active == True,
+        ).all()
+        for su in staff_users:
+            db.session.add(Notification(
+                user_id=str(su.id),
+                type='ITEM_CREATED',
+                title='Nuevo elemento agregado',
+                message=f'Se agregó "{new_item.name}" al inventario.',
+                related_type='item',
+                related_id=new_item.id,
+            ))
+        db.session.commit()
+
         return jsonify({"id": new_item.id, "name": new_item.name, "message": "Elemento creado exitosamente"}), 201
     except Exception as e:
         db.session.rollback()
@@ -225,6 +246,24 @@ def add_category():
         new_cat = Category(name=data['name'])
         db.session.add(new_cat)
         db.session.commit()
+
+        staff_roles = Role.query.filter(Role.name.in_(['BIBLIOTECARIO', 'ALMACENISTA'])).all()
+        staff_role_ids = [r.id for r in staff_roles]
+        staff_users = User.query.filter(
+            User.role_id.in_(staff_role_ids),
+            User.is_deleted == False,
+            User.is_active == True,
+        ).all()
+        for su in staff_users:
+            db.session.add(Notification(
+                user_id=str(su.id),
+                type='CATEGORY_CREATED',
+                title='Nueva categoría agregada',
+                message=f'Se agregó la categoría "{new_cat.name}".',
+                related_type='item',
+            ))
+        db.session.commit()
+
         return jsonify({"id": new_cat.id, "name": new_cat.name}), 201
     except Exception as e:
         db.session.rollback()
@@ -275,6 +314,24 @@ def add_location():
         )
         db.session.add(new_loc)
         db.session.commit()
+
+        staff_roles = Role.query.filter(Role.name.in_(['BIBLIOTECARIO', 'ALMACENISTA'])).all()
+        staff_role_ids = [r.id for r in staff_roles]
+        staff_users = User.query.filter(
+            User.role_id.in_(staff_role_ids),
+            User.is_deleted == False,
+            User.is_active == True,
+        ).all()
+        for su in staff_users:
+            db.session.add(Notification(
+                user_id=str(su.id),
+                type='LOCATION_CREATED',
+                title='Nueva ubicación agregada',
+                message=f'Se agregó la ubicación "{new_loc.name}".',
+                related_type='item',
+            ))
+        db.session.commit()
+
         return jsonify({"id": new_loc.id, "name": new_loc.name}), 201
     except Exception as e:
         db.session.rollback()

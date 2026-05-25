@@ -6,6 +6,7 @@ from datetime import datetime
 from ..extensions import db
 from ..models.ticket import Ticket
 from ..models.user import User, Role
+from ..models.movement import Notification
 from ..models.chat_message import TicketMessage, StaffMessage
 
 chat_bp = Blueprint('chat', __name__)
@@ -377,6 +378,24 @@ def post_staff_message(contact_id):
     db.session.add(msg)
     db.session.commit()
 
+    # Notificar a todos los Administradores
+    admin_role = Role.query.filter_by(name='ADMIN').first()
+    if admin_role:
+        admin_users = User.query.filter(
+            User.role_id == admin_role.id,
+            User.is_deleted == False,
+            User.is_active == True,
+        ).all()
+        for admin in admin_users:
+            db.session.add(Notification(
+                user_id=str(admin.id),
+                type='STAFF_MESSAGE',
+                title='Nuevo mensaje interno',
+                message=f'{user.name} escribió en el chat interno: {body[:100]}{"..." if len(body) > 100 else ""}',
+                related_type='staff_message',
+            ))
+        db.session.commit()
+
     return jsonify(_serialize_message(msg, user.id)), 201
 
 
@@ -433,6 +452,27 @@ def escalate_to_support():
     )
     db.session.add(first_msg)
     db.session.commit()
+
+    # Notificar a todos los usuarios de Soporte
+    soporte_role = Role.query.filter(
+        Role.name.in_(['SOPORTE_TECNICO', 'SOPORTE', 'SOPORTE TÉCNICO', 'SOPORTE TECNICO'])
+    ).first()
+    if soporte_role:
+        soporte_users = User.query.filter(
+            User.role_id == soporte_role.id,
+            User.is_deleted == False,
+            User.is_active == True,
+        ).all()
+        for su in soporte_users:
+            db.session.add(Notification(
+                user_id=str(su.id),
+                type='TICKET_CREATED',
+                title='Nueva solicitud de soporte',
+                message=f'{user.name} solicita soporte: {subject}',
+                related_type='ticket',
+                related_id=ticket.id,
+            ))
+        db.session.commit()
 
     return jsonify({
         'message': 'Tu solicitud fue enviada a Soporte. Pronto te responderán por este chat.',

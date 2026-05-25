@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
 from ..models.user import User, Role
+from ..models.movement import Notification
 from ..models.loan import Loan
 from ..models.reservation import Reservation
 from ..models.audit_log import AuditLog
@@ -186,6 +187,24 @@ def create_user():
         details=f"Created user {new_user.name} with role {role.name}"
     )
     db.session.add(log)
+    db.session.commit()
+
+    admin_role = Role.query.filter_by(name='ADMIN').first()
+    if admin_role:
+        admin_users = User.query.filter(
+            User.role_id == admin_role.id,
+            User.is_deleted == False,
+            User.is_active == True,
+            User.id != get_jwt_identity(),
+        ).all()
+        for admin in admin_users:
+            db.session.add(Notification(
+                user_id=str(admin.id),
+                type='USER_CREATED',
+                title='Nuevo usuario registrado',
+                message=f'Se creó el usuario {new_user.name} con rol {role.name}.',
+                related_type='user',
+            ))
     db.session.commit()
 
     return jsonify({"success": True, "message": "Usuario creado exitosamente"}), 201

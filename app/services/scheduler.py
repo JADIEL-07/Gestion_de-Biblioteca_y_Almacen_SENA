@@ -64,7 +64,7 @@ def init_scheduler(app):
         logger.info("Scheduler ya está corriendo en otro worker — este no lo lanza.")
         return None
 
-    def _job():
+    def _reservation_job():
         with app.app_context():
             try:
                 from .reservation_queue import process_reservation_queue
@@ -74,10 +74,21 @@ def init_scheduler(app):
             except Exception:
                 logger.exception("Error en process_reservation_queue")
 
+    def _loan_notification_job():
+        with app.app_context():
+            try:
+                from .loan_notification_service import process_loan_notifications
+                result = process_loan_notifications()
+                if any(v > 0 for v in result.values()):
+                    logger.info(f"Loan notifications tick: {result}")
+            except Exception:
+                logger.exception("Error en process_loan_notifications")
+
     _scheduler = BackgroundScheduler(daemon=True, timezone='UTC')
-    _scheduler.add_job(_job, 'interval', minutes=10, id='reservation_queue', max_instances=1)
+    _scheduler.add_job(_reservation_job, 'interval', minutes=10, id='reservation_queue', max_instances=1)
+    _scheduler.add_job(_loan_notification_job, 'interval', minutes=10, id='loan_notifications', max_instances=1)
     _scheduler.start()
-    logger.info("APScheduler iniciado (reservation_queue cada 10 min).")
+    logger.info("APScheduler iniciado (reservation_queue + loan_notifications cada 10 min).")
 
     def _shutdown():
         try:

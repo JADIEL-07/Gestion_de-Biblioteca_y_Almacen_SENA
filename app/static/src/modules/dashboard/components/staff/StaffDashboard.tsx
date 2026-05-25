@@ -12,6 +12,7 @@ import '../admin/AdminDashboard.css';
 import '../UserDashboard.css';
 import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from '../PersonalAssistant';
+import { NotificationsPage } from '../NotificationsPage';
 
 interface StaffDashboardProps {
   user: any;
@@ -92,7 +93,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ user, onLogout, 
             </a>
           </div>
 
-          <NotificationBell />
+          <NotificationBell onNavigate={handleNavigate} />
 
           <div className="topnav-user">
             <div className="avatar-circle" style={{ background: 'var(--sena-green)', overflow: 'hidden' }}>
@@ -133,6 +134,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ user, onLogout, 
             {activeSection === 'loans'     && <StaffLoans user={user} />}
             {activeSection === 'config'    && <UserConfig user={user} />}
             {activeSection === 'help'      && <PersonalAssistant user={user} />}
+            {activeSection === 'notifications' && <NotificationsPage />}
           </div>
         </main>
       </div>

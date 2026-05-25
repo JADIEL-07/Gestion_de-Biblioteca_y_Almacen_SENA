@@ -135,7 +135,7 @@ export const AprendizDashboardHome: React.FC<DashboardHomeProps> = ({ user, onNa
           </div>
 
           {/* Reservas Pendientes */}
-          <div className="featured-section" style={{ marginTop: '2rem' }}>
+          <div className="featured-section">
             <div className="featured-header">
               <h3>Mis Reservas</h3>
               <button className="view-all-btn" onClick={() => onNavigate('reservations')}>Ver todas <FiArrowRight /></button>

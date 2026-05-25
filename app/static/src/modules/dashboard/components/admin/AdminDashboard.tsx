@@ -19,6 +19,7 @@ import '../UserDashboard.css';
 import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from '../PersonalAssistant';
 import { SoporteSolicitudes } from '../soporte/SoporteSolicitudes';
+import { NotificationsPage } from '../NotificationsPage';
 
 interface UserData {
   id: number;
@@ -87,6 +88,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     exits: 'Control de Salidas Controladas',
     config: 'Configuración del Sistema',
     help: 'Asistente Personal',
+    notifications: 'Centro de Notificaciones',
   };
 
   return (
@@ -121,7 +123,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             </a>
           </div>
 
-          <NotificationBell />
+          <NotificationBell onNavigate={handleNavigate} />
 
           <div className="topnav-user">
             <div className="avatar-circle" style={{ background: 'var(--sena-green)', overflow: 'hidden' }}>
@@ -172,6 +174,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             {activeSection === 'exits' && <OutputManagement />}
             {activeSection === 'help' && <PersonalAssistant user={user} />}
             {activeSection === 'solicitudes' && <SoporteSolicitudes user={user} />}
+            {activeSection === 'notifications' && <NotificationsPage />}
             {!sectionTitle[activeSection] && (
               <div className="placeholder-view">
                 <h2>Sección en construcción</h2>

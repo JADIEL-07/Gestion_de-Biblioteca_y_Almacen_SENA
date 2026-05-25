@@ -192,9 +192,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   // Trae el saludo guardado del backend (proviene de Gemini, cacheado en BD)
   const fetchGreetingMessage = async (): Promise<Message | null> => {
     try {
-      const token = getToken();
       const headers: HeadersInit = {};
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (!isGuest) {
+        const token = getToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+      }
       const res = await fetch('/api/v1/assistant/greeting', { headers });
       if (!res.ok) return null;
       const data = await res.json();
@@ -474,9 +476,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
 
     // Call Advanced AI Backend Endpoint with offline fallback
     try {
-      const token = getToken();
       const headers: HeadersInit = { 'Content-Type': 'application/json' };
-      if (token) headers['Authorization'] = `Bearer ${token}`;
+      if (!isGuest) {
+        const token = getToken();
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+      }
 
       const chatHistory = messages.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'model',
@@ -636,7 +640,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
           </div>
           <div>
             <h1>Asistente Personal Inteligente</h1>
-            <p>Soporte autónomo e información en tiempo real de Biblioteca & Almacén SENA</p>
+            <p>Información en tiempo real &amp; soporte autónomo</p>
           </div>
         </div>
         <button className="clear-chat-btn" onClick={clearChat} title="Restablecer chat actual">

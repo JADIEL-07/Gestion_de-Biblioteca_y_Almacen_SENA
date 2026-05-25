@@ -18,6 +18,9 @@ class Notification(db.Model):
     title = db.Column(db.String(150))
     message = db.Column(db.Text, nullable=False)
     type = db.Column(db.String(50), index=True)
+    # NEW_LOGIN, USER_CREATED, TICKET_CREATED, STAFF_MESSAGE,
+    # ITEM_CREATED, LOCATION_CREATED, CATEGORY_CREATED,
+    # MAINTENANCE_CREATED, LOAN_OVERDUE, LOAN_80_PERCENT,
     # RESERVATION_READY, RESERVATION_REMINDER, RESERVATION_EXPIRED,
     # RESERVATION_QUEUED, LOAN_CREATED, LOAN_RETURNED, LOAN_DUE, GENERIC
     related_type = db.Column(db.String(50))   # 'reservation' | 'loan' | 'item'

@@ -1290,3 +1290,34 @@ input[type="search"]:focus,
   opacity: 1;
   transform: translateY(0) scale(1);
 }
+
+/* Asistente personal en landing page (overlay) */
+.assistant-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: var(--bg-primary);
+  overflow-y: auto;
+}
+
+.assistant-close-btn {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 10000;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.assistant-close-btn:hover {
+  background: var(--bg-card-hover);
+}

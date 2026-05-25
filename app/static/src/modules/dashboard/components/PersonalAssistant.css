@@ -212,6 +212,8 @@
   margin: 0 0 0.5rem 0;
   line-height: 1.5;
   font-size: 0.92rem;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
 }
 
 .message-text p:last-child {
@@ -275,7 +277,7 @@
   gap: 0.75rem;
   margin-top: 0.85rem;
   width: 100%;
-  min-width: 280px;
+  min-width: 0;
 }
 
 .chat-loan-card {
@@ -998,17 +1000,57 @@
     display: none;
   }
   .assistant-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 1rem;
-    padding: 1rem;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+  }
+  .header-info h1 {
+    font-size: 1rem;
+  }
+  .header-info p {
+    display: none;
   }
   .clear-chat-btn {
-    width: 100%;
-    justify-content: center;
+    width: auto;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.75rem;
+  }
+  .clear-chat-btn span {
+    display: none;
   }
   .message-bubble-wrapper {
     max-width: 95%;
+  }
+}
+
+@media (max-width: 480px) {
+  .assistant-header {
+    padding: 0.6rem 0.75rem;
+  }
+  .header-icon-box {
+    width: 36px;
+    height: 36px;
+  }
+  .header-info h1 {
+    font-size: 0.85rem;
+  }
+  .chat-input-bar {
+    padding: 0.6rem 0.75rem;
+    gap: 0.4rem;
+  }
+  .chat-input-bar input {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  .send-msg-btn {
+    width: 38px;
+    height: 38px;
+  }
+  .attachment-btn {
+    width: 34px;
+    height: 34px;
   }
 }
 
@@ -1020,6 +1062,8 @@
   vertical-align: -0.22em;
   margin: 0 0.12em;
   object-fit: contain;
+  max-width: none !important;
+  flex-shrink: 0;
 }
 
 /* ── ESCALACIÓN A SOPORTE (Aprendiz) ── */

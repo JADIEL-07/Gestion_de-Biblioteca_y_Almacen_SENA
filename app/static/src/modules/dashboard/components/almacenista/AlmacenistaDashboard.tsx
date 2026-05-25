@@ -13,6 +13,7 @@ import '../admin/AdminDashboard.css';
 import '../UserDashboard.css';
 import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from '../PersonalAssistant';
+import { NotificationsPage } from '../NotificationsPage';
 
 interface Props {
   user: any;
@@ -78,7 +79,7 @@ export const AlmacenistaDashboard: React.FC<Props> = ({ user, onLogout, onUserUp
             <a href="#contact"><FiMail className="nav-icon" /> CONTACTO</a>
             <a href="#help"><AnimatedRobotIcon className="nav-icon" /> ASISTENTE PERSONAL</a>
           </div>
-          <NotificationBell />
+          <NotificationBell onNavigate={handleNavigate} />
           <div className="topnav-user">
             <div className="avatar-circle" style={{ background: 'var(--sena-green)', overflow: 'hidden' }}>
               {user?.profile_image
@@ -115,6 +116,7 @@ export const AlmacenistaDashboard: React.FC<Props> = ({ user, onLogout, onUserUp
             {activeSection === 'config'             && <UserConfig user={user} />}
             {activeSection === 'help'               && <PersonalAssistant user={user} />}
             {activeSection === 'solicitudes'        && <StaffChat user={user} />}
+            {activeSection === 'notifications'     && <NotificationsPage />}
           </div>
         </main>
       </div>

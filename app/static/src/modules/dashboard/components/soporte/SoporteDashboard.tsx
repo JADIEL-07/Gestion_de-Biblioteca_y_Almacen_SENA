@@ -17,6 +17,7 @@ import './SoporteDashboard.css';
 import '../UserDashboard.css';
 import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from '../PersonalAssistant';
+import { NotificationsPage } from '../NotificationsPage';
 
 interface UserData {
   id: number;
@@ -80,6 +81,7 @@ export const SoporteDashboard: React.FC<SoporteDashboardProps> = ({ user, onLogo
     'staff-chat': 'Chat Interno del Equipo',
     config: 'Configuración',
     help: 'Asistente Personal',
+    notifications: 'Centro de Notificaciones',
   };
 
   return (
@@ -114,7 +116,7 @@ export const SoporteDashboard: React.FC<SoporteDashboardProps> = ({ user, onLogo
             </a>
           </div>
 
-          <NotificationBell />
+          <NotificationBell onNavigate={handleNavigate} />
 
           <div className="topnav-user">
             <div className="avatar-circle" style={{ background: 'var(--sena-green)', overflow: 'hidden' }}>
@@ -159,7 +161,8 @@ export const SoporteDashboard: React.FC<SoporteDashboardProps> = ({ user, onLogo
             {activeSection === 'repuestos' && <SoporteRepuestos />}
             {activeSection === 'solicitudes' && <SoporteSolicitudes user={user} />}
             {activeSection === 'staff-chat' && <StaffChat user={user} />}
-            {!['dashboard', 'config', 'mantenimientos', 'help', 'reportes', 'incidencias', 'historial', 'repuestos', 'solicitudes', 'staff-chat'].includes(activeSection) && (
+            {activeSection === 'notifications' && <NotificationsPage />}
+            {!['dashboard', 'config', 'mantenimientos', 'help', 'reportes', 'incidencias', 'historial', 'repuestos', 'solicitudes', 'staff-chat', 'notifications'].includes(activeSection) && (
               <div className="placeholder-view">
                 <h2>Sección en construcción</h2>
                 <p>El módulo de {sectionTitle[activeSection] || activeSection} estará disponible pronto.</p>

@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
 from ..models.loan import Loan, LoanDetail
 from ..models.item import Item
-from ..models.user import User
+from ..models.user import User, Role
 from datetime import datetime, timedelta
 from sqlalchemy import func, or_, String
 
@@ -160,6 +160,20 @@ def create_loan():
         f'{admin_name} te aceptó el préstamo del {items_str}.',
         related_type='loan', related_id=loan.id,
     )
+    staff_roles = Role.query.filter(Role.name.in_(['BIBLIOTECARIO', 'ALMACENISTA'])).all()
+    staff_role_ids = [r.id for r in staff_roles]
+    staff_users = User.query.filter(
+        User.role_id.in_(staff_role_ids),
+        User.is_deleted == False,
+        User.is_active == True,
+    ).all()
+    for su in staff_users:
+        push_notification(
+            su.id, 'LOAN_CREATED',
+            'Nuevo préstamo realizado',
+            f'{admin_name} realizó un préstamo de {items_str} a {user.name}.',
+            related_type='loan', related_id=loan.id,
+        )
     db.session.commit()
     return jsonify({"success": True, "message": "Préstamo creado exitosamente", "loan_id": loan.id}), 201
 

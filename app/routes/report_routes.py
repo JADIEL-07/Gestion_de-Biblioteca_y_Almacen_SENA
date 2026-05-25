@@ -2,7 +2,8 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
 from ..models.ticket import Ticket
-from ..models.user import User
+from ..models.user import User, Role
+from ..models.movement import Notification
 from sqlalchemy import func
 from datetime import datetime
 
@@ -131,6 +132,27 @@ def create_report():
         except Exception as e:
             print("Error guardando foto del ticket:", e)
     
+    # Notificar a todos los usuarios de Soporte
+    soporte_role = Role.query.filter(
+        Role.name.in_(['SOPORTE_TECNICO', 'SOPORTE', 'SOPORTE TÉCNICO', 'SOPORTE TECNICO'])
+    ).first()
+    if soporte_role:
+        soporte_users = User.query.filter(
+            User.role_id == soporte_role.id,
+            User.is_deleted == False,
+            User.is_active == True,
+        ).all()
+        for su in soporte_users:
+            db.session.add(Notification(
+                user_id=str(su.id),
+                type='TICKET_CREATED',
+                title='Nuevo reporte de incidencia',
+                message=f'{user.name} reportó: {subject}',
+                related_type='ticket',
+                related_id=ticket.id,
+            ))
+        db.session.commit()
+
     return jsonify({
         "message": "Reporte creado exitosamente.",
         "id": ticket.id

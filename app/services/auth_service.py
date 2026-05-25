@@ -10,6 +10,7 @@ from flask import request
 from sqlalchemy import or_
 from ..extensions import db
 from ..models.user import User, Role
+from ..models.movement import Notification
 from ..models.audit_log import AuditLog
 from ..models.token import PasswordResetToken
 from ..models.verification_code import VerificationCode
@@ -335,6 +336,12 @@ class AuthService:
         user.failed_attempts = 0
         user.last_failed_login = None
         user.last_login = datetime.utcnow()
+        db.session.add(Notification(
+            user_id=str(user.id),
+            type='NEW_LOGIN',
+            title='Nuevo inicio de sesión',
+            message=f'Se detectó un inicio de sesión en tu cuenta desde {request.remote_addr}.',
+        ))
         db.session.commit()
 
         access, refresh = TokenService.generate_auth_tokens(user)
@@ -365,6 +372,12 @@ class AuthService:
         user.failed_attempts = 0
         user.last_failed_login = None
         user.last_login = datetime.utcnow()
+        db.session.add(Notification(
+            user_id=str(user.id),
+            type='NEW_LOGIN',
+            title='Nuevo inicio de sesión',
+            message=f'Se detectó un inicio de sesión en tu cuenta desde {request.remote_addr}.',
+        ))
         db.session.commit()
 
         access, refresh = TokenService.generate_auth_tokens(user)

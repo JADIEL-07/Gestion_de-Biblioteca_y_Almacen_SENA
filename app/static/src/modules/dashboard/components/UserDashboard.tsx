@@ -17,6 +17,7 @@ import { AprendizSolicitudes } from './aprendiz/AprendizSolicitudes';
 import { NotificationBell } from '../../../shared/NotificationBell';
 import { AnimatedRobotIcon } from '../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from './PersonalAssistant';
+import { NotificationsPage } from './NotificationsPage';
 
 interface UserData {
   id: number;
@@ -140,7 +141,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             </div>
           ) : (
             <>
-              <NotificationBell />
+              <NotificationBell onNavigate={handleNavigate} />
               <div className="topnav-user">
                 <div className="avatar-circle" style={{ cursor: 'default' }}>{initials}</div>
               </div>
@@ -197,6 +198,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             <UserConfig user={user} />
           )}
           {activeSection === 'help' && <PersonalAssistant user={user} />}
+          {activeSection === 'notifications' && !isGuest && <NotificationsPage />}
           {activeSection === 'guest' && isGuest && (
             <DashboardHome
               user={user}
