@@ -216,6 +216,7 @@ def get_me():
         "formation_ficha": user.formation_ficha or '',
         "role": user.role.name if user.role else None,
         "profile_image": user.profile_image,
+        "biography": user.biography or '',
         "is_active": user.is_active,
         "last_login": user.last_login.isoformat() if user.last_login else None,
         "created_at": user.created_at.isoformat() if user.created_at else None,
@@ -251,6 +252,10 @@ def update_me():
     if 'formation_ficha' in data:
         user.formation_ficha = (data.get('formation_ficha') or '').strip() or None
         changed.append('formation_ficha')
+
+    if 'biography' in data:
+        user.biography = (data.get('biography') or '').strip() or None
+        changed.append('biography')
 
     if changed:
         log = AuditLog(user_id=user_id, action="PROFILE_UPDATED",
@@ -360,6 +365,7 @@ def export_my_data():
             "telefono": user.phone,
             "tipo_documento": user.document_type,
             "ficha_formacion": user.formation_ficha,
+            "biografia": user.biography or '',
             "rol": user.role.name if user.role else None,
             "cuenta_creada": user.created_at.isoformat() if user.created_at else None,
             "ultimo_acceso": user.last_login.isoformat() if user.last_login else None,

@@ -23,6 +23,12 @@ class Config:
     # CORS: dominios permitidos (separados por coma en la variable de entorno)
     CORS_ORIGINS                   = os.environ.get('CORS_ORIGINS', 'http://localhost:5173').split(',')
 
+    # Flask-Limiter: configuración de almacenamiento
+    # Para desarrollo: memory:// (almacenamiento en memoria)
+    # Para producción: redis://localhost:6379 o similar
+    RATELIMIT_STORAGE_URL          = os.environ.get('RATELIMIT_STORAGE_URL', 'memory://')
+    RATELIMIT_STRATEGY             = os.environ.get('RATELIMIT_STRATEGY', 'fixed-window')
+
 
 class DevelopmentConfig(Config):
     """Configuración para desarrollo local."""

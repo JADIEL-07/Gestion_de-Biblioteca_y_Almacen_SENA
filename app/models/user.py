@@ -22,6 +22,10 @@ class User(Base):
     phone = db.Column(db.String(20), nullable=True)
     password = db.Column(db.String(255), nullable=False)
     profile_image = db.Column(db.Text, nullable=True) # Almacena Base64 o URL
+    biography = db.Column(db.Text, nullable=True)
+    totp_secret = db.Column(db.String(32), nullable=True)
+    is_2fa_enabled = db.Column(db.Boolean, default=False)
+
     
     # FKs
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False)

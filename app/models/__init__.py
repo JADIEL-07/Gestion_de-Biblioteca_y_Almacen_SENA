@@ -15,3 +15,4 @@ from .spare_part import SparePartRequest
 from .assistant_thread import AssistantThread
 from .user_preference import UserPreference, EmailChangeToken
 from .verification_code import VerificationCode
+from .pending_registration import PendingRegistration

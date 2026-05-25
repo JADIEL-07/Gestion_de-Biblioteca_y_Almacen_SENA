@@ -57,6 +57,23 @@ def login():
     result, status = AuthService.login(identifier, password)
     return jsonify(result), status
 
+@auth_bp.route('/verify-2fa', methods=['POST'])
+@jwt_required()
+def verify_2fa():
+    """Valida el código 2FA después de iniciar sesión parcialmente."""
+    claims = get_jwt()
+    if claims.get("type") != "2fa_temp":
+        return jsonify({"error": "Token inválido para esta operación."}), 401
+        
+    data = request.get_json() or {}
+    code = data.get('code', '').strip()
+    if not code:
+        return jsonify({"error": "Código requerido."}), 400
+        
+    user_id = get_jwt_identity()
+    result, status = AuthService.verify_2fa(user_id, code)
+    return jsonify(result), status
+
 @auth_bp.route('/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh():

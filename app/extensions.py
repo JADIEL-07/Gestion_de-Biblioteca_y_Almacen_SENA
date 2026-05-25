@@ -11,4 +11,8 @@ ma      = Marshmallow()
 migrate = Migrate()
 jwt     = JWTManager()
 mail    = Mail()
-limiter = Limiter(key_func=get_remote_address, default_limits=["5000 per day", "500 per hour"])
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["5000 per day", "500 per hour"],
+    storage_uri="memory://"
+)

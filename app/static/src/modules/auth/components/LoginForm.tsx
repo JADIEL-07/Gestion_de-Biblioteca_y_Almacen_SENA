@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiAlertCircle, FiPhone, FiCreditCard, FiShield } from 'react-icons/fi';
+import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiAlertCircle, FiPhone, FiCreditCard, FiShield, FiSmartphone } from 'react-icons/fi';
 import './LoginForm.css';
 import { FloatingParticles } from '../../../components/ui/FloatingParticles';
+import { QRCodeCanvas } from 'qrcode.react';
 
 interface LoginFormProps {
   mode: 'login' | 'register';
@@ -59,6 +60,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   const [pendingVerifyEmail, setPendingVerifyEmail] = useState<string | null>(null);
   const [verifyCode, setVerifyCode] = useState('');
   const [verifyLoading, setVerifyLoading] = useState(false);
+
+  // ── Estados para 2FA ──────────────────────────────────────────────
+  const [requires2fa, setRequires2fa] = useState(false);
+  const [tempToken2fa, setTempToken2fa] = useState('');
+  const [totpData, setTotpData] = useState<{ totp_secret: string, otpauth_url: string } | null>(null);
+  const [twoFaCode, setTwoFaCode] = useState('');
 
   const isRegister = mode === 'register';
 
@@ -156,7 +163,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
 
       // ─── Caso: cuenta no verificada (login) ─────────────────────
       if (!response.ok && data.requires_verification) {
-        setPendingVerifyEmail(data.email);
+        setPendingVerifyEmail(data.email || email.trim().toLowerCase());
         setServerError('');
         return;
       }
@@ -175,6 +182,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         setSuccessMsg('¡Registro exitoso! Ya puedes iniciar sesión.');
         setNombre(''); setEmail(''); setPhone(''); setPassword('');
       } else {
+        if (data.requires_2fa) {
+          setRequires2fa(true);
+          setTempToken2fa(data.temp_token);
+          setSuccessMsg('Credenciales correctas. Ingresa tu código de autenticador.');
+          return;
+        }
+
         localStorage.setItem('token', data.access_token);
         localStorage.setItem('user', JSON.stringify(data.user));
         // Si debe cambiar contraseña tras login (recuperación temporal), redirigir
@@ -210,7 +224,16 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Código inválido');
 
-      // Verificación exitosa → auto-login
+      if (data.otpauth_url) {
+        setTotpData({ totp_secret: data.totp_secret, otpauth_url: data.otpauth_url });
+        localStorage.setItem('temp_token', data.access_token);
+        localStorage.setItem('temp_user', JSON.stringify(data.user));
+        setSuccessMsg('¡Cuenta verificada! Configura tu autenticador.');
+        setPendingVerifyEmail(null);
+        return;
+      }
+
+      // Verificación exitosa fallback
       localStorage.setItem('token', data.access_token);
       localStorage.setItem('user', JSON.stringify(data.user));
       setSuccessMsg('¡Cuenta verificada! Redirigiendo...');
@@ -222,6 +245,55 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
       setTimeout(() => setServerError(''), 4000);
     } finally {
       setVerifyLoading(false);
+    }
+  };
+
+  const handleVerify2fa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setServerError('');
+    if (twoFaCode.length !== 6) {
+      setServerError('El código debe tener 6 dígitos.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch('/api/v1/auth/verify-2fa', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tempToken2fa}`
+        },
+        body: JSON.stringify({ code: twoFaCode }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Código incorrecto');
+
+      localStorage.setItem('token', data.access_token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      if (data.must_change_password) {
+        localStorage.setItem('force_password_change', '1');
+      }
+      setSuccessMsg('¡Autenticado con éxito!');
+      setTimeout(() => {
+        if (onLoginSuccess) onLoginSuccess(data.user);
+      }, 800);
+    } catch (err: any) {
+      setServerError(err.message);
+      setTimeout(() => setServerError(''), 4000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const finishRegistration = () => {
+    const token = localStorage.getItem('temp_token');
+    const userStr = localStorage.getItem('temp_user');
+    if (token && userStr) {
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', userStr);
+      localStorage.removeItem('temp_token');
+      localStorage.removeItem('temp_user');
+      if (onLoginSuccess) onLoginSuccess(JSON.parse(userStr));
     }
   };
 
@@ -303,6 +375,103 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
 
             <button className="back-btn" onClick={() => { setPendingVerifyEmail(null); setVerifyCode(''); }}>
               Cambiar de cuenta
+            </button>
+            <div style={{ height: '20px' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Pantalla de configuración de 2FA (tras registro exitoso) ────
+  if (totpData) {
+    return (
+      <div className="login-wrapper">
+        <div className="background-image-container">
+          <img src={currentBg} alt="Biblioteca SENA" />
+          <div className="bg-overlay"></div>
+        </div>
+        <FloatingParticles />
+        <div className="login-form-centered">
+          <div className="clean-form">
+            <div className="sena-logo">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Logo SENA" className="sena-logo-img" />
+            </div>
+            <div className="form-header">
+              <h3 className="login-title">Configura tu Autenticador</h3>
+              <p>Escanea el código QR con Google Authenticator o similar para configurar la verificación de dos pasos.</p>
+            </div>
+
+            {successMsg && <div className="alert-success fade-in">{successMsg}</div>}
+
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '20px 0' }}>
+              <div style={{ padding: '16px', background: '#fff', borderRadius: '8px', marginBottom: '16px' }}>
+                <QRCodeCanvas value={totpData.otpauth_url} size={200} level="M" />
+              </div>
+              <p style={{ fontSize: '0.9em', color: '#666', textAlign: 'center' }}>
+                O ingresa el código manual:<br/>
+                <strong style={{ letterSpacing: '2px', fontSize: '1.1em', userSelect: 'all' }}>{totpData.totp_secret}</strong>
+              </p>
+            </div>
+
+            <button type="button" className="submit-btn" onClick={finishRegistration}>
+              He escaneado el código (Entrar)
+            </button>
+            <div style={{ height: '20px' }}></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Pantalla de ingreso 2FA (login) ─────────────────────────────
+  if (requires2fa) {
+    return (
+      <div className="login-wrapper">
+        <div className="background-image-container">
+          <img src={currentBg} alt="Biblioteca SENA" />
+          <div className="bg-overlay"></div>
+        </div>
+        <FloatingParticles />
+        <div className="login-form-centered">
+          <div className="clean-form">
+            <div className="sena-logo">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Logo SENA" className="sena-logo-img" />
+            </div>
+            <div className="form-header">
+              <h3 className="login-title">Verificación 2FA</h3>
+              <p>Ingresa el código de 6 dígitos de tu aplicación de autenticación.</p>
+            </div>
+
+            {serverError && <div className="alert-error fade-in"><FiAlertCircle /> {serverError}</div>}
+            {successMsg && <div className="alert-success fade-in">{successMsg}</div>}
+
+            <form onSubmit={handleVerify2fa} noValidate>
+              <div className="input-group">
+                <label className="input-label">Código de Autenticador</label>
+                <div className="input-field-wrapper">
+                  <FiSmartphone className="input-icon" />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    className="clean-input"
+                    placeholder="000000"
+                    value={twoFaCode}
+                    onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, ''))}
+                    disabled={loading}
+                    style={{ letterSpacing: '0.5em', textAlign: 'center', fontSize: '1.2em' }}
+                  />
+                </div>
+              </div>
+
+              <button type="submit" className="submit-btn" disabled={loading || twoFaCode.length !== 6}>
+                {loading ? 'Verificando...' : 'Autenticar'}
+              </button>
+            </form>
+
+            <button className="back-btn" onClick={() => { setRequires2fa(false); setTempToken2fa(''); }}>
+              Volver atrás
             </button>
             <div style={{ height: '20px' }}></div>
           </div>
@@ -499,7 +668,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
             )}
           </div>
 
-          <button className="back-btn" onClick={() => history.back()} disabled={loading}>
+          <button className="back-btn" onClick={() => navigate(-1)} disabled={loading}>
             Volver al inicio
           </button>
           <div style={{ height: '20px' }}></div>
