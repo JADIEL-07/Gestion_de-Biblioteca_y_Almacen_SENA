@@ -2,8 +2,9 @@
    DASHBOARD BACKGROUND — PHYSICS + PARTICLES
    ════════════════════════════════════════════ */
 
+.dashboard-layout > .dashboard-bg,
 .dashboard-bg {
-  position: fixed;
+  position: fixed !important;
   inset: 0;
   z-index: 0 !important;
   pointer-events: none;
