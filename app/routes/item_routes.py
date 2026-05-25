@@ -26,6 +26,7 @@ def serialize_item(item):
         "image_url": item.image_url,
         "stock": item.stock if item.stock is not None else 1,
         "description": item.description or "",
+        "physical_condition": item.physical_condition or "",
     }
 
 @items_bp.route('/', methods=['GET'])
@@ -135,7 +136,8 @@ def add_item():
         model=data.get('model'),
         serial_number=data.get('serial_number') or None,
         image_url=data.get('image_url'),
-        stock=data.get('stock', 1)
+        stock=data.get('stock', 1),
+        physical_condition=data.get('physical_condition') or None,
     )
     try:
         db.session.add(new_item)
@@ -189,6 +191,7 @@ def update_item(id):
         item.serial_number = data['serial_number'] or None
     if 'stock' in data:      item.stock       = int(data['stock'])
     if 'image_url' in data:  item.image_url   = data['image_url']
+    if 'physical_condition' in data: item.physical_condition = data['physical_condition'] or None
     if 'category_id' in data and data['category_id']:
         item.category_id = int(data['category_id'])
     if 'status_id' in data and data['status_id']:

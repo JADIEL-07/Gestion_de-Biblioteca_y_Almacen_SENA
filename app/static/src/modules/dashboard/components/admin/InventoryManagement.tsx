@@ -16,6 +16,7 @@ interface Item {
   brand: string | null; model: string | null;
   serial_number: string | null; image_url: string | null;
   stock: number; description: string;
+  physical_condition?: string;
 }
 interface FilterData {
   categories: { id: number, name: string }[];
@@ -23,11 +24,19 @@ interface FilterData {
   locations: { id: number, name: string }[];
 }
 
+const CONDITION_OPTIONS = [
+  { id: 'EXCELENTE', name: 'Excelente' },
+  { id: 'BUENO', name: 'Bueno' },
+  { id: 'REGULAR', name: 'Regular' },
+  { id: 'MALO', name: 'Malo' },
+];
+
 const emptyForm = {
   name: '', code: '', category_id: '', location_id: '',
   status_id: '', brand: '', model: '', serial_number: '',
   stock: 1, image_url: '', description: '',
-  acquisition_date: '', value: '', nit: ''
+  acquisition_date: '', value: '', nit: '',
+  physical_condition: 'EXCELENTE'
 };
 
 interface InventoryProps {
@@ -146,7 +155,8 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
           stock: parseInt(String(newItem.stock)) || 0,
           value: newItem.value ? parseFloat(newItem.value) : 0,
           nit: newItem.nit,
-          acquisition_date: newItem.acquisition_date
+          acquisition_date: newItem.acquisition_date,
+          physical_condition: newItem.physical_condition
         })
       });
       if (res.ok) { 
@@ -182,7 +192,8 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
       description: item.description || '',
       acquisition_date: item.acquisition_date ? new Date(item.acquisition_date).toISOString().split('T')[0] : '',
       value: item.value ? String(item.value) : '',
-      nit: item.nit || ''
+      nit: item.nit || '',
+      physical_condition: item.physical_condition || 'EXCELENTE'
     });
     setMenuOpenId(null);
   };
@@ -199,7 +210,8 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
           location_id: parseInt(editForm.location_id), 
           status_id: parseInt(editForm.status_id), 
           stock: parseInt(String(editForm.stock)) || 0,
-          value: editForm.value ? parseFloat(editForm.value) : 0
+          value: editForm.value ? parseFloat(editForm.value) : 0,
+          physical_condition: editForm.physical_condition
         })
       });
       if (res.ok) { 
@@ -596,6 +608,14 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                 </div>
                 <div className="form-group">
                   <CustomSelect 
+                    label="Condición Física"
+                    options={CONDITION_OPTIONS}
+                    value={editForm.physical_condition}
+                    onChange={val => setEditForm({ ...editForm, physical_condition: String(val) })}
+                  />
+                </div>
+                <div className="form-group">
+                  <CustomSelect 
                     label="Ubicación"
                     options={filters.locations || []}
                     value={editForm.location_id}
@@ -688,6 +708,14 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                     options={filters.statuses || []}
                     value={newItem.status_id}
                     onChange={val => setNewItem({ ...newItem, status_id: String(val) })}
+                  />
+                </div>
+                <div className="form-group">
+                  <CustomSelect 
+                    label="Condición Física"
+                    options={CONDITION_OPTIONS}
+                    value={newItem.physical_condition}
+                    onChange={val => setNewItem({ ...newItem, physical_condition: String(val) })}
                   />
                 </div>
                 <div className="form-group">
