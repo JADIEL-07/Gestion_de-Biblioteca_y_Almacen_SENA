@@ -9,6 +9,7 @@ class RefreshToken(db.Model):
     expires_at = db.Column(db.DateTime, nullable=False)
     is_revoked = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_agent = db.Column(db.String(500))
 
 class PasswordResetToken(db.Model):
     __tablename__ = 'password_reset_tokens'

@@ -203,6 +203,7 @@ def get_sessions():
             "id": t.id,
             "created_at": t.created_at.isoformat(),
             "expires_at": t.expires_at.isoformat(),
+            "device": t.user_agent or None,
         })
     return jsonify(sessions), 200
 
@@ -255,6 +256,18 @@ def access_history():
         "device":  log.user_agent or '—',
         "ok":      log.action not in ('LOGIN_FAILED',),
     } for log in logs]), 200
+
+
+@auth_bp.route('/access-history', methods=['DELETE'])
+@jwt_required()
+def clear_access_history():
+    """Elimina todo el historial de accesos del usuario."""
+    user_id = get_jwt_identity()
+    actions = ['LOGIN_SUCCESS', 'LOGIN_FAILED', 'LOGOUT', 'PASSWORD_CHANGED',
+               'PROFILE_UPDATED', 'ACCOUNT_DELETED', 'PROFILE_IMAGE_UPDATED']
+    deleted = AuditLog.query.filter_by(user_id=user_id).filter(AuditLog.action.in_(actions)).delete()
+    db.session.commit()
+    return jsonify({"success": True, "message": f"{deleted} evento(s) eliminado(s)"}), 200
 
 
 # ─────────────────────────  CAMBIO DE CORREO  ─────────────────────────

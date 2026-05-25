@@ -231,7 +231,7 @@ class AuthService:
         otpauth_url = totp.provisioning_uri(name=email, issuer_name="Biblioteca SENA")
 
         # Auto-login tras verificar
-        access, refresh = TokenService.generate_auth_tokens(new_user)
+        access, refresh = TokenService.generate_auth_tokens(new_user, request.user_agent.string if request.user_agent else None)
         return {
             "success": True,
             "message": "Cuenta creada y verificada exitosamente.",
@@ -344,7 +344,7 @@ class AuthService:
         ))
         db.session.commit()
 
-        access, refresh = TokenService.generate_auth_tokens(user)
+        access, refresh = TokenService.generate_auth_tokens(user, request.user_agent.string if request.user_agent else None)
         AuthService._log_audit(user.id, "LOGIN_SUCCESS", ip=request.remote_addr)
 
         return {
@@ -380,7 +380,7 @@ class AuthService:
         ))
         db.session.commit()
 
-        access, refresh = TokenService.generate_auth_tokens(user)
+        access, refresh = TokenService.generate_auth_tokens(user, request.user_agent.string if request.user_agent else None)
         AuthService._log_audit(user.id, "LOGIN_SUCCESS_2FA", ip=request.remote_addr)
 
         return {

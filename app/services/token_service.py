@@ -7,7 +7,7 @@ from ..models.token import RefreshToken, PasswordResetToken
 
 class TokenService:
     @staticmethod
-    def generate_auth_tokens(user):
+    def generate_auth_tokens(user, user_agent=None):
         """Generates access and refresh tokens (JWT) with rotation and revocation."""
         # Access Token with custom claims
         access_claims = {
@@ -31,7 +31,8 @@ class TokenService:
         new_refresh = RefreshToken(
             user_id=user.id,
             token_hash=jti_hash,
-            expires_at=expires_at
+            expires_at=expires_at,
+            user_agent=user_agent
         )
         db.session.add(new_refresh)
         db.session.commit()
@@ -56,8 +57,8 @@ class TokenService:
         target_token.is_revoked = True
         db.session.commit()
         
-        # Generate new tokens
-        return TokenService.generate_auth_tokens(target_token.user)
+        # Generate new tokens preserving user_agent
+        return TokenService.generate_auth_tokens(target_token.user, target_token.user_agent)
 
     @staticmethod
     def revoke_all_user_tokens(user_id):

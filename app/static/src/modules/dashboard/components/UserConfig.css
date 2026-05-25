@@ -629,6 +629,12 @@
 .session-info .card-hint {
   display: flex; align-items: center; gap: 0.3rem;
 }
+.session-device {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--uc-text-muted, #64748b);
+  margin-top: 0.1rem;
+}
 
 /* Channel grid */
 .channel-grid {

@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
@@ -414,6 +415,127 @@ def export_my_data():
         ]
     }
     return jsonify(export), 200
+
+
+@user_bp.route('/me/export-pdf', methods=['GET'])
+@jwt_required()
+def export_my_data_pdf():
+    """Exporta los datos del usuario como página HTML estilizada para imprimir/PDF."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    loans = Loan.query.filter_by(user_id=user_id).all()
+    reservations = Reservation.query.filter_by(user_id=user_id).all()
+    logs = AuditLog.query.filter_by(user_id=user_id).order_by(AuditLog.created_at.desc()).limit(30).all()
+
+    fmt = lambda d: d.strftime('%d/%m/%Y %H:%M') if d else '—'
+
+    rows_loans = ''
+    for l in loans:
+        rows_loans += f'''<tr>
+            <td>{l.id}</td>
+            <td>{l.status}</td>
+            <td>{fmt(l.loan_date)}</td>
+            <td>{fmt(l.return_date)}</td>
+        </tr>'''
+
+    rows_reservations = ''
+    for r in reservations:
+        rows_reservations += f'''<tr>
+            <td>{r.id}</td>
+            <td>{r.status}</td>
+            <td>{fmt(r.created_at)}</td>
+        </tr>'''
+
+    rows_logs = ''
+    for lg in logs:
+        rows_logs += f'''<tr>
+            <td>{lg.action}</td>
+            <td>{fmt(lg.created_at)}</td>
+            <td>{lg.ip or '—'}</td>
+        </tr>'''
+
+    html = f'''<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Mis Datos - Biblioteca SENA</title>
+<style>
+    @page {{ margin: 2cm; size: A4; }}
+    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+    body {{ font-family: 'Segoe UI', Arial, sans-serif; color: #1e293b; background: #fff; padding: 2rem; line-height: 1.5; }}
+    .header {{ text-align: center; border-bottom: 3px solid #39A900; padding-bottom: 1rem; margin-bottom: 2rem; }}
+    .header h1 {{ color: #39A900; font-size: 1.6rem; }}
+    .header p {{ color: #64748b; font-size: 0.85rem; }}
+    .section {{ margin-bottom: 2rem; }}
+    .section h2 {{ background: #f0fdf4; color: #166534; padding: 0.6rem 1rem; border-radius: 6px; font-size: 1.1rem; margin-bottom: 1rem; border-left: 4px solid #39A900; }}
+    .info-grid {{ display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem 2rem; padding: 0 0.5rem; }}
+    .info-grid .label {{ font-weight: 600; color: #475569; }}
+    .info-grid .value {{ color: #0f172a; }}
+    table {{ width: 100%; border-collapse: collapse; font-size: 0.82rem; }}
+    th {{ background: #39A900; color: #fff; padding: 0.5rem 0.6rem; text-align: left; font-weight: 600; }}
+    td {{ padding: 0.4rem 0.6rem; border-bottom: 1px solid #e2e8f0; }}
+    tr:nth-child(even) {{ background: #f8fafc; }}
+    .footer {{ text-align: center; color: #94a3b8; font-size: 0.75rem; margin-top: 3rem; border-top: 1px solid #e2e8f0; padding-top: 1rem; }}
+    .badge {{ display: inline-block; padding: 0.15rem 0.5rem; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }}
+    .badge-green {{ background: #dcfce7; color: #166534; }}
+    .badge-yellow {{ background: #fef9c3; color: #854d0e; }}
+    .badge-red {{ background: #fee2e2; color: #991b1b; }}
+    @media print {{ body {{ padding: 0; }} .no-print {{ display: none; }} }}
+</style>
+</head>
+<body>
+<div class="header">
+    <h1>Biblioteca SENA — Mis Datos Personales</h1>
+    <p>Generado el {datetime.now().strftime('%d/%m/%Y a las %H:%M')}</p>
+</div>
+
+<div class="section">
+    <h2>Información del Perfil</h2>
+    <div class="info-grid">
+        <span class="label">Nombre:</span><span class="value">{user.name or '—'}</span>
+        <span class="label">Correo:</span><span class="value">{user.email or '—'}</span>
+        <span class="label">Teléfono:</span><span class="value">{user.phone or '—'}</span>
+        <span class="label">Tipo Documento:</span><span class="value">{user.document_type or '—'}</span>
+        <span class="label">Rol:</span><span class="value">{user.role.name if user.role else '—'}</span>
+        <span class="label">Cuenta creada:</span><span class="value">{fmt(user.created_at)}</span>
+        <span class="label">Último acceso:</span><span class="value">{fmt(user.last_login)}</span>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Préstamos ({len(loans)})</h2>
+    {"<p>No hay préstamos registrados.</p>" if not loans else f'''<table>
+        <thead><tr><th>ID</th><th>Estado</th><th>Fecha Préstamo</th><th>Devolución</th></tr></thead>
+        <tbody>{rows_loans}</tbody>
+    </table>'''}
+</div>
+
+<div class="section">
+    <h2>Reservas ({len(reservations)})</h2>
+    {"<p>No hay reservas registradas.</p>" if not reservations else f'''<table>
+        <thead><tr><th>ID</th><th>Estado</th><th>Fecha Creación</th></tr></thead>
+        <tbody>{rows_reservations}</tbody>
+    </table>'''}
+</div>
+
+<div class="section">
+    <h2>Historial de Accesos ({len(logs)})</h2>
+    {"<p>No hay accesos registrados.</p>" if not logs else f'''<table>
+        <thead><tr><th>Acción</th><th>Fecha</th><th>IP</th></tr></thead>
+        <tbody>{rows_logs}</tbody>
+    </table>'''}
+</div>
+
+<div class="footer">
+    <p>Biblioteca SENA — Sistema de Gestión | Datos exportados por el usuario</p>
+</div>
+</body>
+</html>'''
+
+    return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
 
 
 @user_bp.route('/me', methods=['DELETE'])

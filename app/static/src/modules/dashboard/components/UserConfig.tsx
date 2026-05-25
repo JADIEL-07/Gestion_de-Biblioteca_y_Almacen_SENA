@@ -503,6 +503,24 @@ interface Session {
   id: number;
   created_at: string;
   expires_at: string;
+  device: string | null;
+}
+
+function parseDevice(ua: string | null): string {
+  if (!ua) return 'Dispositivo desconocido';
+  let name = 'Navegador';
+  if (ua.includes('Chrome') && !ua.includes('Edg')) name = 'Chrome';
+  else if (ua.includes('Firefox')) name = 'Firefox';
+  else if (ua.includes('Safari') && !ua.includes('Chrome')) name = 'Safari';
+  else if (ua.includes('Edg')) name = 'Edge';
+  else if (ua.includes('OPR') || ua.includes('Opera')) name = 'Opera';
+  let os = 'Desconocido';
+  if (ua.includes('Windows')) os = 'Windows';
+  else if (ua.includes('Mac OS')) os = 'macOS';
+  else if (ua.includes('Linux') && !ua.includes('Android')) os = 'Linux';
+  else if (ua.includes('Android')) os = 'Android';
+  else if (ua.includes('iPhone') || ua.includes('iPad')) os = 'iOS';
+  return `${name} · ${os}`;
 }
 
 const SessionsPanel: React.FC = () => {
@@ -558,6 +576,7 @@ const SessionsPanel: React.FC = () => {
                 <span className="session-icon"><FiMonitor /></span>
                 <div>
                   <strong>Sesión #{idx + 1} {idx === 0 ? <span className="badge badge-current">Más reciente</span> : ''}</strong>
+                  <span className="session-device">{parseDevice(s.device)}</span>
                   <span className="card-hint">
                     <FiClock /> Iniciada: {fmt(s.created_at)} &nbsp;·&nbsp; Expira: {fmt(s.expires_at)}
                   </span>
@@ -787,15 +806,20 @@ const PrivacyPanel: React.FC = () => {
 
   const exportData = async () => {
     setExporting(true);
-    const { ok, data } = await apiFetch('/users_mgmt/me/export-data');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/v1/users_mgmt/me/export-pdf', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) { show('Error al exportar datos.', 'err'); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url; a.download = 'mis_datos_biblioteca.html'; a.click();
+      URL.revokeObjectURL(url);
+      show('Datos exportados correctamente.');
+    } catch { show('Error de conexión.', 'err'); }
     setExporting(false);
-    if (!ok) { show('Error al exportar datos.', 'err'); return; }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href = url; a.download = 'mis_datos_biblioteca.json'; a.click();
-    URL.revokeObjectURL(url);
-    show('Datos exportados correctamente.');
   };
 
   if (loading) return <div className="config-section"><p className="card-hint">Cargando...</p></div>;
@@ -848,7 +872,7 @@ const PrivacyPanel: React.FC = () => {
 
       <div className="config-card">
         <h3>Mis datos</h3>
-        <p className="card-hint">Descarga una copia de toda la información asociada a tu cuenta (formato JSON).</p>
+        <p className="card-hint">Descarga una copia de toda la información asociada a tu cuenta en formato PDF.</p>
         <div className="form-actions">
           <button className="btn-secondary" onClick={exportData} disabled={exporting}>
             <FiDownload /> {exporting ? 'Generando...' : 'Descargar mis datos'}
@@ -891,9 +915,24 @@ const HistoryPanel: React.FC = () => {
     dateStyle: 'medium', timeStyle: 'short'
   });
 
+  const clearHistory = async () => {
+    if (!confirm('¿Borrar todo el historial de accesos? Esta acción no se puede deshacer.')) return;
+    const { ok } = await apiFetch('/auth/access-history', { method: 'DELETE' });
+    if (ok) { setEvents([]); alert('Historial eliminado correctamente.'); }
+    else alert('Error al eliminar el historial.');
+  };
+
   return (
     <div className="config-section fade-in">
       <div className="config-card">
+        <div className="toggle-row" style={{ marginBottom: 12 }}>
+          <h3 style={{ margin: 0 }}>Historial de accesos</h3>
+          {events.length > 0 && (
+            <button className="btn-danger-outline" onClick={clearHistory}>
+              <FiTrash2 /> Borrar historial
+            </button>
+          )}
+        </div>
         {loading ? (
           <p className="card-hint">Cargando historial...</p>
         ) : events.length === 0 ? (
