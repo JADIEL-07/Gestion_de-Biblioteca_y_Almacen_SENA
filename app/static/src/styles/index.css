@@ -749,14 +749,10 @@ body {
 /* ==========================================================================
    RESPONSIVIDAD
    ========================================================================== */
-@media (max-width: 768px) {
-  .main-nav { padding: 1rem 2rem; }
-  .nav-logo span { display: none; }
-  .hero-section { padding-top: 8rem; }
-  .footer-container { flex-direction: column; text-align: center; }
-  .footer-info-block { align-items: center; text-align: center; }
-  .info-row-top { flex-direction: column; gap: 0.5rem; }
-  .divider-sm { display: none; }
+@media (max-width: 480px) {
+  .hero-bg img {
+    object-position: top center;
+  }
 }
 
 /* TEMA OSCURO (Por Defecto) - ONDAS AURORA PREMIUM */

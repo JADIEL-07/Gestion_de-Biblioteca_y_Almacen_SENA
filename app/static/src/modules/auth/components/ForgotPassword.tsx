@@ -112,7 +112,7 @@ export const ForgotPassword: React.FC = () => {
             </button>
           </form>
 
-          <button className="back-btn" onClick={() => history.back()} disabled={loading}>
+          <button className="back-btn" onClick={() => window.history.back()} disabled={loading}>
             <FiArrowLeft /> Volver al inicio de sesión
           </button>
         </div>

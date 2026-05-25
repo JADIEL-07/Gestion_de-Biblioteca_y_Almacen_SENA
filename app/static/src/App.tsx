@@ -246,7 +246,7 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
               <span>Biblioteca y Almacén @ 2026</span>
             </div>
             <div className="schedule-row">
-              <span>🕒 <strong>Lunes a Viernes:</strong> 6:00 AM – 10:00 PM (Miércoles desde 6:30 AM)</span>
+              <span>🕒 <strong>Lunes a Viernes:</strong> 6:00 AM – 10:00 PM</span>
               <span className="divider-ghost">|</span>
               <span><strong>Sábado y Domingo:</strong> Cerrado</span>
             </div>

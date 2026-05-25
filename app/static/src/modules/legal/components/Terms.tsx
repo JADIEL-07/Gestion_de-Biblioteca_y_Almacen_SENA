@@ -156,7 +156,7 @@ export const Terms = () => {
           </div>
 
           <footer className="terms-footer">
-            <button className="btn-back-home" onClick={() => history.back()}>
+            <button className="btn-back-home" onClick={() => window.history.back()}>
               <FiArrowLeft /> REGRESAR AL INICIO
             </button>
           </footer>

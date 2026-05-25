@@ -668,7 +668,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
             )}
           </div>
 
-          <button className="back-btn" onClick={() => navigate(-1)} disabled={loading}>
+          <button className="back-btn" onClick={() => navigate('/', { replace: true })} disabled={loading}>
             Volver al inicio
           </button>
           <div style={{ height: '20px' }}></div>
