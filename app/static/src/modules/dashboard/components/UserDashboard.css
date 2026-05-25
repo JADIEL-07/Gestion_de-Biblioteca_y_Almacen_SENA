@@ -1038,15 +1038,15 @@
   .dashboard-sidebar,
   .admin-sidebar {
     position: fixed;
-    top: 0;
+    top: 70px;
     left: -110%;
-    height: 100%;
-    width: 260px !important;
-    max-width: 80vw;
+    height: calc(100% - 70px);
+    width: 280px !important;
+    max-width: 85vw;
     z-index: 1050;
-    padding-top: 1rem;
+    padding-top: 0.5rem;
     transition: left 0.3s ease;
-    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.25);
+    box-shadow: 4px 4px 24px rgba(0, 0, 0, 0.25);
     background: var(--bg-sidebar);
     border-right: 1px solid var(--border-color);
   }
@@ -1059,7 +1059,7 @@
   /* En móvil, ignorar collapse y mostrar siempre labels */
   .dashboard-sidebar.collapsed,
   .admin-sidebar.collapsed {
-    width: 260px !important;
+    width: 280px !important;
   }
 
   .dashboard-sidebar.mobile-open .sidebar-item,
@@ -1073,6 +1073,8 @@
 
   .sidebar-backdrop {
     display: block;
+    top: 70px;
+    height: calc(100% - 70px);
   }
 
   /* Quitar el botón colapsar del sidebar en móvil */
