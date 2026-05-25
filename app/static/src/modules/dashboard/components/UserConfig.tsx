@@ -50,7 +50,7 @@ type TabId =
 // ── Root Component ────────────────────────────────────────────────────
 
 export const UserConfig: React.FC<UserConfigProps> = ({ user }) => {
-  const [activeTab, setActiveTab] = useState<TabId>('personal-info');
+  const [activeTab, setActiveTab] = useState<TabId | null>(null);
 
   const getInitials = (name: string) =>
     name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
@@ -71,25 +71,50 @@ export const UserConfig: React.FC<UserConfigProps> = ({ user }) => {
     { id: 'delete-account',label: 'Eliminar cuenta',              icon: <FiTrash2 />,  group: 'AVANZADO', danger: true },
   ];
 
-  return (
-    <div className="user-config-container">
-      <aside className="config-sidebar">
-        <nav className="config-nav">
+  // Si no hay tab activo, mostrar menú
+  if (!activeTab) {
+    return (
+      <div className="user-config-mobile">
+        <div className="config-mobile-header">
+          <h2>Configuración</h2>
+          <p className="config-mobile-subtitle">Gestiona tu cuenta</p>
+        </div>
+        
+        <div className="config-mobile-menu">
           {navItems.map((item) => (
             <React.Fragment key={item.id}>
-              {item.group && <div className="config-nav-group">{item.group}</div>}
+              {item.group && <div className="menu-section-label">{item.group}</div>}
               <button
-                className={`config-nav-item ${activeTab === item.id ? 'active' : ''} ${item.danger ? 'danger' : ''}`}
+                className={`menu-item ${item.danger ? 'danger' : ''}`}
                 onClick={() => setActiveTab(item.id)}
               >
-                <span className="config-icon">{item.icon}</span> {item.label}
+                <span className="menu-icon">{item.icon}</span>
+                <span className="menu-label">{item.label}</span>
               </button>
             </React.Fragment>
           ))}
-        </nav>
-      </aside>
+        </div>
+      </div>
+    );
+  }
 
-      <main className="config-main-content">
+  // Si hay tab activo, mostrar contenido con header de retroceso
+  return (
+    <div className="user-config-mobile">
+      <div className="config-mobile-header with-back">
+        <button 
+          className="back-btn" 
+          onClick={() => setActiveTab(null)}
+          aria-label="Atrás"
+        >
+          ←
+        </button>
+        <h2>
+          {navItems.find(i => i.id === activeTab)?.label || 'Configuración'}
+        </h2>
+      </div>
+
+      <div className="config-mobile-content">
         {activeTab === 'personal-info'  && <PersonalInfoPanel initialUserName={userName} getInitials={getInitials} />}
         {activeTab === 'email'          && <EmailPanel currentEmail={userEmail} />}
         {activeTab === 'password'       && <PasswordPanel />}
@@ -100,7 +125,7 @@ export const UserConfig: React.FC<UserConfigProps> = ({ user }) => {
         {activeTab === 'privacy'        && <PrivacyPanel />}
         {activeTab === 'history'        && <HistoryPanel />}
         {activeTab === 'delete-account' && <DeleteAccountPanel userName={userName} />}
-      </main>
+      </div>
     </div>
   );
 };
