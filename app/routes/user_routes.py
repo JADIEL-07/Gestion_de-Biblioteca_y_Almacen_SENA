@@ -521,29 +521,20 @@ def export_my_data_pdf():
     </div>
 </div>
 
-<div class="section">
-    <h2>Préstamos ({len(loans)})</h2>
-    {"<p>No hay préstamos registrados.</p>" if not loans else f'''<table>
-        <thead><tr><th>ID</th><th>Estado</th><th>Fecha Préstamo</th><th>Devolución</th></tr></thead>
-        <tbody>{rows_loans}</tbody>
-    </table>'''}
-</div>
+    <div class="section">
+        <h2>Préstamos ({len(loans)})</h2>
+        {"<p>No hay préstamos registrados.</p>" if not loans else f'<table>\n            <thead><tr><th>ID</th><th>Estado</th><th>Fecha Préstamo</th><th>Devolución</th></tr></thead>\n            <tbody>{rows_loans}</tbody>\n        </table>'}
+    </div>
 
-<div class="section">
-    <h2>Reservas ({len(reservations)})</h2>
-    {"<p>No hay reservas registradas.</p>" if not reservations else f'''<table>
-        <thead><tr><th>ID</th><th>Estado</th><th>Fecha Creación</th></tr></thead>
-        <tbody>{rows_reservations}</tbody>
-    </table>'''}
-</div>
+    <div class="section">
+        <h2>Reservas ({len(reservations)})</h2>
+        {"<p>No hay reservas registradas.</p>" if not reservations else f'<table>\n            <thead><tr><th>ID</th><th>Estado</th><th>Fecha Creación</th></tr></thead>\n            <tbody>{rows_reservations}</tbody>\n        </table>'}
+    </div>
 
-<div class="section">
-    <h2>Historial de Accesos ({len(logs)})</h2>
-    {"<p>No hay accesos registrados.</p>" if not logs else f'''<table>
-        <thead><tr><th>Acción</th><th>Fecha</th><th>IP</th></tr></thead>
-        <tbody>{rows_logs}</tbody>
-    </table>'''}
-</div>
+    <div class="section">
+        <h2>Historial de Accesos ({len(logs)})</h2>
+        {"<p>No hay accesos registrados.</p>" if not logs else f'<table>\n            <thead><tr><th>Acción</th><th>Fecha</th><th>IP</th></tr></thead>\n            <tbody>{rows_logs}</tbody>\n        </table>'}
+    </div>
 
 <div class="footer">
     <p>Biblioteca SENA — Sistema de Gestión | Datos exportados por el usuario</p>
