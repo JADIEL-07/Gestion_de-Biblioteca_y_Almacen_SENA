@@ -57,6 +57,23 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
 
 
 
+  const translateStatus = (status: string) => {
+    const s = status.toUpperCase();
+    const translations: { [key: string]: string } = {
+      'AVAILABLE': 'Disponible',
+      'DISPONIBLE': 'Disponible',
+      'LOANED': 'Prestado',
+      'PRESTADO': 'Prestado',
+      'MAINTENANCE': 'En Mantenimiento',
+      'EN MANTENIMIENTO': 'En Mantenimiento',
+      'DAMAGED': 'Dañado',
+      'DAÑADO': 'Dañado',
+      'IN REPAIR': 'En Reparación',
+      'EN REPARACION': 'En Reparación'
+    };
+    return translations[s] || status;
+  };
+
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -215,7 +232,7 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
             <div key={item.id} className="item-card-pro">
               <div className="card-image-area">
                 <span className={`status-badge-pro ${getStatusClass(item.status_name)}`}>
-                  {isLoanedOut(item.status_name) ? 'Ocupado' : item.status_name}
+                  {isLoanedOut(item.status_name) ? 'Ocupado' : translateStatus(item.status_name)}
                 </span>
                 <button className="btn-bookmark">
                   <FiBookmark />
@@ -334,7 +351,7 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
                   <span className="modal-badge">{selectedItem.category_name}</span>
                   <h2>{selectedItem.name}</h2>
                   <span className={`modal-status ${getStatusClass(selectedItem.status_name)}`}>
-                    {selectedItem.status_name}
+                    {translateStatus(selectedItem.status_name)}
                   </span>
                 </div>
 

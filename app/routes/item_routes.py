@@ -120,6 +120,37 @@ def get_item(id):
     item = Item.query.get_or_404(id)
     return jsonify(serialize_item(item))
 
+import os
+import base64
+import uuid
+from flask import current_app
+
+def save_image(image_data, prefix="item"):
+    """Procesa imagen en Base64 y la guarda físicamente en /uploads."""
+    if not image_data or not isinstance(image_data, str) or not image_data.startswith('data:image'):
+        return image_data # Retorna URL o path si no es Base64
+    
+    try:
+        header, encoded = image_data.split(',', 1)
+        ext = header.split(';')[0].split('/')[1]
+        if ext == 'jpeg': ext = 'jpg'
+        
+        filename = f"{prefix}_{uuid.uuid4().hex[:12]}.{ext}"
+        upload_folder = os.path.join(current_app.root_path, 'uploads')
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
+            
+        filepath = os.path.join(upload_folder, filename)
+
+        with open(filepath, "wb") as fh:
+            fh.write(base64.b64decode(encoded))
+
+        # Retornamos la ruta relativa para guardar en DB
+        return f"/uploads/{filename}"
+    except Exception as e:
+        print(f"Error guardando imagen {prefix}:", e)
+        return image_data
+
 @items_bp.route('/', methods=['POST'])
 @jwt_required()
 def add_item():
@@ -127,12 +158,9 @@ def add_item():
     if not data:
         return jsonify({"error": "No se recibieron datos"}), 400
 
-    # Manejo de categoría y ubicación por defecto
+    # ... (resto de validaciones)
     category_id = data.get('category_id')
-    if not category_id:
-        default_cat = Category.query.filter_by(name='GENERAL').first() or Category.query.first()
-        category_id = default_cat.id if default_cat else 1
-
+    # ...
     # Handle category_id with safe conversion
     raw_category_id = data.get('category_id')
     try:
@@ -153,16 +181,9 @@ def add_item():
         default_loc = Location.query.filter_by(name='ALMACEN GENERAL').first() or Location.query.first()
         location_id = default_loc.id if default_loc else 1
 
-    import uuid
     item_code = data.get('code') or data.get('codigo')
     if not item_code:
         item_code = f"ITEM-{uuid.uuid4().hex[:8].upper()}"
-
-    # Convert IDs to integers
-    if category_id:
-        category_id = int(category_id)
-    if location_id:
-        location_id = int(location_id)
 
     # Determine status_id from input or fallback to AVAILABLE/default
     raw_status_id = data.get('status_id')
@@ -173,6 +194,9 @@ def add_item():
     if not status_id:
         default_status = Status.query.filter_by(name='AVAILABLE').first() or Status.query.first()
         status_id = default_status.id if default_status else None
+
+    # Procesar imagen
+    image_url = save_image(data.get('image_url'))
 
     new_item = Item(
         name=data.get('name') or data.get('nombre'),
@@ -185,7 +209,7 @@ def add_item():
         brand=data.get('brand'),
         model=data.get('model'),
         serial_number=data.get('serial_number') or None,
-        image_url=data.get('image_url'),
+        image_url=image_url,
         stock=data.get('stock', 1),
         physical_condition=data.get('physical_condition') or "EXCELENTE",
     )
@@ -247,7 +271,7 @@ def update_item(id):
     if 'serial_number' in data:
         item.serial_number = data['serial_number'] or None
     if 'stock' in data:      item.stock       = int(data['stock'])
-    if 'image_url' in data:  item.image_url   = data['image_url']
+    if 'image_url' in data:  item.image_url   = save_image(data['image_url'])
     if 'physical_condition' in data: item.physical_condition = data['physical_condition'] or None
     if 'category_id' in data and data['category_id']:
         item.category_id = int(data['category_id'])

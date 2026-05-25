@@ -3,7 +3,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import { 
   FiSearch, FiPlus, FiDownload, FiEye, FiEdit2, 
   FiMoreVertical, FiX, FiSave, FiCamera, FiRefreshCcw,
-  FiTrash2, FiPackage, FiMapPin, FiLayers, FiFilter
+  FiTrash2, FiPackage, FiMapPin, FiLayers, FiFilter, FiUpload
 } from 'react-icons/fi';
 import { CustomSelect } from './CustomSelect';
 import './InventoryManagement.css';
@@ -75,8 +75,42 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
   const [newItem, setNewItem] = useState({ ...emptyForm });
   const [editForm, setEditForm] = useState({ ...emptyForm });
 
+  const translateStatus = (status: string) => {
+    const s = status.toUpperCase();
+    const translations: { [key: string]: string } = {
+      'AVAILABLE': 'Disponible',
+      'DISPONIBLE': 'Disponible',
+      'LOANED': 'Prestado',
+      'PRESTADO': 'Prestado',
+      'MAINTENANCE': 'En Mantenimiento',
+      'EN MANTENIMIENTO': 'En Mantenimiento',
+      'DAMAGED': 'Dañado',
+      'DAÑADO': 'Dañado',
+      'IN REPAIR': 'En Reparación',
+      'EN REPARACION': 'En Reparación'
+    };
+    return translations[s] || status;
+  };
+
   const token = () => localStorage.getItem('token');
   const depId = user?.dependency_id;
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'new' | 'edit') => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        alert('La imagen es demasiado grande. Máximo 2MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result as string;
+        if (target === 'new') setNewItem(p => ({ ...p, image_url: base64String }));
+        else setEditForm(p => ({ ...p, image_url: base64String }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const fetchData = async () => {
     setLoading(true); setError(null);
@@ -151,15 +185,13 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
         stock: newItem.stock ? parseInt(String(newItem.stock)) : 1,
         physical_condition: newItem.physical_condition,
         acquisition_date: newItem.acquisition_date,
+        image_url: newItem.image_url,
       };
 
       const res = await fetch('/api/v1/items/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
-        body: JSON.stringify({
-          ...payload,
-          physical_condition: newItem.physical_condition
-        })
+        body: JSON.stringify(payload)
       });
       if (res.ok) { 
         alert('Elemento guardado exitosamente'); 
@@ -521,7 +553,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                 <td className="col-brand"><div className="item-main-info"><strong>{item.brand || 'Genérico'}</strong><small>{item.model || 'N/A'}</small></div></td>
                 <td className="col-loc">{item.location_name}</td>
                 <td className="col-stock"><strong>{item.stock}</strong></td>
-                <td><span className={`status-pill-inv ${getStatusClass(item.status_name)}`}>{item.status_name}</span></td>
+                <td><span className={`status-pill-inv ${getStatusClass(item.status_name)}`}>{translateStatus(item.status_name)}</span></td>
                 <td style={{ textAlign: 'right' }}>
                   <div className="actions-cell" style={{ justifyContent: 'flex-end' }}>
                     <div className="dropdown-wrapper" onClick={e => e.stopPropagation()}>
@@ -565,7 +597,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                     <tr><td>ID</td><td><strong>#{viewItem.id}</strong></td></tr>
                     <tr><td>Código</td><td><strong>{viewItem.code}</strong></td></tr>
                     <tr><td>Categoría</td><td><span className={`cat-badge ${getCatClass(viewItem.category_name)}`}>{viewItem.category_name}</span></td></tr>
-                    <tr><td>Estado</td><td><span className={`status-pill-inv ${getStatusClass(viewItem.status_name)}`}>{viewItem.status_name}</span></td></tr>
+                    <tr><td>Estado</td><td><span className={`status-pill-inv ${getStatusClass(viewItem.status_name)}`}>{translateStatus(viewItem.status_name)}</span></td></tr>
                     <tr><td>Ubicación</td><td>{viewItem.location_name}</td></tr>
                     <tr><td>Stock</td><td><strong>{viewItem.stock}</strong></td></tr>
                     <tr><td>Marca</td><td>{viewItem.brand || '—'}</td></tr>
@@ -648,6 +680,8 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                         <img src={editForm.image_url || 'https://via.placeholder.com/150'} alt="Vista previa" />
                         <div className="photo-actions">
                           <button type="button" onClick={startCamera} className="btn-action-cam"><FiCamera /> Usar Cámara</button>
+                          <input type="file" accept="image/*" style={{ display: 'none' }} id="file-upload-edit" onChange={e => handleFileUpload(e, 'edit')} />
+                          <button type="button" onClick={() => document.getElementById('file-upload-edit')?.click()} className="btn-action-cam"><FiUpload /> Subir Archivo</button>
                           <input type="text" placeholder="O pega URL de imagen..." value={editForm.image_url.startsWith('data:') ? 'Imagen capturada' : editForm.image_url} onChange={e => setEditForm({ ...editForm, image_url: e.target.value })} />
                         </div>
                       </div>
@@ -693,6 +727,8 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                         <img src={newItem.image_url || 'https://via.placeholder.com/150'} alt="Vista previa" />
                         <div className="photo-actions">
                           <button type="button" onClick={startCamera} className="btn-action-cam"><FiCamera /> Usar Cámara</button>
+                          <input type="file" accept="image/*" style={{ display: 'none' }} id="file-upload-new" onChange={e => handleFileUpload(e, 'new')} />
+                          <button type="button" onClick={() => document.getElementById('file-upload-new')?.click()} className="btn-action-cam"><FiUpload /> Subir Archivo</button>
                           <input type="text" placeholder="O pega URL de imagen..." value={newItem.image_url.startsWith('data:') ? 'Imagen capturada' : newItem.image_url} onChange={e => setNewItem({ ...newItem, image_url: e.target.value })} />
                         </div>
                       </div>

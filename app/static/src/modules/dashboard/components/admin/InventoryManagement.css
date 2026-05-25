@@ -157,10 +157,20 @@
     font-weight: 800;
 }
 
+/* Columnas Específicas */
+.col-id { width: 60px; text-align: center !important; }
+.col-code { width: 140px; }
+.col-cat { width: 130px; }
+.col-brand { width: 150px; }
+.col-loc { width: 130px; }
+.col-stock { width: 80px; text-align: center !important; }
+
 .inventory-table td {
     padding: 1.2rem 1rem;
-    border-bottom: 1px solid var(--admin-border-color);
-    font-size: 0.95rem;
+    border-bottom: 1px solid var(--admin-border);
+    vertical-align: middle;
+    transition: all 0.2s ease;
+}
     color: var(--admin-text-primary);
     vertical-align: middle;
 }
