@@ -32,6 +32,8 @@ def _apply_runtime_migrations():
     column_migrations = [
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified BOOLEAN DEFAULT TRUE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(32)",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_2fa_enabled BOOLEAN DEFAULT FALSE",
     ]
     for stmt in column_migrations:
         try:
@@ -40,6 +42,20 @@ def _apply_runtime_migrations():
         except Exception as e:
             db.session.rollback()
             print(f"[runtime-migration] aviso ({stmt[:60]}...): {e}")
+
+    # Migración de la columna biography (compatible con SQLite y Postgres)
+    try:
+        bind = db.engine
+        is_sqlite = bind.dialect.name == 'sqlite'
+        stmt_bio = "ALTER TABLE users ADD COLUMN biography TEXT" if is_sqlite else "ALTER TABLE users ADD COLUMN IF NOT EXISTS biography TEXT"
+        db.session.execute(text(stmt_bio))
+        db.session.commit()
+        print("[runtime-migration] Columna biography agregada exitosamente.")
+    except Exception as e:
+        db.session.rollback()
+        # Si ya existe, se ignora de forma segura
+        if "duplicate column" not in str(e).lower() and "already exists" not in str(e).lower():
+            print(f"[runtime-migration] aviso (biography): {e}")
 
 def create_app():
     config = get_config()

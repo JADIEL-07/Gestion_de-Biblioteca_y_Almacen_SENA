@@ -54,7 +54,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
   const isGuest = user.id === 0;
   const currentRole = user.role?.name || user.rol?.nombre;
-  const isPendingUser = !isGuest && currentRole !== 'APRENDIZ' && currentRole !== 'ADMIN';
+  const isPendingUser = !isGuest && !currentRole;
 
   useEffect(() => {
     if (!isGuest && currentRole) {

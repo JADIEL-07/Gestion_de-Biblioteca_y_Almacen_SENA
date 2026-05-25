@@ -259,13 +259,16 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
 
 // ── Root App ──────────────────────────────────────────────────────────────────
 function AppRoutes() {
+  const navigate = useNavigate();
   const storedUser = localStorage.getItem('user');
   const [loggedUser, setLoggedUser] = useState<any>(storedUser ? JSON.parse(storedUser) : null);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('force_password_change');
     setLoggedUser(null);
+    navigate('/', { replace: true });
   };
 
   const handleLoginSuccess = (user: any) => {

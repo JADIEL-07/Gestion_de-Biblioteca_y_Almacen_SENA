@@ -13,8 +13,11 @@ from ..models.user import User, Role
 from ..models.audit_log import AuditLog
 from ..models.token import PasswordResetToken
 from ..models.verification_code import VerificationCode
+from ..models.pending_registration import PendingRegistration
 from .token_service import TokenService
 from .email_service import EmailService
+from flask_jwt_extended import create_access_token
+import pyotp
 
 
 # ── Validadores reutilizables ─────────────────────────────────────────
@@ -101,7 +104,7 @@ class AuthService:
         err = _validate_password_strength(password)
         if err: return {"error": err}, 400
 
-        # 2) Duplicados
+        # 2) Duplicados en User
         existing = User.query.filter(
             or_(User.email == email.strip().lower(), User.id == str(document_number))
         ).first()
@@ -110,7 +113,12 @@ class AuthService:
                 return {"error": "Esta cuenta fue eliminada. Contacta al administrador."}, 400
             return {"error": "El correo o número de documento ya está registrado"}, 400
 
-        # 3) Crear usuario
+        # Verificar si ya existe un registro pendiente para no acumular
+        pending = PendingRegistration.query.filter_by(email=email.strip().lower()).first()
+        if pending and pending.expires_at > datetime.utcnow():
+             return {"error": "Ya hay un registro pendiente para este correo. Por favor, revisa tu bandeja de entrada o espera 15 minutos."}, 400
+
+        # 3) Guardar en tabla temporal
         hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
         if not role_id:
@@ -121,28 +129,41 @@ class AuthService:
 
         final_ficha = formation_ficha.strip() if formation_ficha and formation_ficha.strip() else None
 
-        new_user = User(
-            id=str(document_number),
-            document_type=document_type or 'CC',
-            name=name.strip(),
+        payload = {
+            "id": str(document_number),
+            "document_type": document_type or 'CC',
+            "name": name.strip(),
+            "phone": phone.strip() if phone else None,
+            "password": hashed_pw,
+            "role_id": role_id,
+            "formation_ficha": final_ficha,
+        }
+
+        # Generar código
+        code = _generate_6digit_code()
+        
+        # Eliminar pendientes previos expirados o no
+        if pending:
+            db.session.delete(pending)
+
+        new_pending = PendingRegistration(
             email=email.strip().lower(),
-            phone=phone.strip() if phone else None,
-            password=hashed_pw,
-            role_id=role_id,
-            formation_ficha=final_ficha,
-            is_verified=False,
+            document_number=str(document_number),
+            payload=json.dumps(payload),
+            code_hash=_hash_code(code),
+            expires_at=datetime.utcnow() + timedelta(minutes=15)
         )
-        db.session.add(new_user)
+        db.session.add(new_pending)
         db.session.commit()
 
-        # 4) Generar y enviar código de verificación
-        AuthService._issue_verification_code(new_user, purpose='ACCOUNT_VERIFY', minutes=15)
+        # 4) Enviar correo
+        EmailService.send_verification_code(new_pending.email, code, name.strip())
 
         return {
             "success": True,
-            "message": "Cuenta creada. Revisa tu correo y verifica con el código de 6 dígitos.",
+            "message": "Registro recibido. Revisa tu correo y verifica con el código de 6 dígitos para crear tu cuenta.",
             "requires_verification": True,
-            "email": new_user.email,
+            "email": new_pending.email,
         }, 201
 
     @staticmethod
@@ -151,28 +172,73 @@ class AuthService:
         if not email or not code:
             return {"error": "Correo y código son requeridos"}, 400
 
-        user = User.query.filter_by(email=email.strip().lower(), is_deleted=False).first()
-        if not user:
-            return {"error": "Cuenta no encontrada"}, 404
-        if user.is_verified:
+        email = email.strip().lower()
+        code = code.strip()
+
+        # Check if already verified
+        user = User.query.filter_by(email=email, is_deleted=False).first()
+        if user:
             return {"success": True, "message": "Tu cuenta ya está verificada. Inicia sesión."}, 200
 
-        vc = AuthService._consume_code(user.id, code, purpose='ACCOUNT_VERIFY')
-        if isinstance(vc, dict):   # error
-            return vc, 400
+        pending = PendingRegistration.query.filter_by(email=email).first()
+        if not pending:
+            return {"error": "No hay un registro pendiente para este correo."}, 404
 
-        user.is_verified = True
+        if pending.expires_at < datetime.utcnow():
+            db.session.delete(pending)
+            db.session.commit()
+            return {"error": "El código expiró. Vuelve a registrarte."}, 400
+
+        if pending.attempts >= 5:
+            db.session.delete(pending)
+            db.session.commit()
+            return {"error": "Demasiados intentos fallidos. Vuelve a registrarte."}, 400
+
+        pending.attempts += 1
+
+        if pending.code_hash != _hash_code(code):
+            db.session.commit()
+            return {"error": "Código incorrecto."}, 400
+
+        # Crear el usuario oficial
+        payload = json.loads(pending.payload)
+        
+        # Generar TOTP Secret
+        totp_secret = pyotp.random_base32()
+        
+        new_user = User(
+            id=payload["id"],
+            document_type=payload.get("document_type", "CC"),
+            name=payload["name"],
+            email=email,
+            phone=payload.get("phone"),
+            password=payload["password"],
+            role_id=payload["role_id"],
+            formation_ficha=payload.get("formation_ficha"),
+            is_verified=True,
+            totp_secret=totp_secret,
+            is_2fa_enabled=True
+        )
+        db.session.add(new_user)
+        db.session.delete(pending)
         db.session.commit()
-        AuthService._log_audit(user.id, "ACCOUNT_VERIFIED", ip=request.remote_addr)
+
+        AuthService._log_audit(new_user.id, "ACCOUNT_VERIFIED_AND_CREATED", ip=request.remote_addr)
+
+        # Generar URI de Authenticator
+        totp = pyotp.TOTP(totp_secret)
+        otpauth_url = totp.provisioning_uri(name=email, issuer_name="Biblioteca SENA")
 
         # Auto-login tras verificar
-        access, refresh = TokenService.generate_auth_tokens(user)
+        access, refresh = TokenService.generate_auth_tokens(new_user)
         return {
             "success": True,
-            "message": "Cuenta verificada correctamente.",
+            "message": "Cuenta creada y verificada exitosamente.",
             "access_token": access,
             "refresh_token": refresh,
-            "user": AuthService._user_payload(user),
+            "user": AuthService._user_payload(new_user),
+            "totp_secret": totp_secret,
+            "otpauth_url": otpauth_url
         }, 200
 
     @staticmethod
@@ -180,12 +246,29 @@ class AuthService:
         """Reenvía el código de verificación si la cuenta sigue sin verificar."""
         if not email:
             return {"error": "Correo requerido"}, 400
-        user = User.query.filter_by(email=email.strip().lower(), is_deleted=False).first()
-        if not user:
-            return {"success": True, "message": "Si la cuenta existe, se reenvió el código."}, 200
-        if user.is_verified:
+            
+        email = email.strip().lower()
+        user = User.query.filter_by(email=email, is_deleted=False).first()
+        if user and user.is_verified:
             return {"success": True, "message": "Tu cuenta ya está verificada."}, 200
-        AuthService._issue_verification_code(user, purpose='ACCOUNT_VERIFY', minutes=15)
+
+        pending = PendingRegistration.query.filter_by(email=email).first()
+        if not pending:
+             return {"success": True, "message": "Si hay un registro pendiente, se reenvió el código."}, 200
+             
+        code = _generate_6digit_code()
+        pending.code_hash = _hash_code(code)
+        pending.expires_at = datetime.utcnow() + timedelta(minutes=15)
+        pending.attempts = 0
+        db.session.commit()
+        
+        try:
+             payload = json.loads(pending.payload)
+             name = payload.get("name", "")
+        except:
+             name = ""
+             
+        EmailService.send_verification_code(email, code, name)
         return {"success": True, "message": "Código reenviado."}, 200
 
     # ── Login ─────────────────────────────────────────────────────────
@@ -221,15 +304,62 @@ class AuthService:
             AuthService._log_audit(user.id, "LOGIN_FAILED", ip=request.remote_addr)
             return {"error": "Credenciales inválidas"}, 401
 
-        # Cuenta no verificada
         if not user.is_verified:
-            # Reemitir código y avisar
-            AuthService._issue_verification_code(user, purpose='ACCOUNT_VERIFY', minutes=15)
+            # Solo reemitir código si el usuario tiene este mecanismo (creado vía registro normal)
+            if hasattr(user, 'id'):
+                try:
+                    AuthService._issue_verification_code(user, purpose='ACCOUNT_VERIFY', minutes=15)
+                except Exception:
+                    pass
             return {
                 "error": "Debes verificar tu correo antes de iniciar sesión.",
                 "requires_verification": True,
                 "email": user.email,
             }, 403
+
+        # 2FA check
+        if user.is_2fa_enabled and user.totp_secret:
+            # En lugar de loguearlo inmediatamente, devolvemos un token temporal
+            temp_token = create_access_token(
+                identity=str(user.id), 
+                additional_claims={"type": "2fa_temp"},
+                expires_delta=timedelta(minutes=10)
+            )
+            return {
+                "requires_2fa": True,
+                "temp_token": temp_token,
+                "message": "Verificación en dos pasos requerida."
+            }, 200
+
+        # Éxito sin 2FA
+        user.failed_attempts = 0
+        user.last_failed_login = None
+        user.last_login = datetime.utcnow()
+        db.session.commit()
+
+        access, refresh = TokenService.generate_auth_tokens(user)
+        AuthService._log_audit(user.id, "LOGIN_SUCCESS", ip=request.remote_addr)
+
+        return {
+            "access_token": access,
+            "refresh_token": refresh,
+            "must_change_password": bool(user.must_change_password),
+            "user": AuthService._user_payload(user),
+        }, 200
+
+    @staticmethod
+    def verify_2fa(user_id, code):
+        """Valida el código TOTP tras un inicio de sesión parcial."""
+        user = User.query.filter_by(id=user_id, is_deleted=False).first()
+        if not user or not user.is_active or user.is_blocked:
+            return {"error": "Acceso denegado"}, 403
+
+        if not user.totp_secret:
+            return {"error": "2FA no está configurado para este usuario"}, 400
+
+        totp = pyotp.TOTP(user.totp_secret)
+        if not totp.verify(code):
+             return {"error": "Código 2FA incorrecto"}, 401
 
         # Éxito
         user.failed_attempts = 0
@@ -238,7 +368,7 @@ class AuthService:
         db.session.commit()
 
         access, refresh = TokenService.generate_auth_tokens(user)
-        AuthService._log_audit(user.id, "LOGIN_SUCCESS", ip=request.remote_addr)
+        AuthService._log_audit(user.id, "LOGIN_SUCCESS_2FA", ip=request.remote_addr)
 
         return {
             "access_token": access,
@@ -466,7 +596,6 @@ class AuthService:
             "name": user.name,
             "email": user.email,
             "role": {"name": user.role.name} if user.role else {"name": "APRENDIZ"},
-            "profile_image": user.profile_image,
             "dependency_id": user.dependency_id,
             "dependency_name": user.dependency_obj.name if user.dependency_obj else None,
             "must_change_password": bool(user.must_change_password),

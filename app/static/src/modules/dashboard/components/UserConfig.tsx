@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   FiUser, FiMail, FiLock, FiShield, FiMonitor,
   FiBell, FiClock, FiTrash2, FiUpload, FiDownload,
@@ -51,6 +51,7 @@ type TabId =
 
 export const UserConfig: React.FC<UserConfigProps> = ({ user }) => {
   const [activeTab, setActiveTab] = useState<TabId>('personal-info');
+  const contentRef = useRef<HTMLElement>(null);
 
   const getInitials = (name: string) =>
     name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase();
@@ -71,6 +72,13 @@ export const UserConfig: React.FC<UserConfigProps> = ({ user }) => {
     { id: 'delete-account',label: 'Eliminar cuenta',              icon: <FiTrash2 />,  group: 'AVANZADO', danger: true },
   ];
 
+  const handleTabClick = (tabId: TabId) => {
+    setActiveTab(tabId);
+    setTimeout(() => {
+      contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
+
   return (
     <div className="user-config-container">
       <aside className="config-sidebar">
@@ -80,7 +88,7 @@ export const UserConfig: React.FC<UserConfigProps> = ({ user }) => {
               {item.group && <div className="config-nav-group">{item.group}</div>}
               <button
                 className={`config-nav-item ${activeTab === item.id ? 'active' : ''} ${item.danger ? 'danger' : ''}`}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => handleTabClick(item.id)}
               >
                 <span className="config-icon">{item.icon}</span> {item.label}
               </button>
@@ -89,7 +97,7 @@ export const UserConfig: React.FC<UserConfigProps> = ({ user }) => {
         </nav>
       </aside>
 
-      <main className="config-main-content">
+      <main className="config-main-content" ref={contentRef}>
         {activeTab === 'personal-info'  && <PersonalInfoPanel initialUserName={userName} getInitials={getInitials} />}
         {activeTab === 'email'          && <EmailPanel currentEmail={userEmail} />}
         {activeTab === 'password'       && <PasswordPanel />}
@@ -138,6 +146,7 @@ const PersonalInfoPanel: React.FC<{ initialUserName: string; getInitials: (n: st
     document_type: 'CC',
     formation_ficha: '',
     id: '',
+    biography: '',
   });
 
   useEffect(() => {
@@ -149,13 +158,14 @@ const PersonalInfoPanel: React.FC<{ initialUserName: string; getInitials: (n: st
           document_type:    data.document_type   || 'CC',
           formation_ficha:  data.formation_ficha || '',
           id:               data.id              || '',
+          biography:        data.biography       || '',
         });
       }
       setLoading(false);
     });
   }, [initialUserName]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm({ ...form, [e.target.name]: e.target.value });
 
   const save = async () => {
@@ -167,6 +177,7 @@ const PersonalInfoPanel: React.FC<{ initialUserName: string; getInitials: (n: st
         phone:           form.phone,
         document_type:   form.document_type,
         formation_ficha: form.formation_ficha,
+        biography:       form.biography,
       }),
     });
     setSaving(false);
@@ -206,25 +217,23 @@ const PersonalInfoPanel: React.FC<{ initialUserName: string; getInitials: (n: st
             <label>Ficha de formación</label>
             <input type="text" name="formation_ficha" value={form.formation_ficha} onChange={handleChange} placeholder="Ej: 2672153" />
           </div>
+          <div className="form-group full-width">
+            <label>Biografía</label>
+            <textarea
+              name="biography"
+              value={form.biography}
+              onChange={handleChange}
+              placeholder="Cuéntanos un poco sobre ti..."
+              rows={4}
+              maxLength={500}
+            />
+            <span className="card-hint">Máx. 500 caracteres.</span>
+          </div>
         </div>
         <div className="form-actions">
           <button className="btn-save" onClick={save} disabled={saving}>
             {saving ? 'Guardando...' : 'Guardar cambios'}
           </button>
-        </div>
-      </div>
-
-      <div className="config-card">
-        <h3>Foto de perfil</h3>
-        <div className="profile-photo-area">
-          <div className="photo-avatar-large">{getInitials(form.name || '??')}</div>
-          <div className="photo-actions">
-            <span className="photo-hint">JPG o PNG. Máx. 2MB</span>
-            <div className="photo-buttons">
-              <button className="btn-upload"><FiUpload /> Cambiar foto</button>
-              <button className="btn-delete"><FiTrash2 /> Eliminar foto</button>
-            </div>
-          </div>
         </div>
       </div>
     </div>
