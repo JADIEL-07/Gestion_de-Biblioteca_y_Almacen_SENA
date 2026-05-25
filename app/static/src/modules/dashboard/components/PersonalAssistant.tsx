@@ -826,10 +826,12 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
             className="chat-input-bar"
             onSubmit={(e) => { e.preventDefault(); handleSendMessage(inputText); }}
           >
+            {/* Inputs ocultos para adjuntar archivos — solo activos con soporte humano */}
             <input type="file" accept="image/*" style={{ display: 'none' }} ref={fileInputRef} onChange={handleFileUpload} />
             <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} ref={cameraInputRef} onChange={handleFileUpload} />
 
-            {!(activeTicket && (!activeTicket.source_thread_id || activeTicket.source_thread_id === activeThreadId)) && (
+            {/* Botones de multimedia: solo disponibles cuando hay soporte humano activo */}
+            {activeTicket && (!activeTicket.source_thread_id || activeTicket.source_thread_id === activeThreadId) && (
               <>
                 <button type="button" className="attachment-btn" title="Subir imagen" onClick={() => fileInputRef.current?.click()} disabled={isTyping}>
                   <FiImage size={18} />
