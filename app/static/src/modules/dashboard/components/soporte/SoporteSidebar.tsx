@@ -51,14 +51,14 @@ export const SoporteSidebar: React.FC<SoporteSidebarProps> = ({
   ];
 
   return (
-    <aside className={`admin-sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''}`} style={{ maxHeight: '100vh' }}>
+    <aside className={`admin-sidebar ${isCollapsed ? 'collapsed' : ''} ${isMobileOpen ? 'mobile-open' : ''}`}>
       <div className="admin-sidebar-header">
         <div style={{ display: 'flex', justifyContent: isCollapsed ? 'center' : 'flex-start', padding: isCollapsed ? '0.5rem 0' : '0.5rem 1rem 0.5rem 1rem' }}>
           <button 
             className="admin-sidebar-toggle-box" 
             onClick={onToggle}
           >
-            <FiMenu />
+            <FiMenu style={{ transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.3s ease' }} />
           </button>
         </div>
       </div>
@@ -73,7 +73,7 @@ export const SoporteSidebar: React.FC<SoporteSidebarProps> = ({
           >
             <div className="admin-sidebar-item-content">
               <span className="admin-sidebar-icon">{item.icon}</span>
-              {!isCollapsed && <span className="admin-sidebar-label">{item.label}</span>}
+              <span className="admin-sidebar-label">{item.label}</span>
               {!isCollapsed && item.badge && (
                 <span style={{ 
                   background: item.badgeColor === 'red' ? '#ef4444' : item.badgeColor === 'green' ? 'var(--sena-green, #39A900)' : item.badgeColor === 'purple' ? '#a855f7' : '#3b82f6', 
@@ -93,7 +93,7 @@ export const SoporteSidebar: React.FC<SoporteSidebarProps> = ({
 
       </div>
 
-      <div style={{ flex: 1 }}></div>
+      <div className="admin-sidebar-spacer"></div>
 
       <div className="admin-sidebar-bottom">
         {bottomItems.map(item => (
@@ -105,7 +105,7 @@ export const SoporteSidebar: React.FC<SoporteSidebarProps> = ({
           >
             <div className="admin-sidebar-item-content">
               <span className="admin-sidebar-icon">{item.icon}</span>
-              {!isCollapsed && <span className="admin-sidebar-label">{item.label}</span>}
+              <span className="admin-sidebar-label">{item.label}</span>
             </div>
           </button>
         ))}
@@ -178,7 +178,7 @@ export const SoporteSidebar: React.FC<SoporteSidebarProps> = ({
         >
           <div className="admin-sidebar-item-content">
             <span className="admin-sidebar-icon"><FiLogOut /></span>
-            {!isCollapsed && <span className="admin-sidebar-label">Cerrar Sesión</span>}
+            <span className="admin-sidebar-label">Cerrar Sesión</span>
           </div>
         </button>
       </div>

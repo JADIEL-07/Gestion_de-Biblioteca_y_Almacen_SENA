@@ -20,6 +20,7 @@ import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from '../PersonalAssistant';
 import { SoporteSolicitudes } from '../soporte/SoporteSolicitudes';
 import { NotificationsPage } from '../NotificationsPage';
+import { DashboardBg } from '../DashboardBg';
 
 interface UserData {
   id: number;
@@ -93,6 +94,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
   return (
     <div className={`dashboard-layout theme-${theme} admin-specific`}>
+      <DashboardBg />
       {/* TOP NAVIGATION */}
       <nav className="dashboard-topnav">
         <button
@@ -156,7 +158,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
           isMobileOpen={isMobileSidebarOpen}
         />
 
-        <main className="dashboard-main-content">
+        <main className="dashboard-main-content" onClick={() => setIsSidebarCollapsed(true)}>
 
 
           <div className="content-container">

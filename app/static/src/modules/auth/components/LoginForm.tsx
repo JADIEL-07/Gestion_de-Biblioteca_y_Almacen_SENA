@@ -4,6 +4,7 @@ import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiAlertCircle, FiPhone, FiCred
 import './LoginForm.css';
 import { FloatingParticles } from '../../../components/ui/FloatingParticles';
 import { QRCodeCanvas } from 'qrcode.react';
+import { DashboardBg } from '../../dashboard/components/DashboardBg';
 
 interface LoginFormProps {
   mode: 'login' | 'register';
@@ -489,6 +490,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
       </div>
 
       <FloatingParticles />
+      <DashboardBg />
       <div className="login-form-centered">
         <div className={`clean-form ${isRegister ? 'register-mode' : ''}`}>
           <div className="sena-logo">

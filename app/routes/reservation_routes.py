@@ -4,7 +4,8 @@ from ..extensions import db
 from ..models.reservation import Reservation
 from ..models.user import User
 from ..models.item import Item
-from ..services.reservation_queue import enqueue_reservation
+from ..models.loan import Loan, LoanDetail
+from ..services.reservation_queue import enqueue_reservation, push_notification
 from datetime import datetime, timedelta
 from sqlalchemy import func, text, or_, String
 
@@ -133,6 +134,61 @@ def get_reservations():
             "admin_name": admin.name if admin else "N/A"
         })
     return jsonify(result), 200
+
+@reservation_bp.route('/<int:rid>/approve', methods=['POST'])
+@jwt_required()
+def approve_reservation(rid):
+    data = request.get_json() or {}
+    days = data.get('days', 7)
+
+    res = Reservation.query.get_or_404(rid)
+
+    if res.status not in ('QUEUED', 'READY'):
+        return jsonify({"error": f"La reserva no se puede aprobar (estado: {res.status})"}), 400
+
+    user_id = res.user_id
+    item_id = res.item_id
+    item = Item.query.get(item_id)
+
+    if not item:
+        return jsonify({"error": "El ítem ya no existe"}), 404
+
+    from ..models.item import Status
+
+    loan = Loan(
+        user_id=user_id,
+        admin_id=get_jwt_identity(),
+        due_date=datetime.now() + timedelta(days=days),
+        status='ACTIVE'
+    )
+    db.session.add(loan)
+    db.session.flush()
+
+    detail = LoanDetail(loan_id=loan.id, item_id=item_id, delivery_status='GOOD')
+    loaned_status = Status.query.filter_by(name='LOANED').first()
+    if not loaned_status:
+        loaned_status = Status(name='LOANED')
+        db.session.add(loaned_status)
+        db.session.flush()
+    item.status_id = loaned_status.id
+    db.session.add(detail)
+
+    res.status = 'CLAIMED'
+    res.converted_at = datetime.utcnow()
+    res.converted_loan_id = loan.id
+
+    admin_user = User.query.get(str(get_jwt_identity()))
+    admin_name = admin_user.name if admin_user else "El encargado"
+
+    push_notification(
+        user_id, 'LOAN_CREATED',
+        'Préstamo aprobado',
+        f'{admin_name} te aceptó el préstamo del {item.name}.',
+        related_type='loan', related_id=loan.id,
+    )
+    db.session.commit()
+    return jsonify({"success": True, "message": "Préstamo creado exitosamente", "loan_id": loan.id}), 201
+
 
 @reservation_bp.route('/stats', methods=['GET'])
 @jwt_required()

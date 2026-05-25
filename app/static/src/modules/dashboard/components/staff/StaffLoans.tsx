@@ -65,6 +65,12 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const scannerRef = useRef<any>(null);
 
+  const [showLoanConfig, setShowLoanConfig] = useState(false);
+  const [configMode, setConfigMode] = useState<'token' | 'id'>('token');
+  const [configValue, setConfigValue] = useState('');
+  const [configReservation, setConfigReservation] = useState<Reservation | null>(null);
+  const [loanDays, setLoanDays] = useState(7);
+
   useEffect(() => {
     if (activeTab === 'scan' && scannerStarted) {
       import('html5-qrcode').then(({ Html5Qrcode }) => {
@@ -142,20 +148,15 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
   }, [activeTab]);
 
   const handleApprove = async (id: number) => {
-    // We try to approve by ID directly if it's found in the list
-    if (!window.confirm('¿Confirmar entrega de este elemento al aprendiz?')) return;
-    try {
-      const res = await fetch(`/api/v1/reservations/${id}/approve`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token()}` }
-      });
-      if (res.ok) { alert('Préstamo creado y elemento entregado con éxito.'); fetchReservations(); }
-      else { const e = await res.json(); alert(`Error: ${e.error || 'No se pudo aprobar'}`); }
-    } catch { alert('Error de red'); }
+    const res = pending.find(r => r.id === id);
+    setConfigMode('id');
+    setConfigValue(String(id));
+    setConfigReservation(res || null);
+    setLoanDays(7);
+    setShowLoanConfig(true);
   };
 
-  const processLoanFromToken = async (qrToken: string) => {
-    if (!window.confirm('¿Confirmar entrega de este elemento al aprendiz por QR?')) return;
+  const processLoanFromToken = async (qrToken: string, days: number) => {
     try {
       const res = await fetch(`/api/v1/loans/from_reservation`, {
         method: 'POST',
@@ -163,7 +164,7 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
           Authorization: `Bearer ${token()}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ token: qrToken })
+        body: JSON.stringify({ token: qrToken, days })
       });
       if (res.ok) { 
         alert('Préstamo creado y elemento entregado con éxito.'); 
@@ -180,23 +181,27 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
     const val = scanInput.trim();
     if (!val) return;
     
-    // First, try to match by token
     const matchByToken = pending.find(r => (r as any).token === val);
     if (matchByToken) {
-      processLoanFromToken(val);
+      setConfigMode('token');
+      setConfigValue(val);
+      setConfigReservation(matchByToken);
+      setLoanDays(7);
+      setShowLoanConfig(true);
       setScanInput('');
       return;
     }
     
-    // If not found in pending locally by token, maybe it's just a token from another reservation
-    // Let's call the token endpoint if it looks like a token (length > 10)
     if (val.length > 20) {
-      processLoanFromToken(val);
+      setConfigMode('token');
+      setConfigValue(val);
+      setConfigReservation(null);
+      setLoanDays(7);
+      setShowLoanConfig(true);
       setScanInput('');
       return;
     }
 
-    // fallback: ID or user ID
     const match = pending.find(r =>
       r.id.toString() === val || r.user_id === val
     );
@@ -220,6 +225,26 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
     { label: 'Total reservas',      value: reservations.length,     sub: 'Todas las reservas', icon: <FiTrendingUp />,  color: '#a855f7' },
     { label: 'Préstamos activos',   value: loans.filter(l => l.status === 'ACTIVE').length, sub: 'En circulación', icon: <FiClock />, color: '#f59e0b' },
   ];
+
+  const handleConfirmLoan = async () => {
+    setShowLoanConfig(false);
+    if (configMode === 'token') {
+      await processLoanFromToken(configValue, loanDays);
+    } else {
+      try {
+        const res = await fetch(`/api/v1/reservations/${configValue}/approve`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ days: loanDays })
+        });
+        if (res.ok) { alert('Préstamo creado y elemento entregado con éxito.'); fetchReservations(); }
+        else { const e = await res.json(); alert(`Error: ${e.error || 'No se pudo aprobar'}`); }
+      } catch { alert('Error de red'); }
+    }
+  };
 
   return (
     <div className="staff-loans-container">
@@ -501,6 +526,92 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
               <div className="scan-line"></div>
               <button className="flip-camera-btn" onClick={toggleCamera} title="Cambiar cámara">
                 <FiRefreshCw />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Configurar tiempo de préstamo */}
+      {showLoanConfig && (
+        <div className="loan-config-overlay" onClick={() => setShowLoanConfig(false)}>
+          <div className="loan-config-card" onClick={e => e.stopPropagation()}>
+            <button className="close-camera-btn" onClick={() => setShowLoanConfig(false)}>✕</button>
+            <div className="config-header">
+              <div className="config-header-icon"><FiClock size={24} /></div>
+              <h3>Configurar tiempo de préstamo</h3>
+              <p>Define los días del préstamo antes de confirmar la entrega.</p>
+            </div>
+
+            {configReservation ? (
+              <div className="config-details">
+                <div className="config-detail-row">
+                  <span className="config-detail-label">Aprendiz</span>
+                  <span className="config-detail-value">{configReservation.user_name}</span>
+                </div>
+                <div className="config-detail-row">
+                  <span className="config-detail-label">Elemento</span>
+                  <span className="config-detail-value">{configReservation.item_name}</span>
+                </div>
+                <div className="config-detail-row">
+                  <span className="config-detail-label">Reserva</span>
+                  <span className="config-detail-value">RES-{String(configReservation.id).padStart(6, '0')}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="config-details">
+                <div className="config-detail-row">
+                  <span className="config-detail-label">Token</span>
+                  <span className="config-detail-value config-token">{configValue.slice(0, 24)}...</span>
+                </div>
+              </div>
+            )}
+
+            <div className="config-time-section">
+              <label className="config-time-label">
+                <FiCalendar size={16} />
+                Duración del préstamo
+              </label>
+              <div className="config-time-input-group">
+                <button
+                  className="config-time-btn"
+                  onClick={() => setLoanDays(Math.max(1, loanDays - 1))}
+                  disabled={loanDays <= 1}
+                >−</button>
+                <div className="config-time-display">
+                  <span className="config-time-value">{loanDays}</span>
+                  <span className="config-time-unit">{loanDays === 1 ? 'día' : 'días'}</span>
+                </div>
+                <button
+                  className="config-time-btn"
+                  onClick={() => setLoanDays(Math.min(30, loanDays + 1))}
+                  disabled={loanDays >= 30}
+                >+</button>
+              </div>
+              <div className="config-time-range">
+                <input
+                  type="range"
+                  min={1}
+                  max={30}
+                  value={loanDays}
+                  onChange={e => setLoanDays(parseInt(e.target.value))}
+                />
+                <div className="config-time-range-labels">
+                  <span>1 día</span>
+                  <span>30 días</span>
+                </div>
+              </div>
+              <div className="config-due-preview">
+                Vence el <strong>{new Date(Date.now() + loanDays * 86400000).toLocaleDateString('es-CO')}</strong>
+              </div>
+            </div>
+
+            <div className="config-actions">
+              <button className="config-btn-cancel" onClick={() => setShowLoanConfig(false)}>
+                Cancelar
+              </button>
+              <button className="config-btn-confirm" onClick={handleConfirmLoan}>
+                <FiCheckCircle size={18} /> Confirmar préstamo
               </button>
             </div>
           </div>

@@ -1,0 +1,154 @@
+/* ════════════════════════════════════════════
+   DASHBOARD BACKGROUND — PHYSICS + PARTICLES
+   ════════════════════════════════════════════ */
+
+.dashboard-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0 !important;
+  pointer-events: none;
+  overflow: hidden;
+  transition: color 0.3s;
+}
+
+.theme-dark .dashboard-bg {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.theme-light .dashboard-bg {
+  color: rgba(57, 169, 0, 0.6);
+}
+
+/* ── Connecting lines ────────────────────── */
+.dbg-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  filter: drop-shadow(0 0 3px currentColor);
+}
+
+/* ── Individual drawings (wrappers, positioned via transform) ── */
+.dbg-shelf,
+.dbg-bulb,
+.dbg-magnifier,
+.dbg-pencil,
+.dbg-document,
+.dbg-clock,
+.dbg-sparkle,
+.dbg-gear {
+  pointer-events: auto;
+}
+
+.dbg-book > svg,
+.dbg-building > svg,
+.dbg-shelf > svg,
+.dbg-bulb > svg,
+.dbg-magnifier > svg,
+.dbg-pencil > svg,
+.dbg-document > svg,
+.dbg-clock > svg,
+.dbg-sparkle > svg,
+.dbg-gear > svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.dbg-shelf        > svg { filter: drop-shadow(0 0 6px currentColor); }
+.dbg-bulb         > svg { filter: drop-shadow(0 0 10px currentColor); }
+.dbg-magnifier    > svg { filter: drop-shadow(0 0 6px currentColor); }
+.dbg-pencil       > svg { filter: drop-shadow(0 0 6px currentColor); }
+.dbg-document     > svg { filter: drop-shadow(0 0 6px currentColor); }
+.dbg-clock        > svg { filter: drop-shadow(0 0 6px currentColor); }
+.dbg-sparkle      > svg { filter: drop-shadow(0 0 8px currentColor); }
+.dbg-gear         > svg { filter: drop-shadow(0 0 6px currentColor); }
+
+.dbg-shelf        { width: 95px; }
+.dbg-bulb         { width: 75px; }
+.dbg-magnifier    { width: 68px; }
+.dbg-pencil       { width: 40px; }
+.dbg-document     { width: 50px; }
+.dbg-clock        { width: 60px; }
+.dbg-sparkle      { width: 28px; }
+.dbg-gear         { width: 60px; }
+
+.dbg-sparkle-1 > svg,
+.dbg-sparkle-2 > svg {
+  animation: sparklePulse 2s ease-in-out infinite;
+}
+
+.dbg-sparkle-2 > svg {
+  animation-delay: 0.7s;
+}
+
+@keyframes sparklePulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 0.8; transform: scale(1.15); }
+}
+
+/* ── Animations (inside SVGs) ────────────── */
+.dbg-flip-page {
+  animation: flipPage 3.5s ease-in-out infinite;
+  transform-origin: left center;
+}
+
+@keyframes flipPage {
+  0%, 100% { transform: scaleX(1); opacity: 1; }
+  30% { transform: scaleX(0.1); opacity: 0.3; }
+  60% { transform: scaleX(1); opacity: 1; }
+}
+
+.dbg-glow {
+  animation: blinkGlow 2.5s ease-in-out infinite;
+}
+
+@keyframes blinkGlow {
+  0%, 100% { opacity: 0; }
+  25% { opacity: 0.3; }
+  50% { opacity: 0; }
+  65% { opacity: 0.22; }
+}
+
+.dbg-filament {
+  animation: filamentGlow 2.5s ease-in-out infinite;
+}
+
+@keyframes filamentGlow {
+  0%, 100% { opacity: 0.3; }
+  25% { opacity: 1; }
+  50% { opacity: 0.3; }
+  65% { opacity: 0.8; }
+}
+
+.dbg-gear-spin {
+  animation: spinGear 12s linear infinite;
+  transform-origin: center;
+}
+
+@keyframes spinGear {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ── Particles ───────────────────────────── */
+.dbg-particle {
+  position: absolute;
+  border-radius: 50%;
+  background: currentColor;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
+/* ── Responsive ──────────────────────────── */
+@media (max-width: 900px) {
+  .dbg-shelf     { display: none; }
+  .dbg-bulb      { width: 55px; }
+  .dbg-magnifier { width: 48px; }
+  .dbg-pencil    { display: none; }
+  .dbg-document  { width: 38px; }
+  .dbg-clock     { width: 42px; }
+  .dbg-sparkle-2 { display: none; }
+  .dbg-gear      { width: 42px; }
+}

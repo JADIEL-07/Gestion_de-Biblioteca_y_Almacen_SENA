@@ -18,6 +18,7 @@ import { NotificationBell } from '../../../shared/NotificationBell';
 import { AnimatedRobotIcon } from '../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from './PersonalAssistant';
 import { NotificationsPage } from './NotificationsPage';
+import { DashboardBg } from './DashboardBg';
 
 interface UserData {
   id: number;
@@ -99,6 +100,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
 
   return (
     <div className={`dashboard-layout theme-${theme}`}>
+      <DashboardBg />
       {/* TOP NAVIGATION */}
       <nav className="dashboard-topnav">
         <button
@@ -171,7 +173,7 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
           isMobileOpen={isMobileSidebarOpen}
         />
 
-        <main className="dashboard-main-content">
+            <main className="dashboard-main-content" onClick={() => setIsSidebarCollapsed(true)}>
           {activeSection === 'home' && (
             currentRole === 'APRENDIZ' ? (
               <AprendizDashboardHome user={user} onNavigate={(s) => navigate(`/dashboard/${s}`)} />

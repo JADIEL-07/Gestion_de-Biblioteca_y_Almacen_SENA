@@ -18,6 +18,7 @@ import '../UserDashboard.css';
 import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from '../PersonalAssistant';
 import { NotificationsPage } from '../NotificationsPage';
+import { DashboardBg } from '../DashboardBg';
 
 interface UserData {
   id: number;
@@ -86,6 +87,7 @@ export const SoporteDashboard: React.FC<SoporteDashboardProps> = ({ user, onLogo
 
   return (
     <div className={`dashboard-layout theme-${theme} soporte-specific`}>
+      <DashboardBg />
       {/* TOP NAVIGATION */}
       <nav className="dashboard-topnav">
         <button

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   FiBell, FiCheck, FiClock, FiPackage,
-  FiAlertCircle, FiInbox
+  FiAlertCircle, FiInbox, FiTrash2
 } from 'react-icons/fi';
 import './NotificationsPage.css';
 
@@ -106,6 +106,23 @@ export const NotificationsPage: React.FC = () => {
     setItems(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 
+  const deleteOne = async (id: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm('¿Eliminar esta notificación?')) return;
+    await fetch(`/api/v1/notifications/${id}`, {
+      method: 'DELETE', headers: authHeader(),
+    });
+    setItems(prev => prev.filter(n => n.id !== id));
+  };
+
+  const clearAll = async () => {
+    if (!window.confirm('¿Eliminar todas las notificaciones?')) return;
+    await fetch('/api/v1/notifications/clear-all', {
+      method: 'DELETE', headers: authHeader(),
+    });
+    setItems([]);
+  };
+
   const unreadCount = items.filter(n => !n.is_read).length;
 
   return (
@@ -135,7 +152,12 @@ export const NotificationsPage: React.FC = () => {
           </div>
           {unreadCount > 0 && (
             <button className="notif-page-mark-all" onClick={markAllRead}>
-              <FiCheck size={14} /> Marcar todas como leídas
+              <FiCheck size={14} /> Marcar leídas
+            </button>
+          )}
+          {items.length > 0 && (
+            <button className="notif-page-clear-all" onClick={clearAll} title="Eliminar todas">
+              <FiTrash2 size={14} /> Limpiar todo
             </button>
           )}
         </div>
@@ -162,6 +184,9 @@ export const NotificationsPage: React.FC = () => {
               <span className="notif-page-time">{formatDateTime(n.date)}</span>
             </span>
             {!n.is_read && <span className="notif-page-dot" />}
+            <button className="notif-page-delete" onClick={(e) => deleteOne(n.id, e)} title="Eliminar">
+              <FiTrash2 size={14} />
+            </button>
           </div>
         ))}
 

@@ -90,7 +90,10 @@ export const UserConfig: React.FC<UserConfigProps> = ({ user }) => {
                 className={`config-nav-item ${activeTab === item.id ? 'active' : ''} ${item.danger ? 'danger' : ''}`}
                 onClick={() => handleTabClick(item.id)}
               >
-                <span className="config-icon">{item.icon}</span> {item.label}
+                <span className={`config-icon-wrap ${item.group ? `icon-group-${item.group.toLowerCase()}` : ''}`}>
+                  <span className="config-icon">{item.icon}</span>
+                </span>
+                <span className="config-nav-label">{item.label}</span>
               </button>
             </React.Fragment>
           ))}

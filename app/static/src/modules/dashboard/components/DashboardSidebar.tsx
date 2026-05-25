@@ -80,7 +80,7 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({
           onClick={onToggle}
           title={isCollapsed ? "Expandir" : "Colapsar"}
         >
-          <FiMenu />
+          <FiMenu style={{ transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.3s ease' }} />
         </button>
       </div>
 
@@ -93,7 +93,7 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({
             title={isCollapsed ? item.label : ''}
           >
             <span className="sidebar-icon">{item.icon}</span>
-            {!isCollapsed && <span className="sidebar-label">{item.label}</span>}
+            <span className="sidebar-label">{item.label}</span>
           </button>
         ))}
 
@@ -107,7 +107,7 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({
             title={isCollapsed ? item.label : ''}
           >
             <span className="sidebar-icon">{item.icon}</span>
-            {!isCollapsed && <span className="sidebar-label">{item.label}</span>}
+            <span className="sidebar-label">{item.label}</span>
           </button>
         ))}
       </div>
@@ -176,7 +176,7 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({
             title={isCollapsed ? "Cerrar Sesión" : ""}
           >
             <span className="sidebar-icon"><FiLogOut /></span>
-            {!isCollapsed && <span className="sidebar-label">Cerrar Sesión</span>}
+            <span className="sidebar-label">Cerrar Sesión</span>
           </button>
         )}
       </div>

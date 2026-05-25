@@ -14,6 +14,7 @@ import '../UserDashboard.css';
 import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from '../PersonalAssistant';
 import { NotificationsPage } from '../NotificationsPage';
+import { DashboardBg } from '../DashboardBg';
 
 interface Props {
   user: any;
@@ -55,6 +56,7 @@ export const AlmacenistaDashboard: React.FC<Props> = ({ user, onLogout, onUserUp
 
   return (
     <div className={`dashboard-layout theme-${theme} admin-specific`}>
+      <DashboardBg />
       <nav className="dashboard-topnav">
         <button
           className="topnav-mobile-toggle"
@@ -105,7 +107,7 @@ export const AlmacenistaDashboard: React.FC<Props> = ({ user, onLogout, onUserUp
           isMobileOpen={isMobileSidebarOpen}
         />
 
-        <main className="dashboard-main-content">
+        <main className="dashboard-main-content" onClick={() => setIsSidebarCollapsed(true)}>
           <div className="content-container">
             {activeSection === 'home'               && <StaffHome user={user} />}
             {activeSection === 'inventory'          && <InventoryManagement user={user} />}

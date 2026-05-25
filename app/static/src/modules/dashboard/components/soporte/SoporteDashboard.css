@@ -876,3 +876,34 @@
 .admin-btn-clear:hover {
   background: rgba(239, 68, 68, 0.2);
 }
+
+.sh-empty-chart {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  color: var(--soporte-text-muted, #64748b);
+  gap: 0.75rem;
+  min-height: 180px;
+}
+
+.sh-empty-chart p {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.sh-empty-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1rem;
+  color: var(--soporte-text-muted, #64748b);
+  gap: 0.75rem;
+}
+
+.sh-empty-list p {
+  margin: 0;
+  font-size: 0.9rem;
+}

@@ -17,20 +17,14 @@ interface DashboardHomeProps {
 }
 
 export const DashboardHome: React.FC<DashboardHomeProps> = ({ user, isGuest, isPendingUser, onNavigate }) => {
-  // Datos mockeados para diseño
   const summaryData = [
-    { id: 'active-loans', title: 'Préstamos activos', value: 2, icon: <FiBook />, color: 'var(--sena-green)' },
-    { id: 'active-res', title: 'Reservas activas', value: 1, icon: <FiCalendar />, color: '#8b5cf6' },
-    { id: 'overdue', title: 'Préstamos vencidos', value: 0, icon: <FiClock />, color: '#ef4444' },
-    { id: 'fines', title: 'Multas pendientes', value: 0, icon: <FiAlertTriangle />, color: '#f59e0b' },
+    { id: 'active-loans', title: 'Préstamos activos', value: '--', icon: <FiBook />, color: 'var(--sena-green)' },
+    { id: 'active-res', title: 'Reservas activas', value: '--', icon: <FiCalendar />, color: '#8b5cf6' },
+    { id: 'overdue', title: 'Préstamos vencidos', value: '--', icon: <FiClock />, color: '#ef4444' },
+    { id: 'fines', title: 'Multas pendientes', value: '--', icon: <FiAlertTriangle />, color: '#f59e0b' },
   ];
 
-  const featuredItems = [
-    { id: 1, title: 'Portátil HP 250 G8', category: 'Equipos Tecnológicos', status: 'Disponible', statusColor: 'green', img: 'https://images.unsplash.com/photo-1593642632823-8f785ba67e45?auto=format&fit=crop&q=80&w=200&h=150' },
-    { id: 2, title: 'Cámara Canon EOS 2000D', category: 'Equipos Tecnológicos', status: 'Disponible', statusColor: 'green', img: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&q=80&w=200&h=150' },
-    { id: 3, title: 'Libro: Fundamentos de Redes', category: 'Libros', status: 'Reservado', statusColor: 'orange', img: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=200&h=150' },
-    { id: 4, title: 'Proyector Epson X41', category: 'Equipos Tecnológicos', status: 'Disponible', statusColor: 'green', img: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&q=80&w=200&h=150' },
-  ];
+  const featuredItems: any[] = [];
 
   const handleAction = (action: string) => {
     if (isGuest) {

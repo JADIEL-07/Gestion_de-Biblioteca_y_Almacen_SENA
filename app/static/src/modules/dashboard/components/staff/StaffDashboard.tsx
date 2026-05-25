@@ -13,6 +13,7 @@ import '../UserDashboard.css';
 import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from '../PersonalAssistant';
 import { NotificationsPage } from '../NotificationsPage';
+import { DashboardBg } from '../DashboardBg';
 
 interface StaffDashboardProps {
   user: any;
@@ -63,6 +64,7 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ user, onLogout, 
 
   return (
     <div className={`dashboard-layout theme-${theme} admin-specific`}>
+      <DashboardBg />
       {/* TOP NAVIGATION — igual que el Admin */}
       <nav className="dashboard-topnav">
         <button

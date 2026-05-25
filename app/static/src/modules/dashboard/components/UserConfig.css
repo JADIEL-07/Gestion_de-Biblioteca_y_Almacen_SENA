@@ -12,29 +12,33 @@
 
 /* ── THEME VARIABLES ── */
 .theme-dark .user-config-container {
-  --uc-bg-sidebar: transparent;
+  --uc-bg-sidebar: #1a2332;
   --uc-bg-card: #1e293b;
-  --uc-border: rgba(255, 255, 255, 0.1);
+  --uc-border: rgba(255, 255, 255, 0.08);
   --uc-text-main: #f8fafc;
   --uc-text-muted: #94a3b8;
-  --uc-input-bg: rgba(0, 0, 0, 0.2);
-  --uc-input-border: rgba(255, 255, 255, 0.15);
-  --uc-item-hover: rgba(255, 255, 255, 0.05);
-  --uc-active-bg: rgba(57, 169, 0, 0.15);
+  --uc-input-bg: rgba(0, 0, 0, 0.25);
+  --uc-input-border: rgba(255, 255, 255, 0.12);
+  --uc-item-hover: rgba(57, 169, 0, 0.08);
+  --uc-active-bg: rgba(57, 169, 0, 0.18);
   --uc-sena-green: #39a900;
+  --uc-sena-green-light: #4bcb1a;
+  --uc-green-glow: rgba(57, 169, 0, 0.15);
 }
 
 .theme-light .user-config-container {
-  --uc-bg-sidebar: transparent;
+  --uc-bg-sidebar: #f0fdf4;
   --uc-bg-card: #ffffff;
-  --uc-border: #e2e8f0;
+  --uc-border: #d1d5db;
   --uc-text-main: #0f172a;
   --uc-text-muted: #64748b;
-  --uc-input-bg: #ffffff;
-  --uc-input-border: #cbd5e1;
-  --uc-item-hover: #f1f5f9;
-  --uc-active-bg: rgba(57, 169, 0, 0.1);
+  --uc-input-bg: #f9fafb;
+  --uc-input-border: #d1d5db;
+  --uc-item-hover: rgba(57, 169, 0, 0.06);
+  --uc-active-bg: rgba(57, 169, 0, 0.12);
   --uc-sena-green: #39a900;
+  --uc-sena-green-light: #2d8a00;
+  --uc-green-glow: rgba(57, 169, 0, 0.12);
 }
 
 /* ── SIDEBAR INTERNO ── */
@@ -44,6 +48,17 @@
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+  background: var(--uc-bg-sidebar);
+  border: 1px solid var(--uc-border);
+  border-radius: 14px;
+  padding: 1.25rem 0.75rem;
+  box-shadow: 0 0 0 1px var(--uc-green-glow), 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.config-sidebar-header {
+  padding-left: 0.5rem;
+  border-left: 3px solid var(--uc-sena-green);
+  margin-left: 0.25rem;
 }
 
 .config-sidebar-header h2 {
@@ -68,11 +83,13 @@
 .config-nav-group {
   font-size: 0.7rem;
   font-weight: 700;
-  color: var(--uc-text-muted);
-  letter-spacing: 0.5px;
+  color: var(--uc-sena-green);
+  letter-spacing: 0.8px;
   text-transform: uppercase;
   margin-top: 1.5rem;
   margin-bottom: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--uc-border);
   padding-left: 0.5rem;
 }
 
@@ -81,38 +98,59 @@
   align-items: center;
   gap: 0.75rem;
   width: 100%;
-  padding: 0.6rem 0.8rem;
+  padding: 0.65rem 0.8rem;
   background: transparent;
   border: none;
-  border-radius: 8px;
-  color: var(--uc-text-main);
+  border-left: 3px solid transparent;
+  border-radius: 0 10px 10px 0;
+  color: var(--uc-text-muted);
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   text-align: left;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
+}
+
+.config-nav-item .config-icon-wrap {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: all 0.25s ease;
 }
 
 .config-icon {
-  font-size: 1.1rem;
-  color: var(--uc-text-muted);
+  font-size: 1rem;
   transition: color 0.2s;
 }
 
 .config-nav-item:hover {
   background: var(--uc-item-hover);
+  color: var(--uc-text-main);
 }
 
 .config-nav-item.active {
   background: var(--uc-active-bg);
   color: var(--uc-sena-green);
-  font-weight: 600;
-  border-left: 3px solid var(--uc-sena-green);
-  border-radius: 0 8px 8px 0;
+  font-weight: 700;
+  border-left-color: var(--uc-sena-green);
 }
 
 .config-nav-item.active .config-icon {
   color: var(--uc-sena-green);
+}
+
+.config-nav-item.active .config-icon-wrap {
+  background: var(--uc-sena-green);
+  color: #fff;
+}
+
+.config-nav-item:hover .config-icon-wrap {
+  transform: scale(1.05);
 }
 
 .config-nav-item.danger {
@@ -127,6 +165,48 @@
   background: rgba(239, 68, 68, 0.1);
 }
 
+.config-nav-label {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── Iconos de grupo con colores distintivos ── */
+.config-nav-item .config-icon-wrap {
+  background: rgba(148, 163, 184, 0.12);
+  color: var(--uc-text-muted);
+}
+
+.config-nav-item .config-icon-wrap.icon-group-seguridad {
+  background: rgba(57, 169, 0, 0.15);
+  color: var(--uc-sena-green);
+}
+
+.config-nav-item .config-icon-wrap.icon-group-notificaciones {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+}
+
+.config-nav-item .config-icon-wrap.icon-group-privacidad {
+  background: rgba(139, 92, 246, 0.15);
+  color: #8b5cf6;
+}
+
+.config-nav-item .config-icon-wrap.icon-group-actividad {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.config-nav-item .config-icon-wrap.icon-group-avanzado {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+.config-nav-item.active .config-icon-wrap {
+  background: var(--uc-active-bg);
+  color: var(--uc-sena-green);
+  box-shadow: 0 0 0 1.5px var(--uc-sena-green);
+}
+
 /* ── CONTENIDO PRINCIPAL ── */
 .config-main-content {
   flex: 1;
@@ -136,11 +216,13 @@
 
 .config-section-header {
   margin-bottom: 2rem;
+  padding-left: 1rem;
+  border-left: 4px solid var(--uc-sena-green);
 }
 
 .config-section-header h1 {
   font-size: 1.5rem;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--uc-text-main);
   margin-bottom: 0.4rem;
 }
@@ -325,14 +407,6 @@
 
 .btn-delete:hover {
   text-decoration: underline;
-}
-
-/* ── COMPONENTES ENRIQUECIDOS PARA PANELES ── */
-.config-nav-item.danger {
-  color: #ef4444;
-}
-.config-nav-item.danger:hover {
-  background: rgba(239, 68, 68, 0.08);
 }
 
 .card-hint {

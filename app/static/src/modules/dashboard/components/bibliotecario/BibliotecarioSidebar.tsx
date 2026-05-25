@@ -65,7 +65,7 @@ export const BibliotecarioSidebar: React.FC<Props> = ({
       <div className="admin-sidebar-header">
         <div style={{ display: 'flex', justifyContent: isCollapsed ? 'center' : 'flex-start', padding: isCollapsed ? '0.5rem 0' : '0.5rem 1rem' }}>
           <button className="admin-sidebar-toggle-box" onClick={onToggle}>
-            <FiMenu />
+            <FiMenu style={{ transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.3s ease' }} />
           </button>
         </div>
       </div>
@@ -80,7 +80,7 @@ export const BibliotecarioSidebar: React.FC<Props> = ({
             >
               <div className="admin-sidebar-item-content">
                 <span className="admin-sidebar-icon">{item.icon}</span>
-                {!isCollapsed && <span className="admin-sidebar-label">{item.label}</span>}
+                <span className="admin-sidebar-label">{item.label}</span>
               </div>
               {item.hasDropdown && !isCollapsed && (
                 <FiChevronDown style={{
@@ -112,7 +112,7 @@ export const BibliotecarioSidebar: React.FC<Props> = ({
 
       </div>
 
-      <div style={{ flex: 1 }} />
+      <div className="admin-sidebar-spacer" />
 
       <div className="admin-sidebar-bottom">
         {bottomItems.map(item => (
@@ -124,7 +124,7 @@ export const BibliotecarioSidebar: React.FC<Props> = ({
           >
             <div className="admin-sidebar-item-content">
               <span className="admin-sidebar-icon">{item.icon}</span>
-              {!isCollapsed && <span className="admin-sidebar-label">{item.label}</span>}
+              <span className="admin-sidebar-label">{item.label}</span>
             </div>
           </button>
         ))}
@@ -168,7 +168,7 @@ export const BibliotecarioSidebar: React.FC<Props> = ({
         <button className="admin-sidebar-item logout-item" onClick={onLogout} style={{ color: '#ef4444' }} title={isCollapsed ? 'Cerrar Sesión' : ''}>
           <div className="admin-sidebar-item-content">
             <span className="admin-sidebar-icon"><FiLogOut /></span>
-            {!isCollapsed && <span className="admin-sidebar-label">Cerrar Sesión</span>}
+            <span className="admin-sidebar-label">Cerrar Sesión</span>
           </div>
         </button>
       </div>
