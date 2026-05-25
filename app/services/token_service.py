@@ -35,7 +35,18 @@ class TokenService:
             user_agent=user_agent
         )
         db.session.add(new_refresh)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            # Si falla (columna user_agent puede faltar en BD antigua), reintentar sin user_agent
+            new_refresh = RefreshToken(
+                user_id=user.id,
+                token_hash=jti_hash,
+                expires_at=expires_at,
+            )
+            db.session.add(new_refresh)
+            db.session.commit()
         
         return access_token, refresh_token
 

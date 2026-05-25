@@ -34,7 +34,6 @@ def _apply_runtime_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(32)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_2fa_enabled BOOLEAN DEFAULT FALSE",
-        "ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS user_agent TEXT",
     ]
     for stmt in column_migrations:
         try:
@@ -57,6 +56,20 @@ def _apply_runtime_migrations():
         # Si ya existe, se ignora de forma segura
         if "duplicate column" not in str(e).lower() and "already exists" not in str(e).lower():
             print(f"[runtime-migration] aviso (biography): {e}")
+
+    # Migración user_agent en refresh_tokens (con chequeo previo para evitar crash)
+    try:
+        from sqlalchemy import inspect
+        insp = inspect(db.engine)
+        cols = [c['name'] for c in insp.get_columns('refresh_tokens')]
+        if 'user_agent' not in cols:
+            stmt_ua = "ALTER TABLE refresh_tokens ADD COLUMN user_agent TEXT"
+            db.session.execute(text(stmt_ua))
+            db.session.commit()
+            print("[runtime-migration] Columna user_agent agregada en refresh_tokens.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[runtime-migration] aviso (user_agent): {e}")
 
 def create_app():
     config = get_config()
