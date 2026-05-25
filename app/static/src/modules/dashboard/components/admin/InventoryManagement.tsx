@@ -97,13 +97,11 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
         const fd = await fRes.json(); 
         setFilters(fd);
         // Inicializar newItem con valores seguros si existen
-        if (fd.categories?.length && fd.statuses?.length && fd.locations?.length && !newItem.category_id) {
-          setNewItem(p => ({ 
-            ...p, 
-            category_id: String(fd.categories[0].id), 
-            status_id: String(fd.statuses[0].id), 
-            location_id: String(fd.locations[0].id) 
-          }));
+        if (fd.categories?.length && !newItem.category_id) {
+          setNewItem(p => ({ ...p, category_id: String(fd.categories[0].id) }));
+        }
+        if (fd.locations?.length && !newItem.location_id) {
+          setNewItem(p => ({ ...p, location_id: String(fd.locations[0].id) }));
         }
       }
     } catch { setError('Error de conexión.'); setItems([]); }
@@ -141,21 +139,25 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
   // Create
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItem.status_id) { alert('Seleccione el Estado Inicial'); return; }
+
     setLoading(true);
     try {
+      const payload = {
+        name: newItem.name,
+        code: newItem.code,
+        category_id: newItem.category_id ? parseInt(newItem.category_id) : undefined,
+        location_id: newItem.location_id ? parseInt(newItem.location_id) : undefined,
+        // status_id omitted, backend will set default
+        stock: newItem.stock ? parseInt(String(newItem.stock)) : 1,
+        physical_condition: newItem.physical_condition,
+        acquisition_date: newItem.acquisition_date,
+      };
+
       const res = await fetch('/api/v1/items/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
-        body: JSON.stringify({ 
-          ...newItem, 
-          category_id: newItem.category_id ? parseInt(newItem.category_id) : undefined, 
-          location_id: newItem.location_id ? parseInt(newItem.location_id) : undefined, 
-          status_id: newItem.status_id ? parseInt(newItem.status_id) : undefined, 
-          stock: parseInt(String(newItem.stock)) || 0,
-          value: newItem.value ? parseFloat(newItem.value) : 0,
-          nit: newItem.nit,
-          acquisition_date: newItem.acquisition_date,
+        body: JSON.stringify({
+          ...payload,
           physical_condition: newItem.physical_condition
         })
       });
@@ -589,7 +591,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
             <form onSubmit={handleEdit} className="inv-form">
               <div className="form-grid">
                 <div className="form-group"><label>Nombre</label><input required type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} /></div>
-                <div className="form-group"><label>Código / Referencia</label><input required type="text" value={editForm.code} onChange={e => setEditForm({ ...editForm, code: e.target.value })} /></div>
+                <div className="form-group"><label>Código / Referencia</label><input type="text" value={editForm.code} onChange={e => setEditForm({ ...editForm, code: e.target.value })} placeholder="Auto-generado si se deja vacío" /></div>
                 <div className="form-group">
                   <CustomSelect 
                     label="Categoría"
@@ -626,7 +628,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                 <div className="form-group"><label>Marca</label><input type="text" value={editForm.brand} onChange={e => setEditForm({ ...editForm, brand: e.target.value })} /></div>
                 <div className="form-group"><label>Modelo</label><input type="text" value={editForm.model} onChange={e => setEditForm({ ...editForm, model: e.target.value })} /></div>
                 <div className="form-group"><label>N° Serie / ISBN</label><input type="text" value={editForm.serial_number} onChange={e => setEditForm({ ...editForm, serial_number: e.target.value })} /></div>
-                <div className="form-group"><label>Fecha Adquisición</label><input type="date" value={editForm.acquisition_date} onChange={e => setEditForm({ ...editForm, acquisition_date: e.target.value })} /></div>
+                <div className="form-group"><label>Fecha Adquisición</label><input required type="date" value={editForm.acquisition_date} onChange={e => setEditForm({ ...editForm, acquisition_date: e.target.value })} /></div>
                 <div className="form-group"><label>Valor Unitario</label><input type="number" step="0.01" value={editForm.value} onChange={e => setEditForm({ ...editForm, value: e.target.value })} /></div>
                 <div className="form-group"><label>NIT / Proveedor</label><input type="text" value={editForm.nit} onChange={e => setEditForm({ ...editForm, nit: e.target.value })} /></div>
                 <div className="form-group full-width"><label>Descripción / Observaciones</label><textarea value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })} placeholder="Detalles adicionales del elemento..." rows={3} /></div>
@@ -674,7 +676,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
             <form onSubmit={handleCreate} className="inv-form">
               <div className="form-grid">
                 <div className="form-group"><label>Nombre del Elemento</label><input required type="text" value={newItem.name} onChange={e => setNewItem({ ...newItem, name: e.target.value })} /></div>
-                <div className="form-group"><label>Código / Referencia</label><input required type="text" value={newItem.code} onChange={e => setNewItem({ ...newItem, code: e.target.value })} /></div>
+                <div className="form-group"><label>Código / Referencia</label><input type="text" value={newItem.code} onChange={e => setNewItem({ ...newItem, code: e.target.value })} placeholder="Auto-generado si se deja vacío" /></div>
                 <div className="form-group full-width camera-section">
                   <label>Imagen del Material</label>
                   <div className="photo-manager">
@@ -698,18 +700,8 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                   </div>
                   <canvas ref={canvasRef} style={{ display: 'none' }} />
                 </div>
-                <div className="form-group"><label>Marca</label><input type="text" value={newItem.brand} onChange={e => setNewItem({ ...newItem, brand: e.target.value })} /></div>
-                <div className="form-group"><label>Modelo</label><input type="text" value={newItem.model} onChange={e => setNewItem({ ...newItem, model: e.target.value })} /></div>
-                <div className="form-group"><label>Número de Serie / ISBN</label><input type="text" value={newItem.serial_number} onChange={e => setNewItem({ ...newItem, serial_number: e.target.value })} /></div>
-                <div className="form-group"><label>Stock Inicial</label><input type="number" min="0" value={newItem.stock} onChange={e => setNewItem({ ...newItem, stock: e.target.value })} /></div>
-                <div className="form-group">
-                  <CustomSelect 
-                    label="Estado Inicial"
-                    options={filters.statuses || []}
-                    value={newItem.status_id}
-                    onChange={val => setNewItem({ ...newItem, status_id: String(val) })}
-                  />
-                </div>
+
+                <div className="form-group"><label>Stock Inicial</label><input type="number" min="0" required value={newItem.stock} onChange={e => setNewItem({ ...newItem, stock: e.target.value })} /></div>
                 <div className="form-group">
                   <CustomSelect 
                     label="Condición Física"
@@ -734,10 +726,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                     onChange={val => setNewItem({ ...newItem, location_id: String(val) })}
                   />
                 </div>
-                <div className="form-group"><label>Fecha Adquisición</label><input type="date" value={newItem.acquisition_date} onChange={e => setNewItem({ ...newItem, acquisition_date: e.target.value })} /></div>
-                <div className="form-group"><label>Valor Unitario</label><input type="number" step="0.01" value={newItem.value} onChange={e => setNewItem({ ...newItem, value: e.target.value })} /></div>
-                <div className="form-group"><label>NIT / Proveedor</label><input type="text" value={newItem.nit} onChange={e => setNewItem({ ...newItem, nit: e.target.value })} /></div>
-                <div className="form-group full-width"><label>Descripción / Observaciones</label><textarea value={newItem.description} onChange={e => setNewItem({ ...newItem, description: e.target.value })} placeholder="Detalles adicionales del elemento..." rows={3} /></div>
+                <div className="form-group"><label>Fecha Adquisición</label><input required type="date" value={newItem.acquisition_date} onChange={e => setNewItem({ ...newItem, acquisition_date: e.target.value })} /></div>
               </div>
               <div className="form-actions">
                 <button type="button" className="btn-cancel" onClick={() => { stopCamera(); setShowAddModal(false); }}>Cancelar</button>

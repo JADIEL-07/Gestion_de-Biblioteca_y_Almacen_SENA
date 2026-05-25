@@ -10,6 +10,20 @@ from datetime import datetime
 
 maintenance_bp = Blueprint('maintenance', __name__)
 
+
+def _full_media_url(path):
+    if not path:
+        return None
+    try:
+        if isinstance(path, str) and (path.startswith('http://') or path.startswith('https://')):
+            return path
+        if isinstance(path, str) and path.startswith('/uploads'):
+            from flask import request
+            return request.url_root.rstrip('/') + path
+    except RuntimeError:
+        return path
+    return path
+
 @maintenance_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_maintenances():
@@ -78,7 +92,7 @@ def get_maintenances():
             "report_date": m.report_date.isoformat(),
             "maintenance_type": m.maintenance_type,
             "cost": m.cost,
-            "evidence_photo": m.evidence_photo
+            "evidence_photo": _full_media_url(m.evidence_photo)
         })
     return jsonify(result), 200
 
@@ -199,11 +213,12 @@ def complete_maintenance(id):
             
             filename = f"maintenance_{m.id}.{ext}"
             filepath = os.path.join(current_app.root_path, 'uploads', filename)
-            
+
             with open(filepath, "wb") as fh:
                 fh.write(base64.b64decode(encoded))
-                
-            m.evidence_photo = f"/uploads/{filename}"
+
+            # Store absolute URL for the evidence photo
+            m.evidence_photo = request.url_root.rstrip('/') + f"/uploads/{filename}"
             db.session.commit()
         except Exception as e:
             print("Error guardando foto del mantenimiento:", e)

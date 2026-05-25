@@ -9,6 +9,20 @@ from sqlalchemy import func, or_, String
 
 loan_bp = Blueprint('loans', __name__)
 
+
+def _full_media_url(path):
+    if not path:
+        return None
+    try:
+        if isinstance(path, str) and (path.startswith('http://') or path.startswith('https://')):
+            return path
+        if isinstance(path, str) and path.startswith('/uploads'):
+            from flask import request
+            return request.url_root.rstrip('/') + path
+    except RuntimeError:
+        return path
+    return path
+
 @loan_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_loans():
@@ -296,7 +310,7 @@ def get_my_loans():
                 "name": detail.item.name if detail.item else "Ítem eliminado",
                 "code": detail.item.code if detail.item else "N/A",
                 "category": detail.item.category.name if detail.item and detail.item.category else "N/A",
-                "image_url": detail.item.image_url if detail.item else None
+                "image_url": _full_media_url(detail.item.image_url) if detail.item else None
             })
         result.append({
             "id": loan.id,

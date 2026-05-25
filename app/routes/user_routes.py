@@ -13,6 +13,22 @@ import bcrypt
 
 user_bp = Blueprint('users_mgmt', __name__)
 
+
+def _full_media_url(path):
+    """Convierte una ruta relativa de /uploads a URL absoluta según el request actual."""
+    if not path:
+        return None
+    try:
+        if isinstance(path, str) and (path.startswith('http://') or path.startswith('https://')):
+            return path
+        if isinstance(path, str) and path.startswith('/uploads'):
+            from flask import request
+            return request.url_root.rstrip('/') + path
+    except RuntimeError:
+        # Sin contexto de request, devolver original
+        return path
+    return path
+
 @user_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_users():
@@ -45,7 +61,7 @@ def get_users():
             "last_login": user.last_login.isoformat() if user.last_login else None,
             "failed_attempts": user.failed_attempts,
             "created_at": user.created_at.isoformat(),
-            "profile_image": user.profile_image,
+            "profile_image": _full_media_url(user.profile_image),
             "dependency_id": user.dependency_id,
             "dependency_name": user.dependency_obj.name if user.dependency_obj else None
         })
@@ -235,7 +251,7 @@ def get_me():
         "document_type": user.document_type,
         "formation_ficha": user.formation_ficha or '',
         "role": user.role.name if user.role else None,
-        "profile_image": user.profile_image,
+        "profile_image": _full_media_url(user.profile_image),
         "biography": user.biography or '',
         "is_active": user.is_active,
         "last_login": user.last_login.isoformat() if user.last_login else None,
@@ -594,15 +610,20 @@ def update_profile_image():
             
             filename = f"profile_{user.id}.{ext}"
             filepath = os.path.join(current_app.root_path, 'uploads', filename)
-            
+
             with open(filepath, "wb") as fh:
                 fh.write(base64.b64decode(encoded))
-                
-            user.profile_image = f"/uploads/{filename}"
+
+            # Store absolute URL so frontend dev server and production can load it
+            user.profile_image = request.url_root.rstrip('/') + f"/uploads/{filename}"
         except Exception as e:
             print("Error guardando foto de perfil:", e)
     else:
-        user.profile_image = image_data
+        # If client sent a relative uploads path, convert to absolute URL
+        if image_data and isinstance(image_data, str) and image_data.startswith('/uploads'):
+            user.profile_image = request.url_root.rstrip('/') + image_data
+        else:
+            user.profile_image = image_data
     
     log = AuditLog(user_id=user_id, action="PROFILE_IMAGE_UPDATED", entity="User")
     db.session.add(log)

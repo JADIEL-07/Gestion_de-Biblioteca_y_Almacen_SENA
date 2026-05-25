@@ -47,6 +47,20 @@ def _serialize_message(msg, current_user_id):
     }
 
 
+def _full_media_url(path):
+    if not path:
+        return None
+    try:
+        if isinstance(path, str) and (path.startswith('http://') or path.startswith('https://')):
+            return path
+        if isinstance(path, str) and path.startswith('/uploads'):
+            from flask import request
+            return request.url_root.rstrip('/') + path
+    except RuntimeError:
+        return path
+    return path
+
+
 # ─── TICKET CHAT (Aprendiz <-> Soporte) ──────────────────────────────────────
 @chat_bp.route('/tickets/<int:ticket_id>/messages', methods=['GET'])
 @jwt_required()
@@ -291,7 +305,7 @@ def get_staff_contacts():
             'id': c.id,
             'name': c.name,
             'role': c.role.name if c.role else None,
-            'profile_image': c.profile_image,
+            'profile_image': _full_media_url(c.profile_image),
             'last_message': (last_msg.body[:120] if last_msg else None),
             'last_message_at': (last_msg.created_at.isoformat() if last_msg and last_msg.created_at else None),
             'unread_count': unread_count,
@@ -341,7 +355,7 @@ def get_staff_messages(contact_id):
             'id': contact.id,
             'name': contact.name,
             'role': contact.role.name if contact.role else None,
-            'profile_image': contact.profile_image,
+            'profile_image': _full_media_url(contact.profile_image),
         },
         'messages': [_serialize_message(m, user.id) for m in messages],
     }), 200

@@ -8,6 +8,20 @@ from sqlalchemy import or_, String
 
 items_bp = Blueprint('items', __name__)
 
+
+def _full_media_url(path):
+    if not path:
+        return None
+    try:
+        if isinstance(path, str) and (path.startswith('http://') or path.startswith('https://')):
+            return path
+        if isinstance(path, str) and path.startswith('/uploads'):
+            from flask import request
+            return request.url_root.rstrip('/') + path
+    except RuntimeError:
+        return path
+    return path
+
 def serialize_item(item):
     """Serializa un objeto Item a diccionario de forma segura."""
     return {
@@ -23,7 +37,7 @@ def serialize_item(item):
         "brand": item.brand,
         "model": item.model,
         "serial_number": item.serial_number,
-        "image_url": item.image_url,
+        "image_url": _full_media_url(item.image_url),
         "stock": item.stock if item.stock is not None else 1,
         "description": item.description or "",
         "physical_condition": item.physical_condition or "",
@@ -116,28 +130,64 @@ def add_item():
     # Manejo de categoría y ubicación por defecto
     category_id = data.get('category_id')
     if not category_id:
-        default_cat = Category.query.filter_by(name='GENERAL').first()
+        default_cat = Category.query.filter_by(name='GENERAL').first() or Category.query.first()
         category_id = default_cat.id if default_cat else 1
 
-    location_id = data.get('location_id')
+    # Handle category_id with safe conversion
+    raw_category_id = data.get('category_id')
+    try:
+        category_id = int(raw_category_id)
+    except (TypeError, ValueError):
+        category_id = None
+    if not category_id:
+        default_cat = Category.query.filter_by(name='GENERAL').first() or Category.query.first()
+        category_id = default_cat.id if default_cat else 1
+
+    # Handle location_id with safe conversion
+    raw_location_id = data.get('location_id')
+    try:
+        location_id = int(raw_location_id)
+    except (TypeError, ValueError):
+        location_id = None
     if not location_id:
-        default_loc = Location.query.filter_by(name='ALMACEN GENERAL').first()
+        default_loc = Location.query.filter_by(name='ALMACEN GENERAL').first() or Location.query.first()
         location_id = default_loc.id if default_loc else 1
+
+    import uuid
+    item_code = data.get('code') or data.get('codigo')
+    if not item_code:
+        item_code = f"ITEM-{uuid.uuid4().hex[:8].upper()}"
+
+    # Convert IDs to integers
+    if category_id:
+        category_id = int(category_id)
+    if location_id:
+        location_id = int(location_id)
+
+    # Determine status_id from input or fallback to AVAILABLE/default
+    raw_status_id = data.get('status_id')
+    try:
+        status_id = int(raw_status_id) if raw_status_id is not None else None
+    except (TypeError, ValueError):
+        status_id = None
+    if not status_id:
+        default_status = Status.query.filter_by(name='AVAILABLE').first() or Status.query.first()
+        status_id = default_status.id if default_status else None
 
     new_item = Item(
         name=data.get('name') or data.get('nombre'),
         description=data.get('description') or data.get('descripcion'),
-        code=data.get('code') or data.get('codigo'),
+        code=item_code,
         category_id=category_id,
         location_id=location_id,
-        status_id=data.get('status_id'),
+        status_id=status_id,
         supplier_id=data.get('supplier_id'),
         brand=data.get('brand'),
         model=data.get('model'),
         serial_number=data.get('serial_number') or None,
         image_url=data.get('image_url'),
         stock=data.get('stock', 1),
-        physical_condition=data.get('physical_condition') or None,
+        physical_condition=data.get('physical_condition') or "EXCELENTE",
     )
     try:
         db.session.add(new_item)
@@ -171,6 +221,13 @@ def add_item():
                 return jsonify({"error": "El código (QR/Barras) ya está registrado en otro elemento"}), 400
             if "items.serial_number" in error_msg:
                 return jsonify({"error": "El número de serie ya está registrado"}), 400
+        if "ForeignKeyViolation" in error_msg:
+            if "category_id" in error_msg:
+                return jsonify({"error": "La categoría seleccionada no existe. Crea una categoría primero."}), 400
+            if "location_id" in error_msg:
+                return jsonify({"error": "La ubicación seleccionada no existe. Crea una ubicación primero."}), 400
+            if "status_id" in error_msg:
+                return jsonify({"error": "Error interno: No hay estados registrados en la base de datos."}), 400
         return jsonify({"error": "Error de validación: Verifique que todos los campos obligatorios estén llenos"}), 400
 
 @items_bp.route('/<int:id>', methods=['PUT'])
@@ -183,7 +240,7 @@ def update_item(id):
 
     # Actualizar solo los campos enviados
     if 'name' in data:       item.name        = data['name']
-    if 'code' in data:       item.code        = data['code']
+    if 'code' in data and data['code'].strip(): item.code = data['code'].strip()
     if 'description' in data: item.description = data['description']
     if 'brand' in data:      item.brand       = data['brand']
     if 'model' in data:      item.model       = data['model']
@@ -220,10 +277,17 @@ def update_item(id):
         print(f"[ERROR] update_item: {error_msg}")
         if "UNIQUE constraint failed" in error_msg:
             if "items.code" in error_msg:
-                return jsonify({"error": "El código ya está en uso por otro elemento"}), 400
+                return jsonify({"error": "El código (QR/Barras) ya está registrado en otro elemento"}), 400
             if "items.serial_number" in error_msg:
                 return jsonify({"error": "El número de serie ya está registrado"}), 400
-        return jsonify({"error": "Error al actualizar el elemento"}), 400
+        # Foreign key violations
+        if "items.category_id" in error_msg:
+            return jsonify({"error": "La categoría seleccionada no existe. Crea una categoría primero."}), 400
+        if "items.location_id" in error_msg:
+            return jsonify({"error": "La ubicación seleccionada no existe. Crea una ubicación primero."}), 400
+        if "items.status_id" in error_msg:
+            return jsonify({"error": "Error interno: No hay estados registrados en la base de datos."}), 400
+        return jsonify({"error": "Error de validación: Verifique que todos los campos obligatorios estén llenos"}), 400
 
 @items_bp.route('/<int:id>', methods=['DELETE'])
 @jwt_required()
@@ -270,8 +334,11 @@ def add_category():
         return jsonify({"id": new_cat.id, "name": new_cat.name}), 201
     except Exception as e:
         db.session.rollback()
-        print(f"[DEBUG ERROR] add_category: {str(e)}")
-        return jsonify({"error": f"Error al crear categoría: {str(e)}"}), 400
+        error_msg = str(e)
+        if "categories_name_key" in error_msg or "UNIQUE constraint failed" in error_msg:
+            return jsonify({"error": f"La categoría '{data.get('name')}' ya existe."}), 400
+        print(f"[DEBUG ERROR] add_category: {error_msg}")
+        return jsonify({"error": "Error al crear la categoría."}), 400
 
 @items_bp.route('/categories/<int:id>', methods=['PUT'])
 @jwt_required()
@@ -286,8 +353,11 @@ def update_category(id):
         return jsonify({"id": cat.id, "name": cat.name}), 200
     except Exception as e:
         db.session.rollback()
-        print(f"[DEBUG ERROR] update_category: {str(e)}")
-        return jsonify({"error": f"Error al actualizar categoría: {str(e)}"}), 400
+        error_msg = str(e)
+        if "categories_name_key" in error_msg or "UNIQUE constraint failed" in error_msg:
+            return jsonify({"error": f"La categoría '{data.get('name')}' ya existe."}), 400
+        print(f"[DEBUG ERROR] update_category: {error_msg}")
+        return jsonify({"error": "Error al actualizar la categoría."}), 400
 
 @items_bp.route('/categories/<int:id>', methods=['DELETE'])
 @jwt_required()
@@ -338,8 +408,11 @@ def add_location():
         return jsonify({"id": new_loc.id, "name": new_loc.name}), 201
     except Exception as e:
         db.session.rollback()
-        print(f"[DEBUG ERROR] add_location: {str(e)}")
-        return jsonify({"error": f"Error al crear ubicación: {str(e)}"}), 400
+        error_msg = str(e)
+        if "locations_name_key" in error_msg or "UNIQUE constraint failed" in error_msg:
+            return jsonify({"error": f"La ubicación '{data.get('name')}' ya existe."}), 400
+        print(f"[DEBUG ERROR] add_location: {error_msg}")
+        return jsonify({"error": "Error al crear la ubicación."}), 400
 
 @items_bp.route('/locations/<int:id>', methods=['PUT'])
 @jwt_required()
@@ -355,8 +428,11 @@ def update_location(id):
         return jsonify({"id": loc.id, "name": loc.name}), 200
     except Exception as e:
         db.session.rollback()
-        print(f"[DEBUG ERROR] update_location: {str(e)}")
-        return jsonify({"error": f"Error al actualizar ubicación: {str(e)}"}), 400
+        error_msg = str(e)
+        if "locations_name_key" in error_msg or "UNIQUE constraint failed" in error_msg:
+            return jsonify({"error": f"La ubicación '{data.get('name')}' ya existe."}), 400
+        print(f"[DEBUG ERROR] update_location: {error_msg}")
+        return jsonify({"error": "Error al actualizar la ubicación."}), 400
 
 @items_bp.route('/locations/<int:id>', methods=['DELETE'])
 @jwt_required()

@@ -8,6 +8,20 @@ from ..models.item import Item
 history_bp = Blueprint('history', __name__)
 
 
+def _full_media_url(path):
+    if not path:
+        return None
+    try:
+        if isinstance(path, str) and (path.startswith('http://') or path.startswith('https://')):
+            return path
+        if isinstance(path, str) and path.startswith('/uploads'):
+            from flask import request
+            return request.url_root.rstrip('/') + path
+    except RuntimeError:
+        return path
+    return path
+
+
 @history_bp.route('/my', methods=['GET'])
 @jwt_required()
 def my_history():
@@ -23,7 +37,7 @@ def my_history():
                 "id": d.item_id,
                 "name": d.item.name if d.item else "Ítem eliminado",
                 "category": d.item.category.name if d.item and d.item.category else "N/A",
-                "image_url": d.item.image_url if d.item else None
+                "image_url": _full_media_url(d.item.image_url) if d.item else None
             }
             for d in loan.details
         ]
@@ -54,7 +68,7 @@ def my_history():
                 "id": r.item_id,
                 "name": item.name if item else "Ítem eliminado",
                 "category": item.category.name if item and item.category else "N/A",
-                "image_url": item.image_url if item else None
+                "image_url": _full_media_url(item.image_url) if item else None
             }],
         })
 

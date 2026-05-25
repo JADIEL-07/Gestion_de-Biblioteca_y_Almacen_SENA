@@ -12,6 +12,20 @@ from sqlalchemy import func, text, or_, String
 reservation_bp = Blueprint('reservations', __name__)
 
 
+def _full_media_url(path):
+    if not path:
+        return None
+    try:
+        if isinstance(path, str) and (path.startswith('http://') or path.startswith('https://')):
+            return path
+        if isinstance(path, str) and path.startswith('/uploads'):
+            from flask import request
+            return request.url_root.rstrip('/') + path
+    except RuntimeError:
+        return path
+    return path
+
+
 @reservation_bp.route('/', methods=['POST'])
 @jwt_required()
 def create_reservation():
@@ -263,7 +277,7 @@ def get_my_reservations():
             "item_code": item.code if item else "N/A",
             "item_category": item.category.name if item and item.category else "N/A",
             "item_location": item.location.name if item and item.location else "N/A",
-            "item_image_url": item.image_url if item else None,
+            "item_image_url": _full_media_url(item.image_url) if item else None,
             "reservation_date": res.reservation_date.isoformat(),
             "ready_at": res.ready_at.isoformat() if res.ready_at else None,
             "expiration_date": res.expiration_date.isoformat() if res.expiration_date else None,

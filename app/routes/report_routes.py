@@ -74,7 +74,7 @@ def get_reports():
             "reported_by": reporter.name if reporter else "N/A",
             "support_person": support.name if support else "Pendiente",
             "created_at": t.created_at.isoformat(),
-            "photo": t.photo
+            "photo": (request.url_root.rstrip('/') + t.photo) if t.photo and isinstance(t.photo, str) and t.photo.startswith('/uploads') else t.photo
         })
     return jsonify(result), 200
 
@@ -123,11 +123,12 @@ def create_report():
             
             filename = f"ticket_{ticket.id}.{ext}"
             filepath = os.path.join(current_app.root_path, 'uploads', filename)
-            
+
             with open(filepath, "wb") as fh:
                 fh.write(base64.b64decode(encoded))
-                
-            ticket.photo = f"/uploads/{filename}"
+
+            # Store absolute URL for the ticket photo
+            ticket.photo = request.url_root.rstrip('/') + f"/uploads/{filename}"
             db.session.commit()
         except Exception as e:
             print("Error guardando foto del ticket:", e)
@@ -223,7 +224,7 @@ def get_unassigned_reports():
             "status": t.status,
             "reported_by": reporter.name if reporter else "N/A",
             "created_at": t.created_at.isoformat(),
-            "photo": t.photo
+            "photo": (request.url_root.rstrip('/') + t.photo) if t.photo and isinstance(t.photo, str) and t.photo.startswith('/uploads') else t.photo
         })
         
     return jsonify(result), 200
@@ -258,7 +259,7 @@ def get_all_incidents():
             "reported_by": reporter.name if reporter else "N/A",
             "support_person": support.name if support else "Pendiente",
             "created_at": t.created_at.isoformat(),
-            "photo": t.photo
+            "photo": (request.url_root.rstrip('/') + t.photo) if t.photo and isinstance(t.photo, str) and t.photo.startswith('/uploads') else t.photo
         })
         
     return jsonify(result), 200

@@ -12,6 +12,20 @@ from ..extensions import db
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
+
+def _full_media_url(path):
+    if not path:
+        return None
+    try:
+        if isinstance(path, str) and (path.startswith('http://') or path.startswith('https://')):
+            return path
+        if isinstance(path, str) and path.startswith('/uploads'):
+            from flask import request
+            return request.url_root.rstrip('/') + path
+    except RuntimeError:
+        return path
+    return path
+
 @dashboard_bp.route('/stats', methods=['GET'])
 @jwt_required()
 def get_dashboard_stats():
@@ -95,7 +109,7 @@ def get_dashboard_stats():
                 item = Item.query.get(details[0].item_id)
                 if item:
                     item_name = item.name
-                    item_image = item.image_url
+                    item_image = _full_media_url(item.image_url)
             
             from ..models.user import User
             user = User.query.get(l.user_id)
