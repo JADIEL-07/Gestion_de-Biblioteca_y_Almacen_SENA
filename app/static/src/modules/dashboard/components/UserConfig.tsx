@@ -75,8 +75,20 @@ export const UserConfig: React.FC<UserConfigProps> = ({ user }) => {
   const handleTabClick = (tabId: TabId) => {
     setActiveTab(tabId);
     setTimeout(() => {
-      contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 50);
+      const container = document.querySelector('.dashboard-main-content') || 
+                        document.querySelector('.admin-content-scroll') || 
+                        document.querySelector('.admin-main-area') ||
+                        document.querySelector('.config-main-content');
+      const target = contentRef.current;
+      if (container && target) {
+        const rect = target.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const scrollTop = container.scrollTop + rect.top - containerRect.top - 15;
+        container.scrollTo({ top: scrollTop, behavior: 'smooth' });
+      } else {
+        target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 120);
   };
 
   return (
@@ -523,6 +535,15 @@ function parseDevice(ua: string | null): string {
   return `${name} · ${os}`;
 }
 
+function parseLocation(ip: string | null): string {
+  if (!ip || ip === '—') return 'Ubicación desconocida';
+  const cleanIp = ip.trim();
+  if (cleanIp === '127.0.0.1' || cleanIp === '::1' || cleanIp.startsWith('192.168.') || cleanIp.startsWith('10.') || cleanIp.startsWith('172.16.')) {
+    return 'Red local (SENA)';
+  }
+  return 'Vélez, Colombia';
+}
+
 const SessionsPanel: React.FC = () => {
   const { show, Toast } = useToast();
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -576,7 +597,7 @@ const SessionsPanel: React.FC = () => {
                 <span className="session-icon"><FiMonitor /></span>
                 <div>
                   <strong>Sesión #{idx + 1} {idx === 0 ? <span className="badge badge-current">Más reciente</span> : ''}</strong>
-                  <span className="session-device">{parseDevice(s.device)}</span>
+                  <span className="session-device">{parseDevice(s.device)} &nbsp;·&nbsp; <span style={{ opacity: 0.85 }}>Vélez, Colombia</span></span>
                   <span className="card-hint">
                     <FiClock /> Iniciada: {fmt(s.created_at)} &nbsp;·&nbsp; Expira: {fmt(s.expires_at)}
                   </span>
@@ -944,7 +965,10 @@ const HistoryPanel: React.FC = () => {
                 <span className="event-icon">{e.ok ? <FiCheck /> : <FiAlertTriangle />}</span>
                 <div className="event-body">
                   <strong>{ACTION_LABELS[e.action] || e.action}</strong>
-                  <span className="card-hint">IP {e.ip}</span>
+                  <span className="session-device" style={{ display: 'block', fontSize: '0.78rem', color: 'var(--uc-text-muted)', marginTop: '0.1rem' }}>
+                    {parseDevice(e.device)} &nbsp;·&nbsp; <span>{parseLocation(e.ip)}</span>
+                  </span>
+                  <span className="card-hint" style={{ marginTop: '0.1rem' }}>IP: {e.ip}</span>
                 </div>
                 <span className="event-date">{fmt(e.date)}</span>
               </li>
