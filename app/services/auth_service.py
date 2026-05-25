@@ -83,6 +83,17 @@ def _generate_temp_password(length: int = 12) -> str:
 
 class AuthService:
 
+    @staticmethod
+    def _get_user_agent():
+        try:
+            ua = request.user_agent
+            if ua and ua.string:
+                s = ua.string
+                return s[:500] if len(s) > 500 else s
+        except Exception:
+            pass
+        return None
+
     # ── Registro ──────────────────────────────────────────────────────
 
     @staticmethod
@@ -231,7 +242,7 @@ class AuthService:
         otpauth_url = totp.provisioning_uri(name=email, issuer_name="Biblioteca SENA")
 
         # Auto-login tras verificar
-        access, refresh = TokenService.generate_auth_tokens(new_user, request.user_agent.string if request.user_agent else None)
+        access, refresh = TokenService.generate_auth_tokens(new_user, AuthService._get_user_agent())
         return {
             "success": True,
             "message": "Cuenta creada y verificada exitosamente.",
@@ -344,7 +355,7 @@ class AuthService:
         ))
         db.session.commit()
 
-        access, refresh = TokenService.generate_auth_tokens(user, request.user_agent.string if request.user_agent else None)
+        access, refresh = TokenService.generate_auth_tokens(user, AuthService._get_user_agent())
         AuthService._log_audit(user.id, "LOGIN_SUCCESS", ip=request.remote_addr)
 
         return {
@@ -380,7 +391,7 @@ class AuthService:
         ))
         db.session.commit()
 
-        access, refresh = TokenService.generate_auth_tokens(user, request.user_agent.string if request.user_agent else None)
+        access, refresh = TokenService.generate_auth_tokens(user, AuthService._get_user_agent())
         AuthService._log_audit(user.id, "LOGIN_SUCCESS_2FA", ip=request.remote_addr)
 
         return {
