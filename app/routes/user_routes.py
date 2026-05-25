@@ -473,6 +473,21 @@ def export_my_data_pdf():
             <td>{lg.ip or '—'}</td>
         </tr>'''
 
+    table_loans = f'''<table>
+            <thead><tr><th>ID</th><th>Estado</th><th>Fecha Préstamo</th><th>Devolución</th></tr></thead>
+            <tbody>{rows_loans}</tbody>
+        </table>''' if loans else "<p>No hay préstamos registrados.</p>"
+
+    table_reservations = f'''<table>
+            <thead><tr><th>ID</th><th>Estado</th><th>Fecha Creación</th></tr></thead>
+            <tbody>{rows_reservations}</tbody>
+        </table>''' if reservations else "<p>No hay reservas registradas.</p>"
+
+    table_logs = f'''<table>
+            <thead><tr><th>Acción</th><th>Fecha</th><th>IP</th></tr></thead>
+            <tbody>{rows_logs}</tbody>
+        </table>''' if logs else "<p>No hay accesos registrados.</p>"
+
     html = f'''<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -523,17 +538,17 @@ def export_my_data_pdf():
 
     <div class="section">
         <h2>Préstamos ({len(loans)})</h2>
-        {"<p>No hay préstamos registrados.</p>" if not loans else f'<table>\n            <thead><tr><th>ID</th><th>Estado</th><th>Fecha Préstamo</th><th>Devolución</th></tr></thead>\n            <tbody>{rows_loans}</tbody>\n        </table>'}
+        {table_loans}
     </div>
 
     <div class="section">
         <h2>Reservas ({len(reservations)})</h2>
-        {"<p>No hay reservas registradas.</p>" if not reservations else f'<table>\n            <thead><tr><th>ID</th><th>Estado</th><th>Fecha Creación</th></tr></thead>\n            <tbody>{rows_reservations}</tbody>\n        </table>'}
+        {table_reservations}
     </div>
 
     <div class="section">
         <h2>Historial de Accesos ({len(logs)})</h2>
-        {"<p>No hay accesos registrados.</p>" if not logs else f'<table>\n            <thead><tr><th>Acción</th><th>Fecha</th><th>IP</th></tr></thead>\n            <tbody>{rows_logs}</tbody>\n        </table>'}
+        {table_logs}
     </div>
 
 <div class="footer">
