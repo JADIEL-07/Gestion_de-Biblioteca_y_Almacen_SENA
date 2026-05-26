@@ -170,9 +170,7 @@
     border-bottom: 1px solid var(--admin-border);
     vertical-align: middle;
     transition: all 0.2s ease;
-}
     color: var(--admin-text-primary);
-    vertical-align: middle;
 }
 
 .inventory-table tr:hover {
