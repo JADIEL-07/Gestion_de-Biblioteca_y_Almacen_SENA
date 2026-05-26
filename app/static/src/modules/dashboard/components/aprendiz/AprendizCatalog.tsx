@@ -46,6 +46,42 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
   const [selectedItem, setSelectedItem] = useState<Item | null>(null);
   const [showQRView, setShowQRView] = useState(false);
   const [isDark, setIsDark] = useState(!document.body.classList.contains('theme-light'));
+  const [scannerStarted, setScannerStarted] = useState(false);
+  const scannerRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (scannerStarted) {
+      import('html5-qrcode').then(({ Html5Qrcode }) => {
+        setTimeout(() => {
+          if (!scannerRef.current) {
+            scannerRef.current = new Html5Qrcode("qr-reader-catalog");
+          }
+          const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+          
+          scannerRef.current.start(
+            { facingMode: "environment" },
+            config,
+            (decodedText: string) => {
+              setSearchTerm(decodedText);
+              setScannerStarted(false);
+              scannerRef.current?.stop().catch(console.error);
+            },
+            () => {}
+          ).catch((err: any) => {
+            console.error(err);
+            alert("No se pudo iniciar la cámara. Verifica los permisos.");
+            setScannerStarted(false);
+          });
+        }, 100);
+      });
+    }
+
+    return () => {
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch(console.error);
+      }
+    };
+  }, [scannerStarted]);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -180,11 +216,26 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <button className="btn-scan-pro">
+          <button className="btn-scan-pro" onClick={() => setScannerStarted(true)}>
             <FiMaximize /> Escanear código
           </button>
         </div>
       </div>
+
+      {/* QR Scanner Modal */}
+      {scannerStarted && (
+        <div className="catalog-scanner-overlay" onClick={() => setScannerStarted(false)}>
+          <div className="catalog-scanner-content" onClick={e => e.stopPropagation()}>
+            <button className="close-scanner-btn" onClick={() => setScannerStarted(false)}>✕</button>
+            <h3>Escanea el código del elemento</h3>
+            <div className="scanner-view-container">
+              <div id="qr-reader-catalog"></div>
+              <div className="scan-anim-line"></div>
+            </div>
+            <p className="scanner-hint">Apunta al código QR para buscarlo automáticamente</p>
+          </div>
+        </div>
+      )}
 
       {/* 2. Filters Bar */}
       <div className="filters-bar-pro">

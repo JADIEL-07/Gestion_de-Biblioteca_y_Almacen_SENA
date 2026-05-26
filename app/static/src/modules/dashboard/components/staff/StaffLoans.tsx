@@ -78,8 +78,16 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
           if (!scannerRef.current) {
             scannerRef.current = new Html5Qrcode("qr-reader");
           }
-          // Remove qrbox to scan the full video area and avoid fixed boxes
-          const config = { fps: 10 };
+          // Robust config for mobile (iOS/Android)
+          const config = { 
+            fps: 10, 
+            qrbox: (viewfinderWidth: number,維viewfinderHeight: number) => {
+              const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
+              const qrboxSize = Math.floor(minEdge * 0.7);
+              return { width: qrboxSize, height: qrboxSize };
+            },
+            aspectRatio: 1.0
+          };
           
           scannerRef.current.start(
             { facingMode: facingMode },
