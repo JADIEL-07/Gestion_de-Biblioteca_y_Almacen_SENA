@@ -172,11 +172,26 @@ def create_app():
         return response
 
     # ── Error Handling ────────────────────────────────────────────────────────
+    def _try_serve_index():
+        """Sirve app/static/dist/index.html si existe (modo SPA-hosting).
+
+        En el despliegue real (docker-compose.yml) el frontend se sirve desde
+        un contenedor Nginx separado y este backend es solo API, por lo que
+        `dist/index.html` normalmente NO existe aquí. Sin ese chequeo,
+        `send_static_file` lanza `NotFound`, y si eso ocurre dentro de un
+        errorhandler (p.ej. `handle_404`) la excepción no vuelve a capturarse
+        y escapa como un 500 crudo de Werkzeug/Gunicorn en vez de un JSON.
+        """
+        index_path = os.path.join(app.static_folder or '', 'index.html')
+        if not os.path.exists(index_path):
+            return jsonify({"message": "Not found", "path": request.path}), 404
+        return app.send_static_file('index.html')
+
     @app.errorhandler(404)
     def handle_404(e):
         if request.path.startswith('/api/'):
             return jsonify({"message": "Not found", "path": request.path}), 404
-        return app.send_static_file('index.html')
+        return _try_serve_index()
 
     @app.errorhandler(429)
     def handle_rate_limit(e):
@@ -200,7 +215,7 @@ def create_app():
 
     @app.route('/')
     def index():
-        return app.send_static_file('index.html')
+        return _try_serve_index()
 
     # ── Uploads Config & Route ────────────────────────────────────────────────
     UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads')
@@ -217,6 +232,6 @@ def create_app():
     def spa_fallback(path):
         if path.startswith('api/') or path.startswith('uploads/'):
             return jsonify({"message": "Not found"}), 404
-        return app.send_static_file('index.html')
+        return _try_serve_index()
 
     return app
