@@ -26,8 +26,8 @@ export const ForgotPassword: React.FC = () => {
   }, []);
 
   const currentBg = theme === 'light'
-    ? '/assets/images/Tema blanco.png'
-    : '/assets/images/Tema oscuro.png';
+    ? '/assets/images/Fondo blanco.webp'
+    : '/assets/images/Fondo negro.webp';
 
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);

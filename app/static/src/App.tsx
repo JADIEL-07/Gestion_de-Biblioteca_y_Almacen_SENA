@@ -117,8 +117,8 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
   }, []);
 
   const currentBg = theme === 'light' 
-    ? '/assets/images/Tema blanco.png' 
-    : '/assets/images/Tema oscuro.png';
+    ? '/assets/images/Fondo blanco.webp' 
+    : '/assets/images/Fondo negro.webp';
 
   return (
     <div className={`home-wrapper ${theme === 'light' ? 'theme-light' : 'theme-dark'}`}>

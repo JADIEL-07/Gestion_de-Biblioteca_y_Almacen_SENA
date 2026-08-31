@@ -41,8 +41,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   }, []);
 
   const currentBg = theme === 'light'
-    ? '/assets/images/Tema blanco.png'
-    : '/assets/images/Tema oscuro.png';
+    ? '/assets/images/Fondo blanco.webp'
+    : '/assets/images/Fondo negro.webp';
 
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
