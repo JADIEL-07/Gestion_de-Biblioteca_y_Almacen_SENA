@@ -360,6 +360,31 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   filter: brightness(1.08) contrast(0.9) !important;
 }
 
+/* ── HeroBackground: capas de fondo (tema claro/oscuro) con crossfade ─────── */
+/* Cada capa llena su contenedor (.hero-bg o .background-image-container) y se
+   funde por opacidad al cambiar de tema. El estilo de la <img> (object-fit,
+   object-position, filtros por tema) lo siguen aportando las reglas
+   `.hero-bg img` / `.background-image-container img` ya existentes. */
+.hb-layer {
+  position: absolute;
+  inset: 0;
+  transition: opacity 450ms ease;
+  will-change: opacity;
+}
+
+.hb-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-layer {
+    transition: none;
+  }
+}
+
 .hero-overlay {
   position: absolute;
   top: 0;

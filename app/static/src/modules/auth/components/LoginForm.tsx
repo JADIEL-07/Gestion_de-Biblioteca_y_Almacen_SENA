@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiAlertCircle, FiPhone, FiCreditCard, FiShield, FiSmartphone } from 'react-icons/fi';
 import './LoginForm.css';
 import { FloatingParticles } from '../../../components/ui/FloatingParticles';
+import { HeroBackground } from '../../../components/ui/HeroBackground';
 import { QRCodeCanvas } from 'qrcode.react';
 import { DashboardBg } from '../../dashboard/components/DashboardBg';
 
@@ -19,31 +20,6 @@ const PHONE_CO_RE = /^3\d{9}$/;
 
 export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) => {
   const navigate = useNavigate();
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    return document.body.classList.contains('theme-light') ? 'light' : 'dark';
-  });
-
-  useEffect(() => {
-    const isLightNow = document.body.classList.contains('theme-light');
-    setTheme(isLightNow ? 'light' : 'dark');
-
-    const observer = new MutationObserver(() => {
-      const isLight = document.body.classList.contains('theme-light');
-      setTheme(isLight ? 'light' : 'dark');
-    });
-
-    observer.observe(document.body, {
-      attributes: true,
-      attributeFilter: ['class'],
-    });
-
-    return () => observer.disconnect();
-  }, []);
-
-  const currentBg = theme === 'light'
-    ? '/assets/images/Fondo blanco.webp'
-    : '/assets/images/Fondo negro.webp';
-
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -323,10 +299,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   if (pendingVerifyEmail) {
     return (
       <div className="login-wrapper">
-        <div className="background-image-container">
-          <img src={currentBg} alt="Biblioteca SENA" />
-          <div className="bg-overlay"></div>
-        </div>
+        <HeroBackground variant="panel" alt="Biblioteca SENA" />
         <FloatingParticles />
         <div className="login-form-centered">
           <div className="clean-form">
@@ -388,10 +361,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   if (totpData) {
     return (
       <div className="login-wrapper">
-        <div className="background-image-container">
-          <img src={currentBg} alt="Biblioteca SENA" />
-          <div className="bg-overlay"></div>
-        </div>
+        <HeroBackground variant="panel" alt="Biblioteca SENA" />
         <FloatingParticles />
         <div className="login-form-centered">
           <div className="clean-form">
@@ -429,10 +399,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   if (requires2fa) {
     return (
       <div className="login-wrapper">
-        <div className="background-image-container">
-          <img src={currentBg} alt="Biblioteca SENA" />
-          <div className="bg-overlay"></div>
-        </div>
+        <HeroBackground variant="panel" alt="Biblioteca SENA" />
         <FloatingParticles />
         <div className="login-form-centered">
           <div className="clean-form">
@@ -484,10 +451,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   // ─── Pantalla normal (login/register) ───────────────────────────
   return (
     <div className="login-wrapper">
-      <div className="background-image-container">
-        <img src={currentBg} alt="Biblioteca SENA" />
-        <div className="bg-overlay"></div>
-      </div>
+      <HeroBackground variant="panel" alt="Biblioteca SENA" />
 
       <FloatingParticles />
       <DashboardBg />

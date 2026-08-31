@@ -32,6 +32,7 @@ import {
 import { SERVICES_DATA } from './shared/constants';
 const senaBg = '/assets/images/sena-library-bg.png';
 import { FloatingParticles } from './components/ui/FloatingParticles';
+import { HeroBackground } from './components/ui/HeroBackground';
 import { AnimatedRobotIcon } from './components/ui/AnimatedRobotIcon';
 
 // Helper component for reveal on scroll animations
@@ -116,10 +117,6 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
     };
   }, []);
 
-  const currentBg = theme === 'light' 
-    ? '/assets/images/Fondo blanco.webp' 
-    : '/assets/images/Fondo negro.webp';
-
   return (
     <div className={`home-wrapper ${theme === 'light' ? 'theme-light' : 'theme-dark'}`}>
       <nav className="main-nav">
@@ -171,11 +168,9 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
       </nav>
 
       <section className="hero-section">
-        <div className="hero-bg">
-          <img src={currentBg} alt="Fondo Biblioteca & Almacén SENA" />
-          <div className="hero-overlay"></div>
+        <HeroBackground variant="hero" alt="Fondo Biblioteca & Almacén SENA">
           <FloatingParticles />
-        </div>
+        </HeroBackground>
 
         <RevealOnScroll delay={100}>
           <div className="hero-content">
