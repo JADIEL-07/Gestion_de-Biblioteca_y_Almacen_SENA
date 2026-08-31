@@ -17,6 +17,9 @@ services:
     networks:
       - coolify
 
+  # Servicio único de aplicación: Flask sirve la API y el frontend React
+  # ya compilado (multi-stage en ./Dockerfile). El puerto 5000 es el que
+  # el proxy de Coolify debe apuntar como FQDN público.
   backend:
     build:
       context: .
@@ -43,17 +46,6 @@ services:
       - coolify
     command: >
       sh -c "gunicorn --bind 0.0.0.0:5000 --workers 2 wsgi:app"
-
-  frontend:
-    build:
-      context: ./app/static
-      dockerfile: Dockerfile
-    expose:
-      - "80"
-    depends_on:
-      - backend
-    networks:
-      - coolify
 
 volumes:
   postgres_data_v3:
