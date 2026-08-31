@@ -25,6 +25,7 @@ services:
       - FLASK_APP=run.py
       - FLASK_ENV=production
       - DATABASE_URL=postgresql://${POSTGRES_USER:-sena_user}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-biblioteca_db}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
     expose:
       - "5000"
     volumes:

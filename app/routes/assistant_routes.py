@@ -380,6 +380,9 @@ INSTRUCCIONES DE RESPUESTA:
     api_key = os.environ.get('GEMINI_API_KEY')
     GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']
 
+    if not api_key:
+        print("[GEMINI] GEMINI_API_KEY no configurada en el entorno — usando fallback rule-based")
+
     if api_key:
         # Construir contents una sola vez (compartido entre intentos)
         contents = []
