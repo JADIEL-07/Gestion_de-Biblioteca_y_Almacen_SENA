@@ -5,7 +5,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 
 # ── Etapa 1: build del frontend (Node) ──────────────────────────────────────
-FROM node:20-alpine AS frontend
+# Vite 8 exige Node ^20.19 || >=22.12 — usamos 22 para no depender del patch de la 20.
+FROM node:22-alpine AS frontend
 
 WORKDIR /build
 
