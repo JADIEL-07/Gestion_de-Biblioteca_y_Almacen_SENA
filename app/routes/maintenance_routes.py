@@ -12,16 +12,17 @@ maintenance_bp = Blueprint('maintenance', __name__)
 
 
 def _full_media_url(path):
-    if not path:
+    """Normaliza rutas de media a una ruta RELATIVA ('/uploads/...').
+    Así funcionan igual en dev (proxy de Vite) y en producción (nginx) sin
+    hornear el host en la respuesta. Repara además valores absolutos que
+    hayan quedado guardados en la BD (http://host/uploads/...)."""
+    if not isinstance(path, str) or not path:
         return None
-    try:
-        if isinstance(path, str) and (path.startswith('http://') or path.startswith('https://')):
-            return path
-        if isinstance(path, str) and path.startswith('/uploads'):
-            from flask import request
-            return request.url_root.rstrip('/') + path
-    except RuntimeError:
+    if path.startswith('data:'):
         return path
+    if path.startswith(('http://', 'https://')):
+        idx = path.find('/uploads/')
+        return path[idx:] if idx != -1 else path
     return path
 
 @maintenance_bp.route('/', methods=['GET'])
@@ -217,8 +218,8 @@ def complete_maintenance(id):
             with open(filepath, "wb") as fh:
                 fh.write(base64.b64decode(encoded))
 
-            # Store absolute URL for the evidence photo
-            m.evidence_photo = request.url_root.rstrip('/') + f"/uploads/{filename}"
+            # Guardar ruta RELATIVA (el proxy de Vite / nginx resuelve /uploads)
+            m.evidence_photo = f"/uploads/{filename}"
             db.session.commit()
         except Exception as e:
             print("Error guardando foto del mantenimiento:", e)

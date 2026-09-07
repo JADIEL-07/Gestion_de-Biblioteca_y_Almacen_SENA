@@ -287,14 +287,15 @@ class AuthService:
 
     @staticmethod
     def login(identifier, password):
-        """Autentica con email o documento. Bloquea login si la cuenta no está verificada."""
+        """Autentica ÚNICAMENTE con número de documento. Bloquea login si la cuenta no está verificada."""
+        document = (identifier or '').strip()
         user = User.query.filter(
-            or_(User.id == identifier, User.email == (identifier or '').strip().lower()),
+            User.id == document,
             User.is_deleted == False
         ).first()
 
         if not user:
-            return {"error": "Credenciales inválidas"}, 401
+            return {"error": "No encontramos ninguna cuenta con ese número de documento."}, 401
 
         if not user.is_active:
             return {"error": "Esta cuenta está inactiva. Contacte al administrador."}, 401
@@ -314,7 +315,14 @@ class AuthService:
             user.last_failed_login = datetime.utcnow()
             db.session.commit()
             AuthService._log_audit(user.id, "LOGIN_FAILED", ip=request.remote_addr)
-            return {"error": "Credenciales inválidas"}, 401
+            remaining = max(0, 5 - user.failed_attempts)
+            if remaining == 0:
+                msg = "Contraseña incorrecta. El próximo intento fallido bloqueará la cuenta."
+            elif remaining <= 2:
+                msg = f"Contraseña incorrecta. Te quedan {remaining} intento(s) antes de bloquear la cuenta."
+            else:
+                msg = "La contraseña es incorrecta."
+            return {"error": msg}, 401
 
         if not user.is_verified:
             # Solo reemitir código si el usuario tiene este mecanismo (creado vía registro normal)

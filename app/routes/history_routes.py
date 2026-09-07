@@ -9,16 +9,17 @@ history_bp = Blueprint('history', __name__)
 
 
 def _full_media_url(path):
-    if not path:
+    """Normaliza rutas de media a una ruta RELATIVA ('/uploads/...').
+    Así funcionan igual en dev (proxy de Vite) y en producción (nginx) sin
+    hornear el host en la respuesta. Repara además valores absolutos que
+    hayan quedado guardados en la BD (http://host/uploads/...)."""
+    if not isinstance(path, str) or not path:
         return None
-    try:
-        if isinstance(path, str) and (path.startswith('http://') or path.startswith('https://')):
-            return path
-        if isinstance(path, str) and path.startswith('/uploads'):
-            from flask import request
-            return request.url_root.rstrip('/') + path
-    except RuntimeError:
+    if path.startswith('data:'):
         return path
+    if path.startswith(('http://', 'https://')):
+        idx = path.find('/uploads/')
+        return path[idx:] if idx != -1 else path
     return path
 
 

@@ -13,6 +13,13 @@ export default defineConfig({
         changeOrigin: true,
         secure: false
       },
+      // Imágenes subidas (perfil, elementos, evidencias): el backend ahora
+      // devuelve rutas relativas /uploads/... y el proxy las resuelve.
+      '/uploads': {
+        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false
+      },
     },
   },
   build: {

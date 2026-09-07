@@ -48,11 +48,12 @@ def login():
     if not data:
         return jsonify({"error": "Credentials required"}), 400
         
-    identifier = data.get('nombre') or data.get('name') or data.get('email')
+    # El inicio de sesión es SOLO por número de documento (no por correo).
+    identifier = data.get('documento') or data.get('nombre') or data.get('name')
     password = data.get('password')
-    
+
     if not identifier or not password:
-        return jsonify({"error": "Identifier and password required"}), 400
+        return jsonify({"error": "Se requiere el número de documento y la contraseña"}), 400
         
     result, status = AuthService.login(identifier, password)
     return jsonify(result), status

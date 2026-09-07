@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import requests
 import string
 import time
@@ -23,6 +24,98 @@ def get_query_keywords(text):
     stopwords = {'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'y', 'o', 'de', 'para', 'en', 'por', 'a', 'con', 'que', 'qué', 'como', 'cómo', 'cual', 'cuál', 'te', 'me', 'se', 'lo', 'al', 'del'}
     words = text.lower().translate(str.maketrans('', '', string.punctuation)).split()
     return " ".join([w for w in words if w not in stopwords and len(w) > 2])
+
+
+# Palabras de saludo/relleno. Un mensaje se considera "saludo puro" SOLO si todas
+# sus palabras están aquí (así "Hola, como puedo iniciar sesion" NO es un saludo).
+GREETING_WORDS = {
+    'hola', 'holaa', 'holaaa', 'holi', 'holis', 'ola', 'buenas', 'buenos',
+    'dia', 'dias', 'día', 'días', 'tarde', 'tardes', 'noche', 'noches',
+    'buen', 'buena', 'saludos', 'saludo', 'hey', 'ey', 'hi', 'hello',
+    'que', 'qué', 'tal', 'como', 'cómo', 'estas', 'estás', 'esta', 'está',
+    'va', 'todo', 'bien', 'y', 'sena', 'bot', 'asistente',
+}
+IDENTITY_QUESTIONS = {
+    'quien eres', 'quién eres', 'que eres', 'qué eres',
+    'como te llamas', 'cómo te llamas',
+    'cual es tu nombre', 'cuál es tu nombre',
+}
+
+
+def classify_greeting(text):
+    """Clasifica un mensaje: 'identity' (pregunta de identidad conocida),
+    'greeting' (saludo puro: todas sus palabras son de saludo/relleno) o None."""
+    q = (text or '').lower().translate(str.maketrans('', '', string.punctuation)).strip()
+    if not q:
+        return None
+    if q in IDENTITY_QUESTIONS:
+        return 'identity'
+    words = q.split()
+    if 0 < len(words) <= 6 and all(w in GREETING_WORDS for w in words):
+        return 'greeting'
+    return None
+
+
+# Identificadores tipo código (snake_case en minúsculas) que a veces se filtran
+# en la salida del modelo cuando intenta poner un icono, p.ej. 'borrow_tool',
+# 'historiales_de_prestamos', 'personalized_settings'. NO afecta a [ESCALAR_SOPORTE]
+# (mayúsculas) ni a TITULO: (sin guion bajo).
+_LEAKED_TOKEN_RE = re.compile(r'(?<![`\w])[a-z][a-z0-9]*(?:_[a-z0-9]+)+(?![`\w])')
+
+
+def strip_leaked_tokens(text):
+    """Quita identificadores tipo código filtrados y limpia las viñetas que
+    queden vacías o con espacios sobrantes."""
+    if not text:
+        return text
+    cleaned = _LEAKED_TOKEN_RE.sub('', text)
+    cleaned = re.sub(r'^[ \t]*[-*][ \t]*$', '', cleaned, flags=re.MULTILINE)  # viñetas vacías
+    cleaned = re.sub(r'[ \t]{2,}', ' ', cleaned)
+    cleaned = re.sub(r'[ \t]+\n', '\n', cleaned)
+    cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+    return cleaned.strip()
+
+
+# Saludo/relleno al INICIO de una respuesta ("¡Hola! 👋", "¡Claro que sí,", ...).
+# Solo se recorta en mensajes de seguimiento, donde no debe volver a saludar.
+_LEADING_GREETING_RE = re.compile(
+    r'^\s*(?:¡?\s*(?:hola(?:\s+de\s+nuevo)?|buen[oa]s(?:\s+(?:d[ií]as|tardes|noches))?'
+    r'|claro(?:\s+que\s+s[ií])?|por\s+supuesto|con\s+(?:mucho\s+)?gusto|desde\s+luego'
+    r'|perfecto|entendido)\s*[!¡,.\s\U0001F300-\U0001FAFF☀-➿]*)+',
+    re.IGNORECASE,
+)
+
+
+def strip_leading_greeting(text):
+    """Recorta un saludo inicial redundante en respuestas de seguimiento."""
+    if not text:
+        return text
+    new = _LEADING_GREETING_RE.sub('', text, count=1).lstrip(" \n\t,;:!¡.-–—")
+    if len(new) < 15:  # se comió casi todo: mejor dejarlo como estaba
+        return text
+    return new[0].upper() + new[1:]
+
+
+# Nombres de cuentas de demostración / placeholder: el asistente NO debe dirigirse
+# a la persona con estos "nombres"; usa el genérico "usuario".
+_PLACEHOLDER_NAMES = {
+    'test', 'test user', 'testuser', 'usuario test', 'usuario de prueba',
+    'user test', 'demo', 'prueba', 'invitado', 'invitado sena', 'aprendiz',
+}
+
+
+def assistant_display_name(user, first_name_only=False):
+    """Nombre con el que el asistente se dirige a la persona.
+    Para invitados o cuentas de prueba/demo devuelve 'usuario' (sin nombre propio)."""
+    raw = ((getattr(user, 'name', '') if user else '') or '').strip()
+    email = ((getattr(user, 'email', '') if user else '') or '').strip().lower()
+    if (not raw
+            or raw.lower() in _PLACEHOLDER_NAMES
+            or 'prueba' in raw.lower()
+            or email.startswith('test@')
+            or email.startswith('demo@')):
+        return 'usuario'
+    return raw.split()[0] if first_name_only else raw
 
 @assistant_bp.route('/chat', methods=['POST'])
 @jwt_required(optional=True)
@@ -59,7 +152,7 @@ def chat_ai():
     if user_id:
         user = User.query.filter_by(id=str(user_id)).first()
         
-    user_name = user.name if user else 'Invitado'
+    user_name = assistant_display_name(user)
 
     # 1.b Obtener rol del usuario para personalizar instrucciones
     user_role = 'INVITADO'
@@ -231,7 +324,7 @@ GUÍA DE NAVEGACIÓN DE LA PLATAFORMA (Menú Lateral):
 - "Perfil": Haciendo clic en el ícono del lápiz sobre tu avatar (abajo a la izquierda) accedes a Configuración rápida.
 
 INFORMACIÓN EN TIEMPO REAL DEL USUARIO (RAG):
-- Nombre del Usuario: {user_name}
+- Nombre del Usuario: {user_name}  (si es "usuario", NO tienes su nombre real: dirígete a la persona de forma amable sin inventar ni forzar un nombre propio)
 - Estado de autenticación: {'Iniciado sesión' if user else 'Invitado'}
 - Rol del usuario: {user_role}
 - Préstamos activos del usuario:
@@ -257,24 +350,27 @@ POLÍTICAS Y NORMAS DEL SENA:
   * Almacén de Equipos: Al fondo del pasillo técnico, contiguo a los talleres de electricidad y automatización.
 
 INSTRUCCIONES DE RESPUESTA:
-1. Responde siempre en español, con un tono motivador, empático, amigable, claro y sumamente profesional (como un consejero tecnológico del SENA).
-2. Utiliza negritas, listas ordenadas/desordenadas y emojis para que tus respuestas se vean hermosas y organizadas.
-3. Responde de forma natural. Puedes saludar libremente según el contexto de la conversación.
-4. CRÍTICO — RESPETA EL ROL: Antes de responder cualquier pregunta sobre acciones del sistema (crear/editar/eliminar usuarios, modificar inventario, ver reportes, etc.), REVISA las CAPACIDADES Y PERMISOS DEL ROL ACTUAL arriba.
+1. Responde siempre en español, con un tono motivador, empático, amigable, claro y profesional (como un consejero tecnológico del SENA).
+2. IDENTIDAD: te llamas **SENA Bot**. Si preguntan quién eres, cómo te llamas o qué eres, responde SIEMPRE que eres "SENA Bot", el asistente virtual oficial de la Biblioteca y Almacén del SENA — Sede Vélez, Santander. NUNCA te presentes como "tu asistente personal" ni con otro nombre.
+3. NO SALUDES EN CADA MENSAJE. Di "¡Hola!" y preséntate SOLO en el primer mensaje de una conversación nueva. En los mensajes siguientes ve directo a la respuesta: nada de "¡Hola!", "¡Claro que sí!", ni repetir la bienvenida o el aviso de "usuario Invitado" si ya lo dijiste antes.
+4. FORMATO: usa negritas, listas y emojis Unicode reales escritos directamente (📚 📅 🔧 🕒 ⚙️ ✅ 🔒). QUEDA PROHIBIDO escribir identificadores de código, nombres de función o texto en snake_case como `borrow_tool`, `historiales_de_prestamos`, `personalized_settings` o similares. Si quieres un icono, escribe el emoji, nunca su nombre. La única excepción son las etiquetas especiales que se te pidan explícitamente (TITULO:, [ESCALAR_SOPORTE]).
+5. CRÍTICO — RESPETA EL ROL: Antes de responder cualquier pregunta sobre acciones del sistema (crear/editar/eliminar usuarios, modificar inventario, ver reportes, etc.), REVISA las CAPACIDADES Y PERMISOS DEL ROL ACTUAL arriba.
    - Si la acción ESTÁ permitida para este rol: guía paso a paso (dónde está en el menú, qué botón presionar, qué campos llenar). Eres un asistente con acceso total a esa función.
    - Si la acción NO está permitida para este rol: explícalo amablemente y sugiere a quién pedírselo o si necesita escalar a soporte. NUNCA expliques cómo saltarse la restricción.
    - EJEMPLO: si un ADMIN pregunta "cómo agrego un usuario", debes explicarle exactamente que vaya a Menú → Usuarios → botón "Nuevo usuario". NO le digas "no tengo permisos" — ese rol SÍ puede hacerlo.
    - EJEMPLO: si un APRENDIZ pregunta "cómo elimino a otro usuario", debes responder que esa acción está reservada al administrador del sistema.
-5. Si el usuario te pregunta sobre la disponibilidad de un artículo, revisa la "INFORMACIÓN EN TIEMPO REAL DEL CATÁLOGO" y responde con exactitud (stock, código).
-6. Si el usuario pregunta por sus préstamos, revisa la sección de préstamos arriba.
-7. Mantén tus respuestas concisas pero completas. No inventes elementos del catálogo.
-8. Si la consulta es completamente fuera del sistema SENA (matemáticas, vida personal, otros temas), termina tu respuesta con la línea exacta: [ESCALAR_SOPORTE]
+6. Si el usuario te pregunta sobre la disponibilidad de un artículo, revisa la "INFORMACIÓN EN TIEMPO REAL DEL CATÁLOGO" y responde con exactitud (stock, código).
+7. Si el usuario pregunta por sus préstamos, revisa la sección de préstamos arriba.
+8. Mantén tus respuestas concisas pero completas. No inventes elementos del catálogo.
+9. Si la consulta es completamente fuera del sistema SENA (matemáticas, vida personal, otros temas), termina tu respuesta con la línea exacta: [ESCALAR_SOPORTE]
 """
 
     # Si es una conversación nueva (historial vacío), pedir que genere título
     valid_history_messages = [m for m in history if m.get("role") == "user"]
     if len(valid_history_messages) == 0:
-        system_instruction += "\n\nREGLA ADICIONAL: Como este es el primer mensaje de la conversación, DEBES iniciar tu respuesta exactamente con la palabra 'TITULO: ' seguida de un breve resumen de máximo 4 a 5 palabras del tema consultado, luego haz un salto de línea y continúa con tu respuesta normal."
+        system_instruction += "\n\nREGLA ADICIONAL: Como este es el primer mensaje de la conversación, DEBES iniciar tu respuesta exactamente con la palabra 'TITULO: ' seguida de un breve resumen de máximo 4 a 5 palabras del tema consultado, luego haz un salto de línea y continúa con tu respuesta normal. Después del título puedes saludar UNA vez y presentarte brevemente como SENA Bot."
+    else:
+        system_instruction += "\n\nREGLA ADICIONAL: Esta conversación YA está en curso. NO saludes, NO te presentes de nuevo y NO repitas la bienvenida ni el aviso de 'usuario Invitado'. Responde directamente a la última pregunta del usuario, breve y al grano."
 
     q_lower = user_query.lower()
 
@@ -327,6 +423,32 @@ INSTRUCCIONES DE RESPUESTA:
                 "source": "intent-support-norole",
             })
 
+    # ── SALUDO / IDENTIDAD ───────────────────────────────────────────────────
+    # Se responde de forma determinista SIEMPRE (con o sin historial): no tiene
+    # sentido gastar una llamada a Gemini para un "hola" o un "quién eres", y así
+    # el saludo no se repite en bucle. "Hola, como puedo iniciar sesion" NO cuenta
+    # como saludo puro y sí pasa al flujo normal.
+    greeting_kind = classify_greeting(user_query)
+    if greeting_kind and not media:
+        is_identity_q = greeting_kind == 'identity'
+        # Primer contacto real (aún no hay nada en el hilo): bienvenida completa.
+        if greeting_kind == 'greeting' and len(history) == 0:
+            saved = AILearnedResponse.query.filter_by(query_keywords='saludo bienvenida inicial').first()
+            if saved:
+                return jsonify({"text": saved.response_text, "type": "text", "source": "own-ai-greeting"})
+        CAPS = (
+            "- 📚 **Catálogo** — libros, herramientas y equipos disponibles.\n"
+            "- 📅 **Préstamos y reservas** — cómo solicitarlos y consultar los tuyos.\n"
+            "- 🕒 **Horarios, ubicaciones y reglamento** de la sede.\n"
+            "- ⚙️ **Tu cuenta** — perfil, contraseña, notificaciones y seguridad."
+        )
+        if is_identity_q:
+            text = ("Soy **SENA Bot** 🤖, el asistente virtual oficial de la Biblioteca y Almacén "
+                    "del SENA — Sede Vélez, Santander. Puedo ayudarte con:\n\n" + CAPS + "\n\n¿Con qué empezamos?")
+        else:
+            text = "¡Hola de nuevo! 👋 Puedo ayudarte con:\n\n" + CAPS + "\n\n¿En qué te ayudo?"
+        return jsonify({"text": text, "type": "text", "source": "own-ai-greeting-short"})
+
     # 4.5 PRIORIDAD: consultar primero la IA propia (AILearnedResponse).
     # SOLO si es el PRIMER mensaje (sin historial) y no hay multimedia ni RAG dinámico.
     # Razón: los mensajes de seguimiento ("es de manera educativa", "sí", "no", etc.)
@@ -341,18 +463,6 @@ INSTRUCCIONES DE RESPUESTA:
 
     if not media and not needs_fresh_data and not has_conversation_history:
         try:
-            # Caso especial: saludos → buscar el saludo guardado de Gemini
-            GREETING_KEYWORDS = ['hola', 'saludos', 'buenos dias', 'buenas tardes',
-                                 'buen dia', 'buena tarde', 'quien eres', 'quién eres']
-            is_greeting = any(k in q_lower for k in GREETING_KEYWORDS) and len(user_query) < 40
-            if is_greeting:
-                saved = AILearnedResponse.query.filter_by(query_keywords='saludo bienvenida inicial').first()
-                if saved:
-                    saved.use_count += 1
-                    db.session.commit()
-                    print(f"[IA-PROPIA] Saludo servido desde BD (uso #{saved.use_count})")
-                    return jsonify({"text": saved.response_text, "type": "text", "source": "own-ai-greeting"})
-
             # Búsqueda general por keywords
             user_kws = get_query_keywords(user_query)
             if len(user_kws) > 5:
@@ -437,6 +547,12 @@ INSTRUCCIONES DE RESPUESTA:
                             role_up = (user.role.name or '').upper().strip()
                             gemini_suggest_support = role_up in ESCALATABLE_ROLES
 
+                    # Red de seguridad: quitar identificadores tipo código filtrados
+                    bot_text = strip_leaked_tokens(bot_text)
+                    # En mensajes de seguimiento, quitar el saludo inicial redundante
+                    if has_conversation_history:
+                        bot_text = strip_leading_greeting(bot_text)
+
                     json_response = {
                         "text": bot_text,
                         "type": "text",
@@ -450,27 +566,24 @@ INSTRUCCIONES DE RESPUESTA:
                     if cache_key:
                         cache_store[cache_key] = (json_response, time.time())
 
-                    # APRENDER: guardar la respuesta de Gemini para el modo offline futuro
+                    # APRENDER: guardar la respuesta de Gemini para el modo offline futuro.
+                    # Los saludos NUNCA se aprenden aquí: 'saludo bienvenida inicial' es
+                    # un texto curado y fijo, y no tiene sentido cachear un "hola".
                     try:
                         kws = get_query_keywords(user_query)
-                        # Detectar saludos PUROS (corto y solo contiene palabras de saludo)
-                        # — debe coincidir con la lógica de búsqueda en el paso 4.5
-                        GREETING_KEYWORDS = ['hola', 'saludos', 'buenos dias', 'buenas tardes',
-                                             'buen dia', 'buena tarde', 'quien eres', 'quién eres']
-                        is_pure_greeting = (
-                            any(k in user_query.lower() for k in GREETING_KEYWORDS)
-                            and len(user_query) < 40
-                        )
-                        save_kws = 'saludo bienvenida inicial' if is_pure_greeting else kws
-                        if len(bot_text) > 15 and (is_pure_greeting or len(kws) > 5):
-                            existing = AILearnedResponse.query.filter_by(query_keywords=save_kws).first()
+                        if (
+                            classify_greeting(user_query) is None
+                            and len(bot_text) > 15
+                            and len(kws) > 5
+                        ):
+                            existing = AILearnedResponse.query.filter_by(query_keywords=kws).first()
                             if existing:
                                 existing.response_text = bot_text
                                 existing.use_count += 1
                             else:
                                 db.session.add(AILearnedResponse(
                                     query_text=user_query,
-                                    query_keywords=save_kws,
+                                    query_keywords=kws,
                                     response_text=bot_text
                                 ))
                             db.session.commit()
@@ -686,11 +799,8 @@ def get_greeting():
     """Devuelve el saludo guardado en BD para mostrarlo automáticamente al
     iniciar una conversación nueva. No gasta tokens de Gemini si ya está aprendido."""
     user_id = get_jwt_identity()
-    user_name = 'Aprendiz'
-    if user_id:
-        user = User.query.filter_by(id=str(user_id)).first()
-        if user and user.name:
-            user_name = user.name.split()[0]  # primer nombre
+    user = User.query.filter_by(id=str(user_id)).first() if user_id else None
+    user_name = assistant_display_name(user, first_name_only=True)
 
     saved = AILearnedResponse.query.filter_by(query_keywords='saludo bienvenida inicial').first()
     if saved:

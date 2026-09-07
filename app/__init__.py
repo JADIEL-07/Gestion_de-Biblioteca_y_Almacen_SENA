@@ -71,6 +71,52 @@ def _apply_runtime_migrations():
         db.session.rollback()
         print(f"[runtime-migration] aviso (user_agent): {e}")
 
+    # Migración is_deleted en items (soft-delete). Chequeo previo, compatible SQLite/Postgres.
+    try:
+        from sqlalchemy import inspect
+        insp = inspect(db.engine)
+        item_cols = [c['name'] for c in insp.get_columns('items')]
+        if 'is_deleted' not in item_cols:
+            default_false = '0' if db.engine.dialect.name == 'sqlite' else 'FALSE'
+            db.session.execute(text(f"ALTER TABLE items ADD COLUMN is_deleted BOOLEAN DEFAULT {default_false}"))
+            db.session.commit()
+            print("[runtime-migration] Columna is_deleted agregada en items.")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[runtime-migration] aviso (items.is_deleted): {e}")
+
+    # Migración created_at/updated_at en tablas que heredan de Base.
+    # La BD Postgres remota puede tener tablas creadas antes de que Base
+    # incluyera ambas columnas (p. ej. pending_registrations.updated_at ->
+    # UndefinedColumn al registrarse). Son DateTime nullable, así que
+    # ADD COLUMN es seguro tanto en SQLite como en Postgres.
+    try:
+        from sqlalchemy import inspect
+        insp = inspect(db.engine)
+        base_tables = [
+            'roles', 'formation_programs', 'users', 'items', 'dependencies',
+            'maintenance', 'reservations', 'tickets', 'ticket_messages',
+            'staff_messages', 'pending_registrations', 'ai_learned_responses',
+        ]
+        existing_tables = set(insp.get_table_names())
+        for _table in base_tables:
+            if _table not in existing_tables:
+                continue
+            _cols = {c['name'] for c in insp.get_columns(_table)}
+            for _col in ('created_at', 'updated_at'):
+                if _col in _cols:
+                    continue
+                try:
+                    db.session.execute(text(f"ALTER TABLE {_table} ADD COLUMN {_col} TIMESTAMP"))
+                    db.session.commit()
+                    print(f"[runtime-migration] Columna {_col} agregada en {_table}.")
+                except Exception as _ie:
+                    db.session.rollback()
+                    print(f"[runtime-migration] aviso ({_table}.{_col}): {_ie}")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[runtime-migration] aviso (created_at/updated_at Base): {e}")
+
 def create_app():
     config = get_config()
     app = Flask(

@@ -9,6 +9,20 @@ from datetime import datetime
 
 report_bp = Blueprint('reports', __name__)
 
+
+def _full_media_url(path):
+    """Normaliza rutas de media a una ruta RELATIVA ('/uploads/...') para que
+    funcionen igual en dev (proxy de Vite) y en producción (nginx). Repara
+    valores absolutos heredados en la BD."""
+    if not isinstance(path, str) or not path:
+        return None
+    if path.startswith('data:'):
+        return path
+    if path.startswith(('http://', 'https://')):
+        idx = path.find('/uploads/')
+        return path[idx:] if idx != -1 else path
+    return path
+
 @report_bp.route('/', methods=['GET'])
 @jwt_required()
 def get_reports():
@@ -74,7 +88,7 @@ def get_reports():
             "reported_by": reporter.name if reporter else "N/A",
             "support_person": support.name if support else "Pendiente",
             "created_at": t.created_at.isoformat(),
-            "photo": (request.url_root.rstrip('/') + t.photo) if t.photo and isinstance(t.photo, str) and t.photo.startswith('/uploads') else t.photo
+            "photo": _full_media_url(t.photo)
         })
     return jsonify(result), 200
 
@@ -127,8 +141,8 @@ def create_report():
             with open(filepath, "wb") as fh:
                 fh.write(base64.b64decode(encoded))
 
-            # Store absolute URL for the ticket photo
-            ticket.photo = request.url_root.rstrip('/') + f"/uploads/{filename}"
+            # Guardar ruta RELATIVA (el proxy/nginx resuelve /uploads)
+            ticket.photo = f"/uploads/{filename}"
             db.session.commit()
         except Exception as e:
             print("Error guardando foto del ticket:", e)
@@ -224,7 +238,7 @@ def get_unassigned_reports():
             "status": t.status,
             "reported_by": reporter.name if reporter else "N/A",
             "created_at": t.created_at.isoformat(),
-            "photo": (request.url_root.rstrip('/') + t.photo) if t.photo and isinstance(t.photo, str) and t.photo.startswith('/uploads') else t.photo
+            "photo": _full_media_url(t.photo)
         })
         
     return jsonify(result), 200
@@ -259,7 +273,7 @@ def get_all_incidents():
             "reported_by": reporter.name if reporter else "N/A",
             "support_person": support.name if support else "Pendiente",
             "created_at": t.created_at.isoformat(),
-            "photo": (request.url_root.rstrip('/') + t.photo) if t.photo and isinstance(t.photo, str) and t.photo.startswith('/uploads') else t.photo
+            "photo": _full_media_url(t.photo)
         })
         
     return jsonify(result), 200
