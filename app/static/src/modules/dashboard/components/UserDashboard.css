@@ -290,6 +290,7 @@
 .dashboard-body {
   display: flex;
   flex: 1;
+  min-height: 0; /* Permite que el sidebar y el contenido hagan scroll interno en vez de crecer */
 }
 
 /* ── SIDEBAR ── */
@@ -351,8 +352,9 @@
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   flex: 1;
+  min-height: 0; /* Sin esto, el flex item crece hasta su contenido y el scroll nunca se activa */
   overflow-y: auto;
-  scrollbar-width: thin;
+  scrollbar-width: none; /* Scroll funcional, barra oculta (igual que el resto de la app) */
 }
 
 .sidebar-menu::-webkit-scrollbar,

@@ -41,8 +41,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   }, []);
 
   const currentBg = theme === 'light'
-    ? '/assets/images/Tema blanco.png'
-    : '/assets/images/Tema oscuro.png';
+    ? '/assets/images/Fondo blanco.png'
+    : '/assets/images/Fondo negro.png';
 
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
@@ -52,10 +52,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   const [documentType, setDocumentType] = useState('CC');
   const [documentNumber, setDocumentNumber] = useState('');
 
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [serverError, setServerError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-  const [errors, setErrors] = useState({ nombre: '', email: '', phone: '', password: '', documentNumber: '' });
+  const [errors, setErrors] = useState({ nombre: '', email: '', phone: '', password: '', documentNumber: '', terms: '' });
 
   // ── Estados para verificación de cuenta post-registro ────────────
   const [pendingVerifyEmail, setPendingVerifyEmail] = useState<string | null>(null);
@@ -73,7 +75,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   // ── Validación ────────────────────────────────────────────────────
 
   const validateFields = () => {
-    let currentErrors = { nombre: '', email: '', phone: '', password: '', documentNumber: '' };
+    let currentErrors = { nombre: '', email: '', phone: '', password: '', documentNumber: '', terms: '' };
     let hasError = false;
 
     if (isRegister) {
@@ -102,6 +104,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
           currentErrors.phone = 'Teléfono inválido. 10 dígitos comenzando en 3 (ej: 3001234567)';
           hasError = true;
         }
+      }
+      if (!acceptedTerms) {
+        currentErrors.terms = 'Debes aceptar los Términos y Condiciones para crear la cuenta';
+        hasError = true;
       }
     } else {
       if (!nombre.trim()) {
@@ -181,7 +187,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
           return;
         }
         setSuccessMsg('¡Registro exitoso! Ya puedes iniciar sesión.');
-        setNombre(''); setEmail(''); setPhone(''); setPassword('');
+        setNombre(''); setEmail(''); setPhone(''); setPassword(''); setAcceptedTerms(false);
       } else {
         if (data.requires_2fa) {
           setRequires2fa(true);
@@ -351,6 +357,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                     inputMode="numeric"
                     maxLength={6}
                     className="clean-input"
+                    spellCheck={false}
                     placeholder="••••••"
                     value={verifyCode}
                     onChange={(e) => setVerifyCode(e.target.value.replace(/\D/g, ''))}
@@ -457,6 +464,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                     inputMode="numeric"
                     maxLength={6}
                     className="clean-input"
+                    spellCheck={false}
                     placeholder="000000"
                     value={twoFaCode}
                     onChange={(e) => setTwoFaCode(e.target.value.replace(/\D/g, ''))}
@@ -521,6 +529,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                 <input
                   type="text"
                   className="clean-input"
+                  spellCheck={false}
                   placeholder={isRegister ? 'Ej. Juan Pérez' : 'Ingresa tu documento'}
                   value={nombre}
                   onChange={(e) => setNombre(e.target.value)}
@@ -553,6 +562,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                       type="text"
                       inputMode="numeric"
                       className="clean-input"
+                      spellCheck={false}
                       placeholder="Ej. 1098..."
                       value={documentNumber}
                       onChange={(e) => setDocumentNumber(e.target.value.replace(/\D/g, ''))}
@@ -572,6 +582,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                   <input
                     type="email"
                     className="clean-input"
+                    spellCheck={false}
                     placeholder="usuario@mi.sena.edu.co"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -592,6 +603,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                     inputMode="tel"
                     maxLength={13}
                     className="clean-input"
+                    spellCheck={false}
                     placeholder="Ej. 3001234567"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
@@ -609,6 +621,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                 <input
                   type={showPassword ? "text" : "password"}
                   className="clean-input password-input"
+                  spellCheck={false}
                   placeholder="Tu contraseña"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -637,7 +650,31 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
               </div>
             )}
 
-            <button type="submit" className="submit-btn" disabled={loading}>
+            {isRegister && (
+              <div className={`terms-check ${errors.terms ? 'has-error' : ''}`}>
+                <label className="terms-check-label">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    disabled={loading}
+                  />
+                  <span>
+                    He leído y acepto los{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer">Términos y Condiciones</a>
+                    {' '}y la{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer">Política de Privacidad</a>.
+                  </span>
+                </label>
+                {errors.terms && (
+                  <span className="error-message" style={{ position: 'static' }}>
+                    <FiAlertCircle /> {errors.terms}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <button type="submit" className="submit-btn" disabled={loading || (isRegister && !acceptedTerms)}>
               {loading ? 'Procesando...' : (isRegister ? 'Registrarse ahora' : 'Ingresar a la Plataforma')}
             </button>
           </form>

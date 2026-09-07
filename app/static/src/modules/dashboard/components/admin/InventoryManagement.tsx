@@ -6,6 +6,7 @@ import {
   FiTrash2, FiPackage, FiMapPin, FiLayers, FiFilter, FiUpload
 } from 'react-icons/fi';
 import { CustomSelect } from './CustomSelect';
+import { IMAGE_PLACEHOLDER } from '../../../../shared/constants';
 import './InventoryManagement.css';
 
 interface Item {
@@ -536,7 +537,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                 <td className="col-id">{item.id}</td>
                 <td className="col-code">
                   <div className="item-profile-cell">
-                    <img src={item.image_url || 'https://via.placeholder.com/48'} alt={item.name} className="item-thumb" />
+                    <img src={item.image_url || IMAGE_PLACEHOLDER} alt={item.name} className="item-thumb" onError={e => { e.currentTarget.src = IMAGE_PLACEHOLDER; }} />
                     <div className="item-main-info">
                       <strong>{item.code}</strong>
                       <small>{item.serial_number || 'S/N'}</small>
@@ -584,7 +585,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
             </div>
             <div className="inv-view-body">
               <div className="inv-view-left">
-                <img src={viewItem.image_url || 'https://via.placeholder.com/160'} alt={viewItem.name} className="inv-view-img" />
+                <img src={viewItem.image_url || IMAGE_PLACEHOLDER} alt={viewItem.name} className="inv-view-img" onError={e => { e.currentTarget.src = IMAGE_PLACEHOLDER; }} />
                 <div className="qr-container">
                   <QRCodeSVG value={buildQRData(viewItem)} size={160} bgColor="transparent" fgColor="#39a900" level="M" />
                   <small>Escanear para ver info</small>
@@ -677,7 +678,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                       </div>
                     ) : (
                       <div className="photo-preview-area">
-                        <img src={editForm.image_url || 'https://via.placeholder.com/150'} alt="Vista previa" />
+                        <img src={editForm.image_url || IMAGE_PLACEHOLDER} alt="Vista previa" onError={e => { e.currentTarget.src = IMAGE_PLACEHOLDER; }} />
                         <div className="photo-actions">
                           <button type="button" onClick={startCamera} className="btn-action-cam"><FiCamera /> Usar Cámara</button>
                           <input type="file" accept="image/*" style={{ display: 'none' }} id="file-upload-edit" onChange={e => handleFileUpload(e, 'edit')} />
@@ -724,7 +725,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                       </div>
                     ) : (
                       <div className="photo-preview-area">
-                        <img src={newItem.image_url || 'https://via.placeholder.com/150'} alt="Vista previa" />
+                        <img src={newItem.image_url || IMAGE_PLACEHOLDER} alt="Vista previa" onError={e => { e.currentTarget.src = IMAGE_PLACEHOLDER; }} />
                         <div className="photo-actions">
                           <button type="button" onClick={startCamera} className="btn-action-cam"><FiCamera /> Usar Cámara</button>
                           <input type="file" accept="image/*" style={{ display: 'none' }} id="file-upload-new" onChange={e => handleFileUpload(e, 'new')} />

@@ -8,6 +8,17 @@ import {
   FiCpu
 } from 'react-icons/fi';
 
+// Placeholder local para imágenes de elementos sin foto.
+// (Antes se usaba https://via.placeholder.com, un servicio que dejó de existir
+//  y por eso los <img> salían rotos.) Es un SVG embebido: no depende de la red.
+const _imgPlaceholderSvg =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'>" +
+  "<rect width='160' height='160' fill='#e2e8f0'/>" +
+  "<circle cx='58' cy='58' r='13' fill='#94a3b8'/>" +
+  "<path d='M24 126l36-44 26 30 20-22 30 36z' fill='#94a3b8'/>" +
+  "</svg>";
+export const IMAGE_PLACEHOLDER = `data:image/svg+xml,${encodeURIComponent(_imgPlaceholderSvg)}`;
+
 export const SERVICES_DATA = [
   {
     id: 'all',

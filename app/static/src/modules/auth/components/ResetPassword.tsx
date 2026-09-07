@@ -26,8 +26,8 @@ export const ResetPassword = () => {
   }, []);
 
   const currentBg = theme === 'light'
-    ? '/assets/images/Tema blanco.png'
-    : '/assets/images/Tema oscuro.png';
+    ? '/assets/images/Fondo blanco.png'
+    : '/assets/images/Fondo negro.png';
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -111,6 +111,7 @@ export const ResetPassword = () => {
                 <input
                   type={showPassword ? "text" : "password"}
                   className="clean-input"
+                  spellCheck={false}
                   placeholder="Mínimo 8 caracteres"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -133,6 +134,7 @@ export const ResetPassword = () => {
                 <input
                   type={showPassword ? "text" : "password"}
                   className="clean-input"
+                  spellCheck={false}
                   placeholder="Repite la contraseña"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}

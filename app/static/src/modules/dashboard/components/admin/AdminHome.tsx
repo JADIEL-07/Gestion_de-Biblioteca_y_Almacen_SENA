@@ -2,10 +2,11 @@ import React from 'react';
 import { 
   FiBox, FiCheckCircle, FiBookOpen, FiTool, FiCalendar
 } from 'react-icons/fi';
-import { 
+import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell 
+  PieChart, Pie, Cell
 } from 'recharts';
+import { IMAGE_PLACEHOLDER } from '../../../../shared/constants';
 
 export const AdminHome: React.FC = () => {
   const [dashboardData, setDashboardData] = React.useState<any>(null);
@@ -182,7 +183,7 @@ export const AdminHome: React.FC = () => {
                 {upcomingReturns.length > 0 ? upcomingReturns.map((ret: any) => (
                   <div key={ret.id} className="return-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                      <img src={ret.image || "https://via.placeholder.com/60"} alt={ret.item_name} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
+                      <img src={ret.image || IMAGE_PLACEHOLDER} alt={ret.item_name} onError={e => { e.currentTarget.src = IMAGE_PLACEHOLDER; }} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
                       <div>
                         <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>{ret.item_name}</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)' }}>{ret.user_name}</div>

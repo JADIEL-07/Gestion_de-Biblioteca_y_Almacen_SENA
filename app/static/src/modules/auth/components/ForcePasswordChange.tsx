@@ -28,8 +28,8 @@ export const ForcePasswordChange: React.FC<Props> = ({ onDone, onLogout }) => {
   }, []);
 
   const currentBg = theme === 'light'
-    ? '/assets/images/Tema blanco.png'
-    : '/assets/images/Tema oscuro.png';
+    ? '/assets/images/Fondo blanco.png'
+    : '/assets/images/Fondo negro.png';
 
   const [newP, setNewP] = useState('');
   const [confP, setConfP] = useState('');
@@ -125,6 +125,7 @@ export const ForcePasswordChange: React.FC<Props> = ({ onDone, onLogout }) => {
                 <input
                   type={showP ? 'text' : 'password'}
                   className="clean-input password-input"
+                  spellCheck={false}
                   placeholder="Mínimo 8 caracteres"
                   value={newP}
                   onChange={(e) => setNewP(e.target.value)}
@@ -148,6 +149,7 @@ export const ForcePasswordChange: React.FC<Props> = ({ onDone, onLogout }) => {
                 <input
                   type={showP ? 'text' : 'password'}
                   className="clean-input"
+                  spellCheck={false}
                   placeholder="Repite la contraseña"
                   value={confP}
                   onChange={(e) => setConfP(e.target.value)}

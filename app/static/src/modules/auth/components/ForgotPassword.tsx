@@ -26,8 +26,8 @@ export const ForgotPassword: React.FC = () => {
   }, []);
 
   const currentBg = theme === 'light'
-    ? '/assets/images/Tema blanco.png'
-    : '/assets/images/Tema oscuro.png';
+    ? '/assets/images/Fondo blanco.png'
+    : '/assets/images/Fondo negro.png';
 
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -99,6 +99,7 @@ export const ForgotPassword: React.FC = () => {
                 <input
                   type="email"
                   className="clean-input"
+                  spellCheck={false}
                   placeholder="usuario@mi.sena.edu.co"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}

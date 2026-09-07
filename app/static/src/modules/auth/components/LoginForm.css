@@ -249,6 +249,17 @@
   padding-right: 0;
 }
 
+/* Ocultar el ojo/aspa NATIVOS del navegador (Edge/IE ::-ms-reveal y ::-ms-clear)
+   para que no se dupliquen con nuestro botón .password-toggle. */
+.clean-input::-ms-reveal,
+.clean-input::-ms-clear,
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
 /* Botón mostrar/ocultar como hijo flex */
 .password-toggle {
   position: absolute;
@@ -390,6 +401,65 @@ input:-webkit-autofill:active {
   transform: translateY(0) scale(0.98);
 }
 
+.submit-btn:disabled,
+.submit-btn:disabled:hover {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background-color: var(--sena-green);
+  transform: none;
+  box-shadow: none;
+  filter: none;
+}
+
+/* ── Aceptación de Términos y Condiciones (registro) ── */
+.terms-check {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0.25rem 0 1.4rem;
+}
+
+.terms-check-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  user-select: none;
+}
+
+.terms-check-label input[type="checkbox"] {
+  margin-top: 0.15rem;
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+  accent-color: var(--sena-green);
+  cursor: pointer;
+}
+
+.terms-check-label a {
+  color: var(--sena-green);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.terms-check-label a:hover {
+  text-decoration: underline;
+}
+
+.terms-check.has-error .terms-check-label {
+  color: #ef4444;
+}
+
+.terms-check.has-error input[type="checkbox"] {
+  accent-color: #ef4444;
+  outline: 2px solid rgba(239, 68, 68, 0.4);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 .back-btn {
   background: none;
   border: none;
@@ -509,6 +579,51 @@ input:-webkit-autofill:active {
   background: #ffffff !important;
   border: 1px solid rgba(57, 169, 0, 0.3);
   color: #0f172a;
+}
+
+/* ==========================================================================
+   TEMA CLARO: los campos de texto SIEMPRE blancos
+   (base, hover, foco/escritura, error y el <select>). Va al final para
+   ganar por orden de cascada a las reglas de estado con fondo oscuro.
+   ========================================================================== */
+.theme-light .input-field-wrapper,
+.theme-light .input-field-wrapper:hover,
+.theme-light .input-field-wrapper:focus-within,
+.theme-light .has-error .input-field-wrapper {
+  background: #ffffff !important;
+}
+
+.theme-light .input-field-wrapper:hover {
+  border-color: rgba(57, 169, 0, 0.5);
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.06);
+}
+
+.theme-light .input-field-wrapper:focus-within {
+  border-color: var(--sena-green);
+  box-shadow: 0 8px 20px rgba(57, 169, 0, 0.15);
+}
+
+.theme-light .clean-input,
+.theme-light .clean-input:focus,
+.theme-light .clean-input:active,
+.theme-light .has-error .input-field-wrapper .clean-input {
+  background: transparent !important;
+  color: #0f172a;
+}
+
+.theme-light .clean-input::placeholder {
+  color: #94a3b8;
+}
+
+.theme-light .clean-select,
+.theme-light .clean-select:hover,
+.theme-light .clean-select:focus {
+  background: #ffffff !important;
+  color: #0f172a;
+}
+
+.theme-light .clean-select:hover {
+  border-color: rgba(57, 169, 0, 0.5);
 }
 
 @media (max-width: 640px) {

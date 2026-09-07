@@ -414,10 +414,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .service-card-mini {
-  background: var(--glass-bg);
+  background: rgba(15, 23, 42, 0.88); /* Azul oscuro SENA (--bg-dark), no negro */
   backdrop-filter: blur(15px);
   -webkit-backdrop-filter: blur(15px);
-  border: 1px solid var(--glass-border);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   padding: 3rem 2rem;
   border-radius: 32px;
   text-align: center;
@@ -426,14 +426,14 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .service-card-mini:hover {
   transform: translateY(-5px);
-  background: var(--bg-surface-alt);
+  background: rgba(30, 41, 59, 0.92); /* --bg-surface: azul un punto más claro para el "lift" */
   border-color: var(--sena-green);
-  box-shadow: 0 15px 30px rgba(0,0,0,0.25);
+  box-shadow: 0 15px 30px rgba(0,0,0,0.45);
 }
 
 .theme-light .service-card-mini:hover {
-  background: rgba(255, 255, 255, 0.7) !important;
-  box-shadow: 0 20px 40px rgba(57, 169, 0, 0.1) !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  box-shadow: 0 20px 40px rgba(57, 169, 0, 0.12) !important;
   border-color: var(--sena-green) !important;
 }
 
@@ -1082,10 +1082,10 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .theme-light .service-card-mini {
-  background: rgba(255, 255, 255, 0.65) !important;
+  background: rgba(255, 255, 255, 0.88) !important;
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(57, 169, 0, 0.2) !important;
 }
 
@@ -1162,8 +1162,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 .theme-light .hero-content p {
-  color: #334155; /* Gris pizarra elegante para máxima legibilidad */
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.8);
+  color: #0f172a; /* Casi negro para máximo contraste sobre la foto del hero */
+  font-weight: 400;
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.9), 0 0 2px rgba(255, 255, 255, 0.7);
 }
 
 
@@ -1296,14 +1297,62 @@ input[type="search"]:focus,
   position: fixed;
   inset: 0;
   z-index: 9999;
-  background: var(--bg-primary);
+  /* Mantiene la imagen de fondo del hero visible al abrir el asistente
+     (solo en el inicio: esta clase únicamente se usa en la landing).
+     El velo oscuro da contraste; los paneles del asistente van opacos. */
+  background:
+    linear-gradient(rgba(15, 23, 42, 0.62), rgba(15, 23, 42, 0.62)),
+    url('/assets/images/Fondo negro.png') center / cover no-repeat fixed,
+    #0f172a;
   overflow-y: auto;
+  padding: 3.25rem 1rem 1rem;
+
+  /* El asistente reutiliza el sistema de variables del dashboard
+     (UserDashboard.css), que no se carga en la landing. Lo redefinimos
+     aquí para que tenga su propio panel. Valores del tema oscuro. */
+  --bg-nav: #0f172a;
+  --bg-card: #151e32;
+  --bg-card-light: #1e293b;
+  --bg-card-hover: #1e293b;
+  --border-color: #2a374f;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --sena-green-hover: #2d8200;
+  --sena-green-light: rgba(57, 169, 0, 0.15);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.theme-light .assistant-overlay {
+  background:
+    linear-gradient(rgba(241, 245, 249, 0.6), rgba(241, 245, 249, 0.6)),
+    url('/assets/images/Fondo blanco.png') center / cover no-repeat fixed,
+    #f1f5f9;
+
+  --bg-nav: #ffffff;
+  --bg-card: #ffffff;
+  --bg-card-light: #f1f5f9;
+  --bg-card-hover: #f1f5f9;
+  --border-color: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --sena-green-light: rgba(57, 169, 0, 0.1);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 15px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+.assistant-overlay .assistant-wrapper {
+  height: 100%;
 }
 
 .assistant-close-btn {
   position: fixed;
-  top: 0.75rem;
-  right: 0.75rem;
+  top: 0.6rem;
+  right: 1rem;
   z-index: 10000;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -1316,8 +1365,15 @@ input[type="search"]:focus,
   justify-content: center;
   cursor: pointer;
   transition: background 0.2s;
+  box-shadow: var(--shadow-md);
 }
 
 .assistant-close-btn:hover {
   background: var(--bg-card-hover);
+}
+
+@media (max-width: 768px) {
+  .assistant-overlay {
+    padding: 2.75rem 0 0;
+  }
 }

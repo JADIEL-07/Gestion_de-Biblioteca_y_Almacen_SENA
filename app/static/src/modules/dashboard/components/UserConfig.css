@@ -457,6 +457,13 @@
 /* Password input */
 .password-input { position: relative; }
 .password-input input { padding-right: 2.5rem; width: 100%; }
+/* Ocultar el ojo/aspa nativos (Edge/IE) donde ya hay botón propio, para que no se dupliquen */
+.password-input input::-ms-reveal,
+.password-input input::-ms-clear {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
 .password-input button {
   position: absolute; right: 0.5rem; top: 50%;
   transform: translateY(-50%);

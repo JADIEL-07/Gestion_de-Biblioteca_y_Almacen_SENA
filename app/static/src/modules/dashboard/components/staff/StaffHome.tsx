@@ -7,6 +7,7 @@ import {
 import { 
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer 
 } from 'recharts';
+import { IMAGE_PLACEHOLDER } from '../../../../shared/constants';
 import './StaffHome.css';
 
 interface StaffHomeProps {
@@ -468,10 +469,11 @@ export const StaffHome: React.FC<StaffHomeProps> = ({ user }) => {
               {mostBorrowed.map((item: any, index: number) => (
                 <div key={index} className="ranking-item">
                   <div className={`ranking-badge rank-${index + 1}`}>{index + 1}</div>
-                  <img 
-                    src={item.image_url || 'https://via.placeholder.com/48'} 
-                    alt={item.name} 
-                    className="ranking-thumb" 
+                  <img
+                    src={item.image_url || IMAGE_PLACEHOLDER}
+                    alt={item.name}
+                    className="ranking-thumb"
+                    onError={e => { e.currentTarget.src = IMAGE_PLACEHOLDER; }}
                   />
                   <div className="ranking-info">
                     <h4 className="ranking-title" title={item.name}>{item.name}</h4>
