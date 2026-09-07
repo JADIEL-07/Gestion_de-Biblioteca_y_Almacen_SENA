@@ -263,6 +263,25 @@ def create_app():
     def index():
         return _try_serve_index()
 
+    # ── Healthcheck ───────────────────────────────────────────────────────────
+    # Endpoint liviano para el healthcheck de Docker/Coolify y el proxy.
+    # Comprueba que el proceso responde y que la BD está accesible.
+    @app.route('/api/v1/health')
+    def health_check():
+        db_ok = True
+        try:
+            from sqlalchemy import text
+            db.session.execute(text('SELECT 1'))
+        except Exception as e:
+            db_ok = False
+            print(f"[health] BD no accesible: {e}")
+        status_code = 200 if db_ok else 503
+        return jsonify({
+            "status": "ok" if db_ok else "degraded",
+            "database": "up" if db_ok else "down",
+            "gemini_key": bool(os.environ.get('GEMINI_API_KEY')),
+        }), status_code
+
     # ── Uploads Config & Route ────────────────────────────────────────────────
     UPLOAD_FOLDER = os.path.join(app.root_path, 'uploads')
     if not os.path.exists(UPLOAD_FOLDER):

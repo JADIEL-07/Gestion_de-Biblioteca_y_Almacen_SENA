@@ -360,13 +360,40 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   filter: brightness(1.08) contrast(0.9) !important;
 }
 
+/* ── HeroBackground: capas de fondo (tema claro/oscuro) con crossfade ─────── */
+/* Cada capa llena su contenedor (.hero-bg o .background-image-container) y se
+   funde por opacidad al cambiar de tema. El estilo de la <img> (object-fit,
+   object-position, filtros por tema) lo siguen aportando las reglas
+   `.hero-bg img` / `.background-image-container img` ya existentes. */
+.hb-layer {
+  position: absolute;
+  inset: 0;
+  transition: opacity 450ms ease;
+  will-change: opacity;
+}
+
+.hb-layer img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hb-layer {
+    transition: none;
+  }
+}
+
 .hero-overlay {
   position: absolute;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: linear-gradient(to bottom, rgba(15, 23, 42, 0.3) 0%, rgba(15, 23, 42, 0.7) 60%, rgba(15, 23, 42, 1) 100%);
+  /* Más ligero: deja ver la biblioteca en la parte alta/media y solo cierra
+     a fondo sólido al final para un empalme limpio con el resto de la página. */
+  background: linear-gradient(to bottom, rgba(15, 23, 42, 0.15) 0%, rgba(15, 23, 42, 0.45) 55%, rgba(15, 23, 42, 0.92) 100%);
 }
 
 .hero-content {
@@ -388,6 +415,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   line-height: 1.2;
   color: #fff; /* Blanco por defecto */
   transition: color 0.3s ease;
+  text-shadow: 0 2px 12px rgba(15, 23, 42, 0.55); /* Legibilidad sobre el fondo ahora más visible */
 }
 
 
@@ -396,6 +424,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   font-style: italic;
   font-weight: 300;
   color: #cbd5e1;
+  text-shadow: 0 1px 8px rgba(15, 23, 42, 0.5);
 }
 
 /* ==========================================================================
