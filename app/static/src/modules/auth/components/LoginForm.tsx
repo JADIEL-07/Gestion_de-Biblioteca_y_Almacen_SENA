@@ -74,6 +74,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
           setDocumentType(data.document_type || 'CC');
           setDocumentNumber(data.document_number || '');
           setAcceptedTerms(true);
+          // Autocompleta el campo del código si el enlace lo trae y sigue vigente.
+          if (typeof data.code === 'string' && /^\d{6}$/.test(data.code)) {
+            setVerifyCode(data.code);
+          }
           // Salta directo a la pantalla de ingresar el código.
           setPendingVerifyEmail(data.email);
         } else if (data.reason === 'already_verified') {

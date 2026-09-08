@@ -190,7 +190,7 @@ class AuthService:
         #    (no hay forma de verificar), así que revertimos el pendiente para que
         #    la persona pueda reintentar de inmediato — de lo contrario el chequeo
         #    de "ya hay un registro pendiente" la bloquearía 15 minutos.
-        verify_link = AuthService.make_verify_link(new_pending.email)
+        verify_link = AuthService.make_verify_link(new_pending.email, code)
         sent = EmailService.send_verification_code(new_pending.email, code, name.strip(), verify_link=verify_link)
         if not sent:
             db.session.delete(new_pending)
@@ -310,34 +310,48 @@ class AuthService:
              name = ""
              
         sent = EmailService.send_verification_code(
-            email, code, name, verify_link=AuthService.make_verify_link(email)
+            email, code, name, verify_link=AuthService.make_verify_link(email, code)
         )
         if not sent:
             return {"error": "No pudimos reenviar el código en este momento. Inténtalo más tarde."}, 502
         return {"success": True, "message": "Código reenviado."}, 200
 
     @staticmethod
-    def make_verify_link(email: str) -> str:
-        """URL para el botón del correo: /register?verify=<token firmado con el email>."""
-        token = _link_serializer().dumps((email or '').strip().lower())
+    def make_verify_link(email: str, code: str = None) -> str:
+        """URL para el botón del correo: /register?verify=<token firmado>.
+        El token lleva el email (para precargar el formulario) y el código (para
+        autocompletar el campo). Va firmado — no cifrado — pero solo viaja en el
+        correo (donde el código ya aparece a la vista) y el frontend lo borra de
+        la URL nada más leerlo."""
+        payload = {"e": (email or '').strip().lower()}
+        if code:
+            payload["c"] = str(code)
+        token = _link_serializer().dumps(payload)
         return f"{_public_base_url()}/register?verify={token}"
 
     @staticmethod
     def get_pending_registration(token: str):
         """Datos del registro pendiente asociado a un token de enlace, si sigue vigente.
-        Sirve para precargar el formulario y saltar al paso del código desde cualquier
-        dispositivo (los datos vienen del servidor, no del navegador que registró)."""
+        Sirve para precargar el formulario, saltar al paso del código y autocompletar
+        el código desde cualquier dispositivo (todo viene del servidor / del token
+        firmado, no del navegador que registró)."""
         if not token:
             return {"found": False, "reason": "missing_token"}, 200
 
         try:
-            email = _link_serializer().loads(token, max_age=_VERIFY_LINK_MAX_AGE)
+            data = _link_serializer().loads(token, max_age=_VERIFY_LINK_MAX_AGE)
         except SignatureExpired:
             return {"found": False, "reason": "expired"}, 200
         except BadSignature:
             return {"found": False, "reason": "invalid"}, 200
 
-        email = (email or '').strip().lower()
+        # Compatibilidad: enlaces antiguos llevaban el email como texto plano.
+        if isinstance(data, dict):
+            email = (data.get("e") or "").strip().lower()
+            link_code = data.get("c")
+        else:
+            email = (data or "").strip().lower()
+            link_code = None
 
         if User.query.filter_by(email=email, is_deleted=False).first():
             return {"found": False, "reason": "already_verified", "email": email}, 200
@@ -355,7 +369,7 @@ class AuthService:
         except Exception:
             payload = {}
 
-        return {
+        result = {
             "found": True,
             "email": email,
             "name": payload.get("name", ""),
@@ -365,7 +379,11 @@ class AuthService:
             "formation_ficha": payload.get("formation_ficha") or "",
             "expires_at": pending.expires_at.isoformat(),
             "seconds_left": max(int((pending.expires_at - now).total_seconds()), 0),
-        }, 200
+        }
+        # Solo devolvemos el código si coincide con el vigente (no uno reenviado/caducado).
+        if link_code and _hash_code(str(link_code)) == pending.code_hash:
+            result["code"] = str(link_code)
+        return result, 200
 
     # ── Login ─────────────────────────────────────────────────────────
 
