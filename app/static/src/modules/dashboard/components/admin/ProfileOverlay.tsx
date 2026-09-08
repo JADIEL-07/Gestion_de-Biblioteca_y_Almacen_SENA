@@ -1,12 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { FiX, FiCamera, FiUpload, FiSave, FiUser, FiMail, FiShield, FiTag } from 'react-icons/fi';
 import './ProfileOverlay.css';
+import { apiFetch } from '../../../../shared/api';
 
 interface UserData {
   id: number;
   name?: string;
   nombre?: string;
   email?: string;
+  profile_image?: string;
   role?: { name: string };
   rol?: { nombre: string };
   document_type?: string;
@@ -166,32 +168,38 @@ export const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ user, onClose, o
     }
   };
 
-  const handleSave = async () => {
-    if (tempPhoto && tempPhoto !== user.profile_image) {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/v1/users_mgmt/profile-image', {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          body: JSON.stringify({ profile_image: tempPhoto })
-        });
+  const [saving, setSaving] = useState(false);
 
-        if (response.ok) {
-          onSave(tempPhoto);
-          alert('Foto de perfil actualizada exitosamente en el sistema');
-        } else {
-          const err = await response.json();
-          alert('Error al guardar: ' + (err.error || err.msg || err.message || JSON.stringify(err)));
-        }
-      } catch (error) {
-        console.error("Save error:", error);
-        alert('Error de conexión al servidor');
-      }
+  const handleSave = async () => {
+    if (!tempPhoto || tempPhoto === user.profile_image) {
+      onClose();
+      return;
     }
-    onClose();
+    setSaving(true);
+    try {
+      const response = await apiFetch('/api/v1/users_mgmt/profile-image', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ profile_image: tempPhoto }),
+      });
+
+      if (response.ok) {
+        // Usamos el base64 recién recortado para que el ícono se actualice al
+        // instante y sin depender de la caché del navegador (el archivo del
+        // servidor conserva el mismo nombre entre subidas).
+        onSave(tempPhoto);
+        onClose();
+      } else {
+        const err = await response.json().catch(() => ({}));
+        // No cerramos: el usuario conserva el recorte y puede reintentar.
+        alert('No se pudo guardar la foto: ' + (err.error || err.msg || err.message || 'inténtalo de nuevo'));
+      }
+    } catch (error) {
+      console.error('Save error:', error);
+      alert('Error de conexión al servidor. La foto no se guardó.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -249,8 +257,8 @@ export const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ user, onClose, o
         </div>
 
         <div className="profile-footer">
-          <button className="btn-save-profile" onClick={handleSave}>
-            <FiSave /> Guardar Cambios
+          <button className="btn-save-profile" onClick={handleSave} disabled={saving}>
+            <FiSave /> {saving ? 'Guardando...' : 'Guardar Cambios'}
           </button>
         </div>
       </div>

@@ -61,7 +61,7 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ user, isGuest, isP
           {/* Hero Banner */}
           <div className="hero-banner-card">
             <div className="hero-banner-text">
-              <h2>¡Hola, {userRoleStr}! 👋</h2>
+              <h2>¡Hola, {userName || userRoleStr}! 👋</h2>
               <h1>¿Qué necesitas hoy?</h1>
               <p>Explora el catálogo y solicita lo que necesites para tu formación.</p>
               <button 

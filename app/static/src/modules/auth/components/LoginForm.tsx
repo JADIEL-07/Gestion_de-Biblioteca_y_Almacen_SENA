@@ -173,6 +173,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         }
 
         localStorage.setItem('token', data.access_token);
+        if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
         localStorage.setItem('user', JSON.stringify(data.user));
         // Si debe cambiar contraseña tras login (recuperación temporal), redirigir
         if (data.must_change_password) {
@@ -218,6 +219,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
 
       // Verificación exitosa fallback
       localStorage.setItem('token', data.access_token);
+      if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
       localStorage.setItem('user', JSON.stringify(data.user));
       setSuccessMsg('¡Cuenta verificada! Redirigiendo...');
       setTimeout(() => {
@@ -252,6 +254,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
       if (!res.ok) throw new Error(data.error || 'Código incorrecto');
 
       localStorage.setItem('token', data.access_token);
+      if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
       localStorage.setItem('user', JSON.stringify(data.user));
       if (data.must_change_password) {
         localStorage.setItem('force_password_change', '1');

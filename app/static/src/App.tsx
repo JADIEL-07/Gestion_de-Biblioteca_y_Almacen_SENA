@@ -280,6 +280,7 @@ function AppRoutes() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
     localStorage.removeItem('force_password_change');
     setLoggedUser(null);

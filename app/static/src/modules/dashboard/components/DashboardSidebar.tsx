@@ -9,6 +9,7 @@ interface UserData {
   id: number;
   name?: string;
   nombre?: string;
+  profile_image?: string;
   role?: { name: string };
   rol?: { nombre: string };
 }
@@ -112,8 +113,6 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({
         ))}
       </div>
 
-      <div style={{ flex: 1 }}></div>
-
       <div className="sidebar-footer">
         <div className="sidebar-divider" style={{ margin: '0.3rem 0', height: '1px', background: 'var(--border-color)', opacity: 0.1 }}></div>
 
@@ -131,9 +130,12 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({
               justifyContent: 'center',
               fontWeight: 'bold',
               fontSize: isCollapsed ? '0.8rem' : '0.9rem',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+              overflow: 'hidden'
             }}>
-              {initials}
+              {user.profile_image
+                ? <img src={user.profile_image} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                : initials}
             </div>
             
             {/* Lápiz flotante en la esquina */}

@@ -48,7 +48,7 @@ export const AprendizDashboardHome: React.FC<DashboardHomeProps> = ({ user, onNa
     { id: 'fines', title: 'Multas pendientes', value: `$${stats?.metrics?.fines || 0}`, icon: <FiAlertTriangle />, color: '#f59e0b' },
   ];
 
-  const userName = (user.name || user.nombre || '').split(' ')[0];
+  const userName = (user.name || user.nombre || '').split(' ')[0] || 'Aprendiz';
 
   if (loading) {
     return <div className="loading-container">Cargando tu información...</div>;

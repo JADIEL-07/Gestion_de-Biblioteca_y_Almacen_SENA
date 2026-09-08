@@ -26,6 +26,7 @@ interface UserData {
   nombre?: string;
   email?: string;
   correo?: string;
+  profile_image?: string;
   role?: { name: string };
   rol?: { nombre: string };
   perfilCompleto?: boolean;
@@ -145,7 +146,11 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
             <>
               <NotificationBell onNavigate={handleNavigate} />
               <div className="topnav-user">
-                <div className="avatar-circle" style={{ cursor: 'default' }}>{initials}</div>
+                <div className="avatar-circle" style={{ cursor: 'pointer' }} onClick={() => setShowProfileModal(true)} title="Editar perfil">
+                  {user.profile_image
+                    ? <img src={user.profile_image} alt="Perfil" className="avatar-img" />
+                    : initials}
+                </div>
               </div>
             </>
           )}
