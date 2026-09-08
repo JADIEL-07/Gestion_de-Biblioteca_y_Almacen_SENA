@@ -103,6 +103,7 @@
 .dashboard-layout.admin-specific {
   display: flex;
   height: 100vh;
+  height: 100dvh; /* alto REAL visible: sin esto, en móvil el pie del sidebar queda bajo la barra del navegador */
   width: 100%;
   background-color: var(--admin-bg-main);
   color: var(--admin-text-primary);
@@ -120,7 +121,11 @@
   -ms-overflow-style: none;
 }
 
-/* ── SIDEBAR ── */
+/* ── SIDEBAR ──
+   El sidebar entero es UN contenedor de scroll (no el menú interno). Así el
+   pie ("Cerrar sesión") siempre se alcanza: si el contenido cabe, el menú
+   crece y empuja el pie abajo; si no cabe, se scrollea todo el panel.
+   Barra de scroll oculta. */
 .admin-sidebar {
   width: 235px;
   height: 100%;
@@ -129,11 +134,22 @@
   border-right: 1px solid var(--admin-border-color);
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: flex-start;
   padding: 0;
   flex-shrink: 0;
   transition: width 0.3s ease, background-color 0.3s, border-color 0.3s;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.admin-sidebar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .admin-sidebar.collapsed {
@@ -145,13 +161,9 @@
   flex-direction: column;
   gap: 0.1rem;
   padding: 0.5rem 0.75rem;
-  flex: 1;
+  flex: 1 0 auto;   /* crece para empujar el pie abajo; nunca se comprime */
   min-height: 0;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  scrollbar-width: none;      /* scroll funcional, barra oculta */
-  -ms-overflow-style: none;
+  overflow: visible;
 }
 
 .admin-sidebar-menu::-webkit-scrollbar {
@@ -169,10 +181,12 @@
   flex-direction: column;
   gap: 0.1rem;
   padding: 0.5rem 0.75rem;
+  flex: 0 0 auto;
 }
 
 .admin-sidebar-footer {
   padding: 0.5rem 0.75rem;
+  flex: 0 0 auto;
 }
 
 .admin-sidebar.collapsed .admin-sidebar-menu,
@@ -605,39 +619,9 @@
     font-size: 1.25rem;
   }
 
-  /* Drawer del sidebar admin: scrollea TODO el panel para que el menú, los
-     botones inferiores y "Cerrar sesión" siempre se alcancen aunque la
-     pantalla sea baja. Posición fija/ancho vienen de UserDashboard.css. */
-  .admin-sidebar {
-    justify-content: flex-start;
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .admin-sidebar::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-    display: none;
-  }
-
-  /* El menú crece para empujar el pie abajo cuando sobra espacio, pero NUNCA
-     se comprime: si el contenido no cabe, el drawer entero scrollea y
-     "Cerrar sesión" siempre queda alcanzable. Sin margin:auto (recorta scroll). */
-  .admin-sidebar .admin-sidebar-menu {
-    flex: 1 0 auto;
-    min-height: 0;
-    overflow: visible;
-  }
-
-  .admin-sidebar .admin-sidebar-header,
-  .admin-sidebar .admin-sidebar-bottom,
-  .admin-sidebar .admin-sidebar-footer {
-    flex: 0 0 auto;
-  }
+  /* El scroll del sidebar (panel entero) ya lo maneja la regla base
+     .admin-sidebar; aquí solo la posición/ancho de drawer llegan desde
+     UserDashboard.css. Nada más que hacer para el menú en móvil. */
 }
 
 @media (max-width: 540px) {

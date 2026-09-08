@@ -54,6 +54,7 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh; /* alto REAL visible: sin esto, en móvil el pie del sidebar cae bajo la barra del navegador */
   overflow: hidden;
   width: 100%;
   background: var(--bg-main);
@@ -302,7 +303,10 @@
   min-height: 0; /* Permite que el sidebar y el contenido hagan scroll interno en vez de crecer */
 }
 
-/* ── SIDEBAR ── */
+/* ── SIDEBAR ──
+   El sidebar entero es UN contenedor de scroll (no el menú interno), así el
+   pie ("Cerrar sesión") siempre se alcanza: si el contenido cabe, el menú
+   crece y empuja el pie abajo; si no, se scrollea todo el panel. Barra oculta. */
 .dashboard-sidebar {
   width: 230px;
   height: 100%;
@@ -312,9 +316,20 @@
   background-color: var(--bg-sidebar);
   border-right: 1px solid var(--border-color);
   transition: width 0.3s ease, background-color 0.3s, border-color 0.3s;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   display: flex;
   flex-direction: column;
+}
+
+.dashboard-sidebar::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .dashboard-sidebar.collapsed {
@@ -360,16 +375,11 @@
   flex-direction: column;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  flex: 1;
-  min-height: 0; /* Sin esto, el flex item crece hasta su contenido y el scroll nunca se activa */
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  scrollbar-width: none;      /* Firefox: sin barra */
-  -ms-overflow-style: none;   /* Edge legacy: sin barra */
+  flex: 1 0 auto;   /* crece para empujar el pie abajo; nunca se comprime. El que scrollea es .dashboard-sidebar */
+  min-height: 0;
+  overflow: visible;
 }
 
-/* WebKit (Chrome/Safari/móvil): scroll funcional, barra oculta. */
 .sidebar-menu::-webkit-scrollbar,
 .sidebar-bottom::-webkit-scrollbar {
   width: 0;
@@ -377,10 +387,9 @@
   display: none;
 }
 
-/* El pie del sidebar (perfil + cerrar sesión) nunca se comprime;
-   el que hace scroll es .sidebar-menu. */
+/* El pie del sidebar (perfil + cerrar sesión) nunca se comprime. */
 .sidebar-footer {
-  flex-shrink: 0;
+  flex: 0 0 auto;
 }
 
 .dashboard-sidebar.collapsed .sidebar-menu,
@@ -538,9 +547,11 @@
 /* ── MAIN CONTENT ── */
 .dashboard-main-content {
   flex: 1;
+  min-width: 0;
   padding: 2rem;
   overflow-y: auto;
   max-height: calc(100vh - 70px);
+  max-height: calc(100dvh - 70px);
   display: flex;
   flex-direction: column;
 }
@@ -1046,7 +1057,9 @@
     display: none;
   }
 
-  /* Sidebar como drawer */
+  /* Sidebar como drawer. El comportamiento de scroll (panel entero, sin barra,
+     pie siempre alcanzable) ya viene de las reglas base .dashboard-sidebar /
+     .admin-sidebar; aquí solo se define la posición/tamaño del drawer. */
   .dashboard-sidebar,
   .admin-sidebar {
     position: fixed;
@@ -1063,37 +1076,6 @@
     box-shadow: 4px 4px 24px rgba(0, 0, 0, 0.25);
     background: var(--bg-sidebar);
     border-right: 1px solid var(--border-color);
-    display: flex;
-    flex-direction: column;
-    /* El drawer ENTERO scrollea: así nada del menú ni del pie se corta,
-       aunque la pantalla sea muy baja. Barra de scroll oculta. */
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior: contain;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-
-  .dashboard-sidebar::-webkit-scrollbar,
-  .admin-sidebar::-webkit-scrollbar {
-    width: 0;
-    height: 0;
-    display: none;
-  }
-
-  /* El menú crece para empujar el pie abajo cuando sobra espacio, pero NUNCA
-     se comprime (shrink 0): si el contenido no cabe, el drawer entero scrollea
-     y el pie ("Cerrar sesión") siempre queda alcanzable. Sin margin:auto, que
-     provoca recortes de scroll en flexbox. */
-  .dashboard-sidebar .sidebar-menu {
-    flex: 1 0 auto;
-    min-height: 0;
-    overflow: visible;
-  }
-
-  .dashboard-sidebar .sidebar-footer {
-    flex: 0 0 auto;
   }
 
   .dashboard-sidebar.mobile-open,
