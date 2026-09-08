@@ -1057,7 +1057,8 @@
     position: fixed;
     top: 70px;
     left: -110%;
-    height: calc(100% - 70px);
+    height: calc(100vh - 70px);
+    height: calc(100dvh - 70px); /* respeta la barra dinámica del navegador móvil */
     width: 280px !important;
     max-width: 85vw;
     z-index: 1050;
@@ -1066,6 +1067,22 @@
     box-shadow: 4px 4px 24px rgba(0, 0, 0, 0.25);
     background: var(--bg-sidebar);
     border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Dentro del drawer, el que scrollea es el menú; el pie queda fijo abajo. */
+  .dashboard-sidebar .sidebar-menu {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  .dashboard-sidebar .sidebar-footer {
+    flex-shrink: 0;
   }
 
   .dashboard-sidebar.mobile-open,
@@ -1091,7 +1108,8 @@
   .sidebar-backdrop {
     display: block;
     top: 70px;
-    height: calc(100% - 70px);
+    height: calc(100vh - 70px);
+    height: calc(100dvh - 70px);
   }
 
   /* Quitar el botón colapsar del sidebar en móvil */
