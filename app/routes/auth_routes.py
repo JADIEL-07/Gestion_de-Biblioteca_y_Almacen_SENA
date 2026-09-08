@@ -54,8 +54,12 @@ def login():
 
     if not identifier or not password:
         return jsonify({"error": "Se requiere el número de documento y la contraseña"}), 400
-        
-    result, status = AuthService.login(identifier, password)
+
+    result, status = AuthService.login(
+        identifier, password,
+        device_id=data.get('device_id'),
+        accepted_tos=bool(data.get('accepted_tos')),
+    )
     return jsonify(result), status
 
 @auth_bp.route('/verify-2fa', methods=['POST'])
@@ -73,6 +77,17 @@ def verify_2fa():
 
     user_id = get_jwt_identity()
     result, status = AuthService.verify_2fa(user_id, code)
+    return jsonify(result), status
+
+
+@auth_bp.route('/approve-device', methods=['POST'])
+def approve_device():
+    """Autoriza el dispositivo desde el enlace del correo e inicia la sesión."""
+    data = request.get_json() or {}
+    result, status = AuthService.approve_device(
+        data.get('token', ''),
+        request_device_id=data.get('device_id'),
+    )
     return jsonify(result), status
 
 

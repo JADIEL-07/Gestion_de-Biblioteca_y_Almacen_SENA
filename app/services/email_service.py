@@ -420,6 +420,58 @@ class EmailService:
         )
         return _send(subject, [email], text, html)
 
+    # ── Aviso de dispositivo nuevo (autorización de login) ──
+    @staticmethod
+    def send_new_device_alert(email: str, user_name: str, approve_link: str, *,
+                              device_label: str = '', location: str = None,
+                              ip: str = '', when: str = '') -> bool:
+        """Aviso de intento de acceso desde un dispositivo no reconocido, con botón
+        de autorización que vence en 15 minutos."""
+        subject = "¿Estás intentando iniciar sesión? — Biblioteca SENA"
+        rows = []
+        if device_label:
+            rows.append(("Dispositivo", device_label))
+        rows.append(("Ubicación aproximada", location or "No disponible"))
+        if ip:
+            rows.append(("Dirección IP", ip))
+        if when:
+            rows.append(("Fecha y hora", when))
+
+        inner = (
+            _panel(_rows_table(rows))
+            + f'<p style="margin:14px 0 0;font-size:13px;color:{MUTED};line-height:1.55;">'
+            f'Si eres tú, pulsa el botón para autorizar este dispositivo e iniciar sesión. '
+            f'El enlace vence en <strong>15 minutos</strong>. Si no fuiste tú, ignora este '
+            f'correo y cambia tu contraseña cuanto antes.</p>'
+        )
+        content = _card(
+            inner,
+            icon="🛡️",
+            heading="Alguien está intentando acceder desde un dispositivo nuevo",
+            subtext="Por seguridad necesitamos que confirmes que eres tú.",
+        )
+        html = render_email(
+            subject,
+            greeting_name=user_name,
+            intro=("Detectamos un intento de inicio de sesión en tu cuenta desde un "
+                   "dispositivo que no reconocemos."),
+            content_html=content,
+            cta_text="Iniciar sesión",
+            cta_url=approve_link,
+            preheader="Autoriza el dispositivo para iniciar sesión (el enlace vence en 15 min)",
+        )
+        text = (
+            f"Hola {user_name},\n\n"
+            f"Alguien está intentando iniciar sesión en tu cuenta desde un dispositivo nuevo.\n"
+            + (f"Dispositivo: {device_label}\n" if device_label else "")
+            + f"Ubicación aproximada: {location or 'No disponible'}\n"
+            + (f"IP: {ip}\n" if ip else "")
+            + (f"Fecha y hora: {when}\n" if when else "")
+            + f"\nSi eres tú, autoriza el acceso aquí (vence en 15 minutos):\n{approve_link}\n\n"
+            f"Si no fuiste tú, ignora este mensaje y cambia tu contraseña."
+        )
+        return _send(subject, [email], text, html)
+
     # ── Recuperación: contraseña temporal ──
     @staticmethod
     def send_temporary_password(email: str, temp_password: str, user_name: str = '') -> bool:

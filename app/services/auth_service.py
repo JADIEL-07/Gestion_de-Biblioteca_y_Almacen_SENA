@@ -6,6 +6,7 @@ import hashlib
 import json
 from typing import Optional
 from datetime import datetime, timedelta
+import requests
 from flask import request, current_app
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from sqlalchemy import or_
@@ -16,6 +17,7 @@ from ..models.audit_log import AuditLog
 from ..models.token import PasswordResetToken
 from ..models.verification_code import VerificationCode
 from ..models.pending_registration import PendingRegistration
+from ..models.trusted_device import TrustedDevice
 from .token_service import TokenService
 from .email_service import EmailService
 from flask_jwt_extended import create_access_token
@@ -77,9 +79,78 @@ def _link_serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt=_VERIFY_LINK_SALT)
 
 
+def _device_serializer() -> URLSafeTimedSerializer:
+    return URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='device-approval-link')
+
+
 def _public_base_url() -> str:
     raw = current_app.config.get('PUBLIC_BASE_URL') or 'https://sena.newonline.digital'
     return raw.rstrip('/')
+
+
+# ── Dispositivo y ubicación (para el correo de "dispositivo nuevo") ──
+
+_PRIVATE_IP_PREFIXES = ('127.', '10.', '192.168.', '172.16.', '172.17.', '172.18.',
+                        '172.19.', '172.2', '172.30.', '172.31.', '::1', 'fc', 'fd', '169.254.')
+
+
+def _client_ip() -> str:
+    """IP real del cliente, teniendo en cuenta el proxy de Coolify/Traefik."""
+    xff = request.headers.get('X-Forwarded-For', '')
+    if xff:
+        return xff.split(',')[0].strip()
+    return (request.headers.get('X-Real-IP') or request.remote_addr or '').strip()
+
+
+def _describe_user_agent(ua: str) -> str:
+    """'Chrome en Windows' a partir del User-Agent (sin dependencias externas)."""
+    ua = ua or ''
+    if 'Edg/' in ua:
+        browser = 'Edge'
+    elif 'OPR/' in ua or 'Opera' in ua:
+        browser = 'Opera'
+    elif 'Firefox/' in ua:
+        browser = 'Firefox'
+    elif 'Chrome/' in ua and 'Chromium' not in ua:
+        browser = 'Chrome'
+    elif 'Safari/' in ua and 'Chrome/' not in ua:
+        browser = 'Safari'
+    else:
+        browser = 'Navegador'
+
+    if 'Windows NT' in ua:
+        system = 'Windows'
+    elif 'Android' in ua:
+        system = 'Android'
+    elif 'iPhone' in ua or 'iPad' in ua:
+        system = 'iOS'
+    elif 'Mac OS X' in ua or 'Macintosh' in ua:
+        system = 'macOS'
+    elif 'Linux' in ua:
+        system = 'Linux'
+    else:
+        system = 'dispositivo desconocido'
+
+    return f"{browser} en {system}"
+
+
+def _geolocate(ip: str) -> Optional[str]:
+    """'Ciudad, Región, País' aproximado a partir de la IP. None si no se puede."""
+    if not ip or ip.startswith(_PRIVATE_IP_PREFIXES) or ip in ('localhost', '::1'):
+        return None
+    try:
+        r = requests.get(
+            f"http://ip-api.com/json/{ip}",
+            params={"fields": "status,country,regionName,city", "lang": "es"},
+            timeout=4,
+        )
+        d = r.json()
+        if d.get("status") != "success":
+            return None
+        parts = [d.get("city"), d.get("regionName"), d.get("country")]
+        return ", ".join(p for p in parts if p) or None
+    except Exception:
+        return None
 
 
 def _generate_6digit_code() -> str:
@@ -103,14 +174,13 @@ class AuthService:
 
     @staticmethod
     def _get_user_agent():
+        # OJO: request.user_agent es "falsy" en Werkzeug 3 si no hay parser de UA
+        # instalado, así que leemos la cabecera directamente.
         try:
-            ua = request.user_agent
-            if ua and ua.string:
-                s = ua.string
-                return s[:500] if len(s) > 500 else s
+            s = (request.headers.get('User-Agent') or '').strip()
+            return s[:500] if s else None
         except Exception:
-            pass
-        return None
+            return None
 
     # ── Registro ──────────────────────────────────────────────────────
 
@@ -388,8 +458,10 @@ class AuthService:
     # ── Login ─────────────────────────────────────────────────────────
 
     @staticmethod
-    def login(identifier, password):
-        """Autentica ÚNICAMENTE con número de documento. Bloquea login si la cuenta no está verificada."""
+    def login(identifier, password, device_id=None, accepted_tos=False):
+        """Autentica ÚNICAMENTE con número de documento. Bloquea login si la cuenta no está verificada.
+        Si el dispositivo no está en `trusted_devices`, envía un correo de autorización
+        en lugar de iniciar sesión."""
         document = (identifier or '').strip()
         user = User.query.filter(
             User.id == document,
@@ -426,6 +498,12 @@ class AuthService:
                 msg = "La contraseña es incorrecta."
             return {"error": msg}, 401
 
+        if accepted_tos:
+            try:
+                AuthService._log_audit(user.id, "TOS_ACCEPTED", ip=request.remote_addr)
+            except Exception:
+                pass
+
         if not user.is_verified:
             # Solo reemitir código si el usuario tiene este mecanismo (creado vía registro normal)
             if hasattr(user, 'id'):
@@ -438,6 +516,21 @@ class AuthService:
                 "requires_verification": True,
                 "email": user.email,
             }, 403
+
+        # ── Dispositivo nuevo: pedir autorización por correo ─────────────
+        if user.email and not AuthService._is_trusted_device(user.id, device_id):
+            user.failed_attempts = 0
+            user.last_failed_login = None
+            db.session.commit()
+            sent = AuthService._send_device_approval(user, device_id)
+            if not sent:
+                return {"error": "No pudimos enviar el correo de autorización. Inténtalo de nuevo en unos minutos."}, 502
+            return {
+                "requires_device_approval": True,
+                "message": "Detectamos un inicio de sesión desde un dispositivo nuevo. "
+                           "Te enviamos un correo para autorizarlo.",
+                "email_hint": AuthService._mask_email(user.email),
+            }, 200
 
         # 2FA check
         if user.is_2fa_enabled and user.totp_secret:
@@ -559,6 +652,127 @@ class AuthService:
         AuthService._log_audit(user.id, "LOGIN_SUCCESS_2FA", ip=request.remote_addr)
 
         return {
+            "access_token": access,
+            "refresh_token": refresh,
+            "must_change_password": bool(user.must_change_password),
+            "user": AuthService._user_payload(user),
+        }, 200
+
+    # ── Autorización de dispositivo nuevo ────────────────────────────
+
+    @staticmethod
+    def _is_trusted_device(user_id, device_id):
+        if not device_id:
+            return False
+        return TrustedDevice.query.filter_by(
+            user_id=str(user_id), device_id=str(device_id)
+        ).first() is not None
+
+    @staticmethod
+    def _send_device_approval(user, device_id) -> bool:
+        """Crea un enlace de un solo uso (15 min) y manda el correo de 'dispositivo nuevo'."""
+        ip = _client_ip()
+        ua = AuthService._get_user_agent() or ''
+        label = _describe_user_agent(ua)
+        location = _geolocate(ip)
+        when = datetime.now().strftime('%d/%m/%Y %H:%M')
+
+        nonce = secrets.token_urlsafe(24)
+        VerificationCode.query.filter_by(
+            user_id=user.id, purpose='DEVICE_APPROVAL', is_used=False
+        ).update({"is_used": True})
+        db.session.add(VerificationCode(
+            user_id=user.id,
+            purpose='DEVICE_APPROVAL',
+            code_hash=_hash_code(nonce),
+            payload=json.dumps({
+                "device_id": device_id or '',
+                "label": label,
+                "ip": ip,
+                "location": location or '',
+            }),
+            expires_at=datetime.utcnow() + timedelta(minutes=15),
+        ))
+        db.session.commit()
+
+        token = _device_serializer().dumps({"uid": str(user.id), "n": nonce})
+        link = f"{_public_base_url()}/aprobar-dispositivo?token={token}"
+
+        sent = EmailService.send_new_device_alert(
+            user.email, user.name or '', link,
+            device_label=label, location=location, ip=ip, when=when,
+        )
+        if sent:
+            AuthService._log_audit(user.id, "DEVICE_APPROVAL_SENT", ip=ip)
+        return sent
+
+    @staticmethod
+    def approve_device(token, request_device_id=None):
+        """Valida el enlace del correo, marca el dispositivo como de confianza e
+        inicia la sesión. Devuelve tokens + usuario (o un error)."""
+        if not token:
+            return {"error": "Enlace inválido."}, 400
+        try:
+            data = _device_serializer().loads(token, max_age=15 * 60)
+        except SignatureExpired:
+            return {"error": "Este enlace expiró. Vuelve a iniciar sesión para recibir uno nuevo."}, 400
+        except BadSignature:
+            return {"error": "Enlace inválido."}, 400
+
+        uid = str(data.get("uid") or '')
+        nonce = data.get("n") or ''
+        user = User.query.filter_by(id=uid, is_deleted=False).first()
+        if not user or not user.is_active or user.is_blocked:
+            return {"error": "No pudimos completar el acceso."}, 403
+
+        vc = (VerificationCode.query
+              .filter_by(user_id=uid, purpose='DEVICE_APPROVAL', is_used=False)
+              .order_by(VerificationCode.created_at.desc())
+              .first())
+        if not vc or vc.expires_at < datetime.utcnow() or vc.code_hash != _hash_code(nonce):
+            return {"error": "Este enlace expiró o ya se usó. Vuelve a iniciar sesión."}, 400
+        vc.is_used = True
+
+        try:
+            meta = json.loads(vc.payload or '{}')
+        except Exception:
+            meta = {}
+
+        # Confiar en el dispositivo que inició el login y también en el que abre el enlace
+        for did in {(meta.get("device_id") or ''), (request_device_id or '')}:
+            if not did:
+                continue
+            td = TrustedDevice.query.filter_by(user_id=uid, device_id=did).first()
+            if td:
+                td.last_seen_at = datetime.utcnow()
+                td.last_ip = meta.get("ip") or td.last_ip
+                td.last_location = meta.get("location") or td.last_location
+            else:
+                db.session.add(TrustedDevice(
+                    user_id=uid, device_id=did,
+                    label=meta.get("label"),
+                    last_ip=meta.get("ip"),
+                    last_location=meta.get("location"),
+                ))
+
+        user.failed_attempts = 0
+        user.last_failed_login = None
+        user.last_login = datetime.utcnow()
+        db.session.add(Notification(
+            user_id=str(user.id),
+            type='NEW_LOGIN',
+            title='Nuevo dispositivo autorizado',
+            message=('Autorizaste un dispositivo nuevo'
+                     + (f': {meta.get("label")}' if meta.get("label") else '')
+                     + (f' · {meta.get("location")}' if meta.get("location") else '')),
+        ))
+        db.session.commit()
+
+        access, refresh = TokenService.generate_auth_tokens(user, AuthService._get_user_agent())
+        AuthService._log_audit(user.id, "DEVICE_APPROVED", ip=_client_ip())
+        return {
+            "success": True,
+            "message": "Sesión iniciada con éxito.",
             "access_token": access,
             "refresh_token": refresh,
             "must_change_password": bool(user.must_change_password),

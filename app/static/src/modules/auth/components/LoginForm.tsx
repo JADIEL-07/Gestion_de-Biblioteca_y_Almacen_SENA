@@ -6,6 +6,7 @@ import { FloatingParticles } from '../../../components/ui/FloatingParticles';
 import { HeroBackground } from '../../../components/ui/HeroBackground';
 import { QRCodeCanvas } from 'qrcode.react';
 import { DashboardBg } from '../../dashboard/components/DashboardBg';
+import { getDeviceId, hasAcceptedTos, markTosAccepted } from '../../../shared/device';
 
 interface LoginFormProps {
   mode: 'login' | 'register';
@@ -52,6 +53,14 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   const [twoFaEmailHint, setTwoFaEmailHint] = useState<string | null>(null);
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+
+  // ── Autorización de dispositivo nuevo (correo con enlace de 15 min) ──
+  const [deviceApprovalHint, setDeviceApprovalHint] = useState<string | null>(null);
+  const [awaitingDeviceApproval, setAwaitingDeviceApproval] = useState(false);
+
+  // ── T&C en el login: una sola vez por dispositivo ──
+  const [needLoginTos] = useState(() => mode === 'login' && !hasAcceptedTos());
+  const [loginTosChecked, setLoginTosChecked] = useState(false);
 
   const isRegister = mode === 'register';
 
@@ -147,6 +156,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         currentErrors.nombre = 'El número de documento es requerido';
         hasError = true;
       }
+      if (needLoginTos && !loginTosChecked) {
+        currentErrors.terms = 'Debes aceptar los Términos y Condiciones para continuar';
+        hasError = true;
+      }
     }
 
     // Validación de Contraseña
@@ -190,7 +203,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
             document_type: documentType,
             document_number: documentNumber.trim(),
           }
-        : { nombre, password };
+        : {
+            nombre,
+            password,
+            device_id: getDeviceId(),
+            ...(needLoginTos ? { accepted_tos: true } : {}),
+          };
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -212,6 +230,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         throw new Error(data.error || data.message || 'Error en la operación');
       }
 
+      // Credenciales aceptadas por el servidor: no volver a pedir T&C en este dispositivo.
+      if (!isRegister && needLoginTos) markTosAccepted();
+
       if (isRegister) {
         // Requiere verificación con código
         if (data.requires_verification) {
@@ -222,6 +243,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         setSuccessMsg('¡Registro exitoso! Ya puedes iniciar sesión.');
         setNombre(''); setEmail(''); setPhone(''); setPassword(''); setAcceptedTerms(false);
       } else {
+        if (data.requires_device_approval) {
+          setAwaitingDeviceApproval(true);
+          setDeviceApprovalHint(data.email_hint || null);
+          setSuccessMsg('');
+          return;
+        }
+
         if (data.requires_2fa) {
           setRequires2fa(true);
           setTempToken2fa(data.temp_token);
@@ -408,6 +436,46 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
               <h3 className="login-title">Cargando tu registro…</h3>
               <p>Un momento, estamos recuperando tus datos.</p>
             </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Dispositivo nuevo: revisa tu correo para autorizar ─────────
+  if (awaitingDeviceApproval) {
+    return (
+      <div className="login-wrapper">
+        <HeroBackground variant="panel" alt="Biblioteca SENA" />
+        <FloatingParticles />
+        <DashboardBg />
+        <div className="login-form-centered">
+          <div className="clean-form">
+            <div className="sena-logo">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Logo SENA" className="sena-logo-img" />
+            </div>
+            <div className="form-header">
+              <h3 className="login-title">Autoriza este dispositivo</h3>
+              <p>
+                Detectamos un inicio de sesión desde un dispositivo nuevo. Te enviamos un correo
+                {deviceApprovalHint ? <> a <strong>{deviceApprovalHint}</strong></> : null}.
+              </p>
+            </div>
+
+            {serverError && <div className="alert-error fade-in"><FiAlertCircle /> {serverError}</div>}
+
+            <div className="alert-success fade-in" style={{ textAlign: 'left' }}>
+              Abre el correo y pulsa <strong>“Iniciar sesión”</strong> para autorizar este dispositivo.
+              El enlace vence en <strong>15 minutos</strong>. Puedes cerrar esta pestaña.
+            </div>
+
+            <button
+              className="back-btn"
+              onClick={() => { setAwaitingDeviceApproval(false); setDeviceApprovalHint(null); }}
+            >
+              Volver a iniciar sesión
+            </button>
+            <div style={{ height: '20px' }}></div>
           </div>
         </div>
       </div>
@@ -740,13 +808,13 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
               </div>
             )}
 
-            {isRegister && (
+            {(isRegister || needLoginTos) && (
               <div className={`terms-check ${errors.terms ? 'has-error' : ''}`}>
                 <label className="terms-check-label">
                   <input
                     type="checkbox"
-                    checked={acceptedTerms}
-                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    checked={isRegister ? acceptedTerms : loginTosChecked}
+                    onChange={(e) => (isRegister ? setAcceptedTerms(e.target.checked) : setLoginTosChecked(e.target.checked))}
                     disabled={loading}
                   />
                   <span>
@@ -764,7 +832,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
               </div>
             )}
 
-            <button type="submit" className="submit-btn" disabled={loading || (isRegister && !acceptedTerms)}>
+            <button
+              type="submit"
+              className="submit-btn"
+              disabled={loading || (isRegister && !acceptedTerms) || (!isRegister && needLoginTos && !loginTosChecked)}
+            >
               {loading ? 'Procesando...' : (isRegister ? 'Registrarse ahora' : 'Ingresar a la Plataforma')}
             </button>
           </form>

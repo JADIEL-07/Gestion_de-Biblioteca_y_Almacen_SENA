@@ -8,6 +8,7 @@ const Privacy = React.lazy(() => import('./modules/legal/components/Privacy').th
 const ForgotPassword = React.lazy(() => import('./modules/auth/components/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
 const ResetPassword = React.lazy(() => import('./modules/auth/components/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const ForcePasswordChange = React.lazy(() => import('./modules/auth/components/ForcePasswordChange').then(m => ({ default: m.ForcePasswordChange })));
+const DeviceApproval = React.lazy(() => import('./modules/auth/components/DeviceApproval').then(m => ({ default: m.DeviceApproval })));
 const UserDashboard = React.lazy(() => import('./modules/dashboard/components/UserDashboard').then(m => ({ default: m.UserDashboard })));
 const AdminDashboard = React.lazy(() => import('./modules/dashboard/components/admin/AdminDashboard').then(m => ({ default: m.AdminDashboard })));
 const BibliotecarioDashboard = React.lazy(() => import('./modules/dashboard/components/bibliotecario/BibliotecarioDashboard').then(m => ({ default: m.BibliotecarioDashboard })));
@@ -349,6 +350,14 @@ function AppRoutes() {
             loggedUser
               ? <Navigate to={isAdmin ? '/admin' : isBibliotecario ? '/bibliotecario' : isAlmacenista ? '/almacenista' : isSoporte ? '/soporte' : '/dashboard'} replace />
               : <LoginForm mode="register" onLoginSuccess={handleLoginSuccess} />
+          }
+        />
+        <Route
+          path="/aprobar-dispositivo"
+          element={
+            loggedUser
+              ? <Navigate to={isAdmin ? '/admin' : isBibliotecario ? '/bibliotecario' : isAlmacenista ? '/almacenista' : isSoporte ? '/soporte' : '/dashboard'} replace />
+              : <DeviceApproval onApproved={handleLoginSuccess} />
           }
         />
 
