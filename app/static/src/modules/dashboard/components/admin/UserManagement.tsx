@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FiUsers, FiUserCheck, FiUserX, FiLock, FiSearch, FiFilter, 
+import {
+  FiUsers, FiUserCheck, FiUserX, FiLock, FiSearch, FiFilter,
   FiEdit2, FiShield, FiPower, FiUnlock, FiEye, FiMoreVertical, FiPlus,
-  FiCamera, FiX, FiDownload, FiMaximize 
+  FiCamera, FiX, FiDownload, FiMaximize, FiTrash2
 } from 'react-icons/fi';
 import { QRCodeCanvas } from 'qrcode.react';
 import { CustomSelect } from './CustomSelect';
@@ -111,6 +111,35 @@ export const UserManagement: React.FC = () => {
       });
       if (response.ok) fetchData();
     } catch (error) { console.error(error); }
+  };
+
+  // [TEMPORAL · PRUEBAS] Borrado DEFINITIVO del usuario (y sus registros) de la BD.
+  // Para revertir: quitar esta función y el botón de la papelera de la tabla.
+  const handleDeleteUser = async (user: User) => {
+    const ok = window.confirm(
+      `BORRADO DEFINITIVO\n\n` +
+      `Vas a eliminar a "${user.name}" (#${user.id}) de la base de datos.\n` +
+      `Se borrarán también sus préstamos, reservas, notificaciones e historial.\n` +
+      `Esta acción NO se puede deshacer.\n\n¿Continuar?`
+    );
+    if (!ok) return;
+    if (!window.confirm('Confírmalo una vez más: ¿borrar este usuario definitivamente?')) return;
+    try {
+      const response = await fetch(`/api/v1/users_mgmt/${user.id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        alert(data.message || 'Usuario eliminado definitivamente.');
+        fetchData();
+      } else {
+        alert(data.error || 'No se pudo eliminar el usuario.');
+      }
+    } catch (error) {
+      console.error(error);
+      alert('Error de conexión.');
+    }
   };
 
   const fetchRolesAndDeps = async () => {
@@ -393,6 +422,10 @@ export const UserManagement: React.FC = () => {
                     </button>
                     <button className="btn-icon" onClick={() => { setUserForQR(user); setShowQRModal(true); }} title="Generar QR">
                       <FiMaximize />
+                    </button>
+                    {/* [TEMPORAL · PRUEBAS] Borrado definitivo de la BD */}
+                    <button className="btn-icon" onClick={() => handleDeleteUser(user)} title="Borrar definitivamente (pruebas)">
+                      <FiTrash2 style={{ color: '#ef4444' }} />
                     </button>
                   </div>
                 </td>

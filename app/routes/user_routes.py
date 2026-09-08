@@ -8,7 +8,7 @@ from ..models.loan import Loan
 from ..models.reservation import Reservation
 from ..models.audit_log import AuditLog
 from ..models.user_preference import UserPreference
-from sqlalchemy import func, or_, String
+from sqlalchemy import func, or_, String, text, inspect
 import bcrypt
 
 user_bp = Blueprint('users_mgmt', __name__)
@@ -27,6 +27,117 @@ def _full_media_url(path):
         idx = path.find('/uploads/')
         return path[idx:] if idx != -1 else path
     return path
+
+# ─────────────────────  BORRADO DEFINITIVO (TEMPORAL · PRUEBAS)  ─────────────────────
+# [TEMPORAL] Todo este bloque (helpers + ruta DELETE /<id>) es para pruebas: permite
+# a un ADMIN eliminar un usuario y TODOS sus registros dependientes de la base de datos,
+# sin dejar rastro (salvo una línea de auditoría de la propia acción del admin).
+# Para revertir: borra este bloque y el botón de la papelera en UserManagement.tsx.
+
+def _delete_profile_file(profile_image_path):
+    """Borra del disco la foto de perfil (/uploads/profile_<id>.<ext>), si existe."""
+    try:
+        p = profile_image_path or ''
+        if isinstance(p, str) and p.startswith('/uploads/'):
+            import os
+            from flask import current_app
+            fp = os.path.join(current_app.root_path, 'uploads', os.path.basename(p))
+            if os.path.isfile(fp):
+                os.remove(fp)
+    except Exception as e:
+        print("[hard-delete] no se pudo borrar la foto de perfil:", e)
+
+
+def _hard_delete_user(user):
+    """Elimina de la BD al usuario y todos sus registros dependientes.
+    Filas donde el usuario es 'actor secundario' (admin/técnico/asignado) se
+    desvinculan (NULL) en lugar de borrarse, porque pertenecen a otras personas.
+    NO hace commit: lo hace la ruta que llama, en una sola transacción."""
+    uid = user.id
+    email = (user.email or '').strip()
+    existing = set(inspect(db.engine).get_table_names())
+
+    def run(sql, table, **params):
+        if table not in existing:
+            return
+        db.session.execute(text(sql), params)
+
+    # 1) Desvincular al usuario como actor secundario (esas filas son de otros)
+    run("UPDATE loans SET admin_id = NULL WHERE admin_id = :uid", 'loans', uid=uid)
+    run("UPDATE reservations SET admin_id = NULL WHERE admin_id = :uid", 'reservations', uid=uid)
+    run("UPDATE maintenance SET technician_id = NULL WHERE technician_id = :uid", 'maintenance', uid=uid)
+    run("UPDATE tickets SET assigned_to = NULL WHERE assigned_to = :uid", 'tickets', uid=uid)
+
+    # 2) Hijos de hijos (respetar orden de FKs)
+    run("DELETE FROM loan_details WHERE loan_id IN (SELECT id FROM loans WHERE user_id = :uid)",
+        'loan_details', uid=uid)
+    run("DELETE FROM ticket_messages WHERE sender_id = :uid "
+        "OR ticket_id IN (SELECT id FROM tickets WHERE user_id = :uid)", 'ticket_messages', uid=uid)
+
+    # 3) Registros propios del usuario
+    for sql, table in [
+        ("DELETE FROM user_preferences WHERE user_id = :uid", 'user_preferences'),
+        ("DELETE FROM email_change_tokens WHERE user_id = :uid", 'email_change_tokens'),
+        ("DELETE FROM verification_codes WHERE user_id = :uid", 'verification_codes'),
+        ("DELETE FROM refresh_tokens WHERE user_id = :uid", 'refresh_tokens'),
+        ("DELETE FROM password_reset_tokens WHERE user_id = :uid", 'password_reset_tokens'),
+        ("DELETE FROM notifications WHERE user_id = :uid", 'notifications'),
+        ("DELETE FROM movements WHERE user_id = :uid", 'movements'),
+        ("DELETE FROM assistant_threads WHERE user_id = :uid", 'assistant_threads'),
+        ("DELETE FROM staff_messages WHERE sender_id = :uid OR receiver_id = :uid", 'staff_messages'),
+        ("DELETE FROM spare_part_requests WHERE requested_by = :uid", 'spare_part_requests'),
+        ("DELETE FROM maintenance WHERE reported_by = :uid", 'maintenance'),
+        ("DELETE FROM item_outputs WHERE user_id = :uid", 'item_outputs'),
+        ("DELETE FROM reservations WHERE user_id = :uid", 'reservations'),
+        ("DELETE FROM loans WHERE user_id = :uid", 'loans'),
+        ("DELETE FROM tickets WHERE user_id = :uid", 'tickets'),
+        ("DELETE FROM audit_logs WHERE user_id = :uid", 'audit_logs'),
+    ]:
+        run(sql, table, uid=uid)
+
+    if email:
+        run("DELETE FROM pending_registrations WHERE lower(email) = lower(:em)",
+            'pending_registrations', em=email)
+
+    # 4) El usuario
+    run("DELETE FROM users WHERE id = :uid", 'users', uid=uid)
+
+
+@user_bp.route('/<string:id>', methods=['DELETE'])
+@jwt_required()
+def delete_user(id):
+    """[TEMPORAL · PRUEBAS] Borrado DEFINITIVO de un usuario por un ADMIN.
+    Elimina al usuario y todos sus registros dependientes de la BD. Irreversible."""
+    admin_id = get_jwt_identity()
+    admin = User.query.get(admin_id)
+    if not admin or not admin.role or admin.role.name != 'ADMIN':
+        return jsonify({"error": "Solo un administrador puede borrar usuarios."}), 403
+
+    if str(id) == str(admin_id):
+        return jsonify({"error": "No puedes borrarte a ti mismo desde aquí."}), 400
+
+    user = User.query.get(id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado."}), 404
+
+    name = user.name
+    photo = user.profile_image
+    try:
+        _hard_delete_user(user)
+        # Traza mínima: solo queda constancia de que el admin ejecutó el borrado.
+        db.session.add(AuditLog(
+            user_id=admin_id, action="USER_HARD_DELETED", entity="User", entity_id=str(id),
+            details=f"ADMIN eliminó definitivamente al usuario {name} (#{id})"
+        ))
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print("[hard-delete] error:", e)
+        return jsonify({"error": f"No se pudo borrar el usuario: {e}"}), 500
+
+    _delete_profile_file(photo)
+    return jsonify({"success": True, "message": f"Usuario {name} eliminado definitivamente de la base de datos."}), 200
+
 
 @user_bp.route('/', methods=['GET'])
 @jwt_required()
