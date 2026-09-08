@@ -624,21 +624,19 @@
     display: none;
   }
 
-  /* El contenido fluye con su alto natural; el que desplaza es el drawer. */
+  /* El menú crece para empujar el pie abajo cuando sobra espacio, pero NUNCA
+     se comprime: si el contenido no cabe, el drawer entero scrollea y
+     "Cerrar sesión" siempre queda alcanzable. Sin margin:auto (recorta scroll). */
   .admin-sidebar .admin-sidebar-menu {
-    flex: 0 0 auto;
+    flex: 1 0 auto;
     min-height: 0;
     overflow: visible;
   }
 
   .admin-sidebar .admin-sidebar-header,
-  .admin-sidebar .admin-sidebar-bottom {
-    flex: 0 0 auto;
-  }
-
+  .admin-sidebar .admin-sidebar-bottom,
   .admin-sidebar .admin-sidebar-footer {
     flex: 0 0 auto;
-    margin-top: auto; /* pegado abajo si sobra espacio; fluye si no cabe */
   }
 }
 

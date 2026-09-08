@@ -1054,8 +1054,8 @@
     left: -110%;
     height: calc(100vh - 70px);
     height: calc(100dvh - 70px); /* respeta la barra dinámica del navegador móvil */
-    width: 280px !important;
-    max-width: 85vw;
+    width: 220px !important;
+    max-width: 82vw;
     z-index: 1050;
     padding-top: 0.5rem;
     padding-bottom: 1rem;
@@ -1082,16 +1082,18 @@
     display: none;
   }
 
-  /* El contenido fluye con su alto natural; el que desplaza es el drawer. */
+  /* El menú crece para empujar el pie abajo cuando sobra espacio, pero NUNCA
+     se comprime (shrink 0): si el contenido no cabe, el drawer entero scrollea
+     y el pie ("Cerrar sesión") siempre queda alcanzable. Sin margin:auto, que
+     provoca recortes de scroll en flexbox. */
   .dashboard-sidebar .sidebar-menu {
-    flex: 0 0 auto;
+    flex: 1 0 auto;
     min-height: 0;
     overflow: visible;
   }
 
   .dashboard-sidebar .sidebar-footer {
     flex: 0 0 auto;
-    margin-top: auto; /* pegado abajo si sobra espacio; fluye tras el menú si no cabe */
   }
 
   .dashboard-sidebar.mobile-open,
@@ -1102,14 +1104,14 @@
   /* En móvil, ignorar collapse y mostrar siempre labels */
   .dashboard-sidebar.collapsed,
   .admin-sidebar.collapsed {
-    width: 280px !important;
+    width: 220px !important;
   }
 
   .dashboard-sidebar.mobile-open .sidebar-item,
   .admin-sidebar.mobile-open .admin-sidebar-item {
     justify-content: flex-start !important;
-    gap: 1.2rem !important;
-    padding: 0.7rem 1rem !important;
+    gap: 0.85rem !important;
+    padding: 0.65rem 0.9rem !important;
     width: 100% !important;
     margin: 0 !important;
   }

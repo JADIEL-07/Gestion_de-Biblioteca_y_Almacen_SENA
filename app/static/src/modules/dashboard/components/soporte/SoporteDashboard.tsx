@@ -13,6 +13,7 @@ import { SoporteHistorial } from './SoporteHistorial';
 import { SoporteRepuestos } from './SoporteRepuestos';
 import { SoporteSolicitudes } from './SoporteSolicitudes';
 import { StaffChat } from '../../../shared/StaffChat';
+import '../admin/AdminDashboard.css'; // base de .admin-sidebar (layout + drawer móvil); SoporteDashboard.css solo pinta colores
 import './SoporteDashboard.css';
 import '../UserDashboard.css';
 import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
