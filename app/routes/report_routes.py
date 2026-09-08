@@ -87,7 +87,7 @@ def get_reports():
             "status": t.status,
             "reported_by": reporter.name if reporter else "N/A",
             "support_person": support.name if support else "Pendiente",
-            "created_at": t.created_at.isoformat(),
+            "created_at": t.created_at.isoformat() if t.created_at else None,
             "photo": _full_media_url(t.photo)
         })
     return jsonify(result), 200
@@ -237,7 +237,7 @@ def get_unassigned_reports():
             "severity": t.severity,
             "status": t.status,
             "reported_by": reporter.name if reporter else "N/A",
-            "created_at": t.created_at.isoformat(),
+            "created_at": t.created_at.isoformat() if t.created_at else None,
             "photo": _full_media_url(t.photo)
         })
         
@@ -272,7 +272,7 @@ def get_all_incidents():
             "status": t.status,
             "reported_by": reporter.name if reporter else "N/A",
             "support_person": support.name if support else "Pendiente",
-            "created_at": t.created_at.isoformat(),
+            "created_at": t.created_at.isoformat() if t.created_at else None,
             "photo": _full_media_url(t.photo)
         })
         

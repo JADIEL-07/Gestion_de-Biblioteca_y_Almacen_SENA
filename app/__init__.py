@@ -104,15 +104,29 @@ def _apply_runtime_migrations():
                 continue
             _cols = {c['name'] for c in insp.get_columns(_table)}
             for _col in ('created_at', 'updated_at'):
-                if _col in _cols:
-                    continue
+                # 1) Agregar la columna si falta.
+                if _col not in _cols:
+                    try:
+                        db.session.execute(text(f"ALTER TABLE {_table} ADD COLUMN {_col} TIMESTAMP"))
+                        db.session.commit()
+                        _cols.add(_col)
+                        print(f"[runtime-migration] Columna {_col} agregada en {_table}.")
+                    except Exception as _ie:
+                        db.session.rollback()
+                        print(f"[runtime-migration] aviso ({_table}.{_col}): {_ie}")
+                        continue
+                # 2) Rellenar los NULL que dejó el ADD COLUMN (revientan .isoformat()
+                #    en algunas rutas). Idempotente: tras la 1ª pasada no hay filas.
                 try:
-                    db.session.execute(text(f"ALTER TABLE {_table} ADD COLUMN {_col} TIMESTAMP"))
+                    res = db.session.execute(
+                        text(f"UPDATE {_table} SET {_col} = CURRENT_TIMESTAMP WHERE {_col} IS NULL")
+                    )
                     db.session.commit()
-                    print(f"[runtime-migration] Columna {_col} agregada en {_table}.")
-                except Exception as _ie:
+                    if res.rowcount:
+                        print(f"[runtime-migration] {_table}.{_col}: {res.rowcount} filas NULL rellenadas.")
+                except Exception as _ue:
                     db.session.rollback()
-                    print(f"[runtime-migration] aviso ({_table}.{_col}): {_ie}")
+                    print(f"[runtime-migration] aviso backfill ({_table}.{_col}): {_ue}")
     except Exception as e:
         db.session.rollback()
         print(f"[runtime-migration] aviso (created_at/updated_at Base): {e}")
