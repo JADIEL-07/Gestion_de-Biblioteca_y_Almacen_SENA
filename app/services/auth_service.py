@@ -18,7 +18,6 @@ from ..models.verification_code import VerificationCode
 from ..models.pending_registration import PendingRegistration
 from .token_service import TokenService
 from .email_service import EmailService
-from .sms_service import SmsService
 from flask_jwt_extended import create_access_token
 import pyotp
 
@@ -448,13 +447,11 @@ class AuthService:
                 additional_claims={"type": "2fa_temp"},
                 expires_delta=timedelta(minutes=10)
             )
-            has_phone = bool((user.phone or '').strip())
             return {
                 "requires_2fa": True,
                 "temp_token": temp_token,
                 "message": "Verificación en dos pasos requerida.",
-                "has_phone": has_phone,
-                "phone_hint": AuthService._mask_phone(user.phone) if has_phone else None,
+                "email_hint": AuthService._mask_email(user.email) if user.email else None,
             }, 200
 
         # Éxito sin 2FA
@@ -480,52 +477,51 @@ class AuthService:
         }, 200
 
     @staticmethod
-    def send_2fa_sms(user_id):
-        """Genera un código 2FA y lo envía por SMS al celular del usuario.
+    def send_2fa_email(user_id):
+        """Genera un código 2FA y lo envía al correo del usuario.
         Se llama con el token temporal de 2FA (tras validar usuario+contraseña)."""
         user = User.query.filter_by(id=user_id, is_deleted=False).first()
         if not user or not user.is_active or user.is_blocked:
             return {"error": "Acceso denegado"}, 403
 
-        phone = (user.phone or '').strip()
-        if not phone:
-            return {"error": "No tienes un número de celular registrado. Usa tu app de autenticación."}, 400
+        if not (user.email or '').strip():
+            return {"error": "No tienes un correo registrado. Usa tu app de autenticación."}, 400
 
         # Anti-spam: no reenviar si se pidió uno hace menos de 45 s
         recent = (VerificationCode.query
-                  .filter_by(user_id=user.id, purpose='LOGIN_2FA_SMS', is_used=False)
+                  .filter_by(user_id=user.id, purpose='LOGIN_2FA_EMAIL', is_used=False)
                   .order_by(VerificationCode.created_at.desc())
                   .first())
         if recent and (datetime.utcnow() - recent.created_at).total_seconds() < 45:
             return {"error": "Espera unos segundos antes de pedir otro código."}, 429
 
         VerificationCode.query.filter_by(
-            user_id=user.id, purpose='LOGIN_2FA_SMS', is_used=False
+            user_id=user.id, purpose='LOGIN_2FA_EMAIL', is_used=False
         ).update({"is_used": True})
 
         code = _generate_6digit_code()
         db.session.add(VerificationCode(
             user_id=user.id,
-            purpose='LOGIN_2FA_SMS',
+            purpose='LOGIN_2FA_EMAIL',
             code_hash=_hash_code(code),
-            expires_at=datetime.utcnow() + timedelta(minutes=5),
+            expires_at=datetime.utcnow() + timedelta(minutes=10),
         ))
         db.session.commit()
 
-        sent = SmsService.send_2fa_code(phone, code)
+        sent = EmailService.send_2fa_code(user.email, code, user.name or '')
         if not sent:
-            return {"error": "No pudimos enviar el SMS. Inténtalo de nuevo o usa tu app de autenticación."}, 502
+            return {"error": "No pudimos enviar el correo. Inténtalo de nuevo o usa tu app de autenticación."}, 502
 
-        AuthService._log_audit(user.id, "2FA_SMS_SENT", ip=request.remote_addr)
+        AuthService._log_audit(user.id, "2FA_EMAIL_SENT", ip=request.remote_addr)
         return {
             "success": True,
-            "message": f"Código enviado por SMS a {AuthService._mask_phone(phone)}",
+            "message": f"Código enviado a {AuthService._mask_email(user.email)}",
         }, 200
 
     @staticmethod
     def verify_2fa(user_id, code):
         """Valida el código de dos pasos: acepta tanto el de la app de
-        autenticación (TOTP) como el enviado por SMS."""
+        autenticación (TOTP) como el enviado por correo."""
         user = User.query.filter_by(id=user_id, is_deleted=False).first()
         if not user or not user.is_active or user.is_blocked:
             return {"error": "Acceso denegado"}, 403
@@ -539,9 +535,9 @@ class AuthService:
                 ok = pyotp.TOTP(user.totp_secret).verify(code)
             except Exception:
                 ok = False
-        # 2) Código enviado por SMS
+        # 2) Código enviado por correo
         if not ok:
-            vc = AuthService._consume_code(user.id, code, purpose='LOGIN_2FA_SMS')
+            vc = AuthService._consume_code(user.id, code, purpose='LOGIN_2FA_EMAIL')
             ok = not isinstance(vc, dict)
 
         if not ok:
@@ -773,13 +769,6 @@ class AuthService:
         vc.is_used = True
         db.session.commit()
         return vc
-
-    @staticmethod
-    def _mask_phone(phone: str) -> str:
-        digits = re.sub(r'\D', '', phone or '')
-        if len(digits) < 4:
-            return '***'
-        return '*** *** ' + digits[-4:]
 
     @staticmethod
     def _mask_email(email: str) -> str:

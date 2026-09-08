@@ -395,6 +395,31 @@ class EmailService:
         )
         return _send(subject, [email], text, html)
 
+    # ── Verificación en dos pasos (login) ──
+    @staticmethod
+    def send_2fa_code(email: str, code: str, user_name: str = '') -> bool:
+        """Código de un solo uso para completar el inicio de sesión (2FA por correo)."""
+        subject = "Tu código para iniciar sesión — Biblioteca SENA"
+        content = _card(
+            _code_box(code, "10 minutos", label="Código de acceso"),
+            icon="🔐",
+            heading="Verificación en dos pasos",
+            subtext="Introduce este código en la plataforma para terminar de iniciar sesión.",
+        )
+        html = render_email(
+            subject,
+            greeting_name=user_name,
+            intro="Alguien está iniciando sesión en tu cuenta. Si eres tú, usa este código.",
+            content_html=content,
+            preheader="Código de un solo uso para iniciar sesión",
+        )
+        text = (
+            f"Hola {user_name},\n\n"
+            f"Tu código para iniciar sesión es: {code}\n\n"
+            f"Expira en 10 minutos. Si no fuiste tú, cambia tu contraseña."
+        )
+        return _send(subject, [email], text, html)
+
     # ── Recuperación: contraseña temporal ──
     @staticmethod
     def send_temporary_password(email: str, temp_password: str, user_name: str = '') -> bool:

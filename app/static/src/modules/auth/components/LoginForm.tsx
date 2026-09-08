@@ -49,10 +49,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   const [tempToken2fa, setTempToken2fa] = useState('');
   const [totpData, setTotpData] = useState<{ totp_secret: string, otpauth_url: string } | null>(null);
   const [twoFaCode, setTwoFaCode] = useState('');
-  const [twoFaHasPhone, setTwoFaHasPhone] = useState(false);
-  const [twoFaPhoneHint, setTwoFaPhoneHint] = useState<string | null>(null);
-  const [smsSending, setSmsSending] = useState(false);
-  const [smsSent, setSmsSent] = useState(false);
+  const [twoFaEmailHint, setTwoFaEmailHint] = useState<string | null>(null);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   const isRegister = mode === 'register';
 
@@ -226,9 +225,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         if (data.requires_2fa) {
           setRequires2fa(true);
           setTempToken2fa(data.temp_token);
-          setTwoFaHasPhone(!!data.has_phone);
-          setTwoFaPhoneHint(data.phone_hint || null);
-          setSmsSent(false);
+          setTwoFaEmailHint(data.email_hint || null);
+          setEmailSent(false);
           setSuccessMsg('Credenciales correctas. Ingresa tu código de verificación.');
           return;
         }
@@ -332,12 +330,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
     }
   };
 
-  // ── Enviar código 2FA por SMS ────────────────────────────────────
-  const sendSmsCode = async () => {
+  // ── Enviar código 2FA al correo ─────────────────────────────────
+  const sendEmailCode = async () => {
     setServerError('');
-    setSmsSending(true);
+    setEmailSending(true);
     try {
-      const res = await fetch('/api/v1/auth/2fa/send-sms', {
+      const res = await fetch('/api/v1/auth/2fa/send-email', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -345,15 +343,15 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         },
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'No se pudo enviar el SMS.');
-      setSmsSent(true);
-      setSuccessMsg(data.message || 'Código enviado por SMS.');
+      if (!res.ok) throw new Error(data.error || 'No se pudo enviar el correo.');
+      setEmailSent(true);
+      setSuccessMsg(data.message || 'Código enviado a tu correo.');
       setTimeout(() => setSuccessMsg(''), 5000);
     } catch (err: any) {
       setServerError(err.message);
       setTimeout(() => setServerError(''), 4000);
     } finally {
-      setSmsSending(false);
+      setEmailSending(false);
     }
   };
 
@@ -530,7 +528,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
             </div>
             <div className="form-header">
               <h3 className="login-title">Verificación 2FA</h3>
-              <p>Ingresa el código de 6 dígitos de tu app de autenticación o el que te llegue por SMS.</p>
+              <p>Ingresa el código de 6 dígitos de tu app de autenticación o el que te enviemos al correo.</p>
             </div>
 
             {serverError && <div className="alert-error fade-in"><FiAlertCircle /> {serverError}</div>}
@@ -561,18 +559,20 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
               </button>
             </form>
 
-            {twoFaHasPhone && (
-              <div className="auth-footer">
-                <p style={{ fontSize: '0.85em' }}>
-                  ¿Prefieres un código por SMS{twoFaPhoneHint ? ` a ${twoFaPhoneHint}` : ''}?{' '}
-                  <button type="button" className="switch-mode-btn" onClick={sendSmsCode} disabled={smsSending}>
-                    {smsSending ? 'Enviando…' : smsSent ? 'Reenviar SMS' : 'Enviar código por SMS'}
-                  </button>
-                </p>
-              </div>
-            )}
+            <div className="auth-footer">
+              <p style={{ fontSize: '0.85em' }}>
+                ¿No usas una app de autenticación?{' '}
+                <button type="button" className="switch-mode-btn" onClick={sendEmailCode} disabled={emailSending}>
+                  {emailSending
+                    ? 'Enviando…'
+                    : emailSent
+                      ? 'Reenviar código al correo'
+                      : `Enviar código${twoFaEmailHint ? ` a ${twoFaEmailHint}` : ' al correo'}`}
+                </button>
+              </p>
+            </div>
 
-            <button className="back-btn" onClick={() => { setRequires2fa(false); setTempToken2fa(''); setSmsSent(false); }}>
+            <button className="back-btn" onClick={() => { setRequires2fa(false); setTempToken2fa(''); setEmailSent(false); }}>
               Volver atrás
             </button>
             <div style={{ height: '20px' }}></div>

@@ -31,13 +31,6 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       # URL pública para enlaces e imágenes de los correos (plantilla de marca)
       - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-https://sena.newonline.digital}
-      # SMS del código 2FA (console = no envía; twilio = envía de verdad)
-      - SMS_PROVIDER=${SMS_PROVIDER:-console}
-      - SMS_DEFAULT_COUNTRY_CODE=${SMS_DEFAULT_COUNTRY_CODE:-57}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID:-}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN:-}
-      - TWILIO_FROM=${TWILIO_FROM:-}
-      - TWILIO_MESSAGING_SERVICE_SID=${TWILIO_MESSAGING_SERVICE_SID:-}
     expose:
       - "5000"
     volumes:

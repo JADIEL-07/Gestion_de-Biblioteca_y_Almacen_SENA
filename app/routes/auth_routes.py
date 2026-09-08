@@ -76,16 +76,16 @@ def verify_2fa():
     return jsonify(result), status
 
 
-@auth_bp.route('/2fa/send-sms', methods=['POST'])
+@auth_bp.route('/2fa/send-email', methods=['POST'])
 @jwt_required()
-def send_2fa_sms():
-    """Envía un código 2FA por SMS al celular del usuario (login en 2 pasos)."""
+def send_2fa_email():
+    """Envía un código 2FA al correo del usuario (login en 2 pasos)."""
     claims = get_jwt()
     if claims.get("type") != "2fa_temp":
         return jsonify({"error": "Token inválido para esta operación."}), 401
 
     user_id = get_jwt_identity()
-    result, status = AuthService.send_2fa_sms(user_id)
+    result, status = AuthService.send_2fa_email(user_id)
     return jsonify(result), status
 
 @auth_bp.route('/refresh', methods=['POST'])

@@ -29,14 +29,6 @@ class Config:
     # dentro de los correos (la plantilla de marca carga /assets/images/... del backend).
     PUBLIC_BASE_URL               = os.environ.get('PUBLIC_BASE_URL', 'https://sena.newonline.digital').rstrip('/')
 
-    # SMS (código 2FA por celular). Sin proveedor -> 'console' (imprime, no envía).
-    SMS_PROVIDER                  = os.environ.get('SMS_PROVIDER', 'console')
-    SMS_DEFAULT_COUNTRY_CODE      = os.environ.get('SMS_DEFAULT_COUNTRY_CODE', '57')
-    TWILIO_ACCOUNT_SID            = os.environ.get('TWILIO_ACCOUNT_SID')
-    TWILIO_AUTH_TOKEN             = os.environ.get('TWILIO_AUTH_TOKEN')
-    TWILIO_FROM                   = os.environ.get('TWILIO_FROM')
-    TWILIO_MESSAGING_SERVICE_SID  = os.environ.get('TWILIO_MESSAGING_SERVICE_SID')
-
     # CORS: dominios permitidos (separados por coma en la variable de entorno)
     CORS_ORIGINS                   = os.environ.get('CORS_ORIGINS', 'http://localhost:5173').split(',')
 
