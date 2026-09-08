@@ -15,7 +15,8 @@ class Config:
     MAX_CONTENT_LENGTH             = 16 * 1024 * 1024  # Límite de 16MB para fotos
 
     JWT_SECRET_KEY                 = os.environ.get('JWT_SECRET_KEY')
-    JWT_ACCESS_TOKEN_EXPIRES       = 86400  # 24 horas
+    JWT_ACCESS_TOKEN_EXPIRES       = 7 * 86400   # 7 días (se renueva vía /auth/refresh)
+    JWT_REFRESH_TOKEN_EXPIRES      = 30 * 86400  # 30 días
 
     MAIL_SERVER                    = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
     MAIL_PORT                      = int(os.environ.get('MAIL_PORT', 587))

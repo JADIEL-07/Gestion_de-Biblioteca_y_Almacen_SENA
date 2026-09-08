@@ -627,6 +627,7 @@ class AuthService:
             "id": user.id,
             "name": user.name,
             "email": user.email,
+            "profile_image": user.profile_image,
             "role": {"name": user.role.name} if user.role else {"name": "APRENDIZ"},
             "dependency_id": user.dependency_id,
             "dependency_name": user.dependency_obj.name if user.dependency_obj else None,
