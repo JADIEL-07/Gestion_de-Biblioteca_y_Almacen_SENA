@@ -293,6 +293,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         body: JSON.stringify({ email: pendingVerifyEmail }),
       });
       const data = await res.json();
+      if (!res.ok) {
+        setServerError(data.error || data.message || 'No se pudo reenviar el código.');
+        setTimeout(() => setServerError(''), 4000);
+        return;
+      }
       setSuccessMsg(data.message || 'Código reenviado.');
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch {

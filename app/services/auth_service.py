@@ -168,8 +168,18 @@ class AuthService:
         db.session.add(new_pending)
         db.session.commit()
 
-        # 4) Enviar correo
-        EmailService.send_verification_code(new_pending.email, code, name.strip())
+        # 4) Enviar correo. Si falla, el registro queda en un callejón sin salida
+        #    (no hay forma de verificar), así que revertimos el pendiente para que
+        #    la persona pueda reintentar de inmediato — de lo contrario el chequeo
+        #    de "ya hay un registro pendiente" la bloquearía 15 minutos.
+        sent = EmailService.send_verification_code(new_pending.email, code, name.strip())
+        if not sent:
+            db.session.delete(new_pending)
+            db.session.commit()
+            return {
+                "error": "No pudimos enviar el código de verificación a tu correo. "
+                         "Verifica que la dirección esté bien escrita e inténtalo de nuevo en unos minutos."
+            }, 502
 
         return {
             "success": True,
@@ -280,7 +290,9 @@ class AuthService:
         except:
              name = ""
              
-        EmailService.send_verification_code(email, code, name)
+        sent = EmailService.send_verification_code(email, code, name)
+        if not sent:
+            return {"error": "No pudimos reenviar el código en este momento. Inténtalo más tarde."}, 502
         return {"success": True, "message": "Código reenviado."}, 200
 
     # ── Login ─────────────────────────────────────────────────────────
@@ -424,18 +436,20 @@ class AuthService:
 
         if user:
             temp_pw = _generate_temp_password(12)
-            user.password = bcrypt.hashpw(temp_pw.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-            user.must_change_password = True
-            # Reset bloqueo (la recuperación válida desbloquea)
-            user.failed_attempts = 0
-            user.is_blocked = False
-            # Revocar todas las sesiones activas
-            TokenService.revoke_all_user_tokens(user.id)
-            db.session.commit()
+            # Enviamos ANTES de tocar la contraseña: si el correo no sale, no
+            # dejamos al usuario fuera de su cuenta con una temporal que nadie recibió.
+            sent = EmailService.send_temporary_password(user.email, temp_pw, user.name)
+            if sent:
+                user.password = bcrypt.hashpw(temp_pw.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                user.must_change_password = True
+                # Reset bloqueo (la recuperación válida desbloquea)
+                user.failed_attempts = 0
+                user.is_blocked = False
+                # Revocar todas las sesiones activas
+                TokenService.revoke_all_user_tokens(user.id)
+                db.session.commit()
 
-            EmailService.send_temporary_password(user.email, temp_pw, user.name)
-
-        # Respuesta neutra (no revelar si existe el correo)
+        # Respuesta neutra (no revelar si existe el correo ni si el envío falló)
         return {"success": True, "message": "Si la cuenta existe, recibirás una contraseña temporal en breve."}, 200
 
     @staticmethod
@@ -481,9 +495,11 @@ class AuthService:
         new_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         payload = json.dumps({"new_password_hash": new_hash})
 
-        AuthService._issue_verification_code(
+        sent = AuthService._issue_verification_code(
             user, purpose='PASSWORD_CHANGE', minutes=10, payload=payload
         )
+        if not sent:
+            return {"error": "No pudimos enviar el código a tu correo. Inténtalo de nuevo en unos minutos."}, 502
 
         return {
             "success": True,
@@ -567,11 +583,12 @@ class AuthService:
         db.session.add(vc)
         db.session.commit()
 
-        # Enviar correo según propósito
+        # Enviar correo según propósito. Devuelve si el envío tuvo éxito.
         if purpose == 'ACCOUNT_VERIFY':
-            EmailService.send_verification_code(user.email, code, user.name)
+            return EmailService.send_verification_code(user.email, code, user.name)
         elif purpose == 'PASSWORD_CHANGE':
-            EmailService.send_password_change_code(user.email, code, user.name)
+            return EmailService.send_password_change_code(user.email, code, user.name)
+        return True
 
         return vc
 
