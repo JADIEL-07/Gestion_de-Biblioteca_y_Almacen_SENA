@@ -363,29 +363,24 @@
   flex: 1;
   min-height: 0; /* Sin esto, el flex item crece hasta su contenido y el scroll nunca se activa */
   overflow-y: auto;
-  scrollbar-width: none; /* Scroll funcional, barra oculta (igual que el resto de la app) */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: none;      /* Firefox: sin barra */
+  -ms-overflow-style: none;   /* Edge legacy: sin barra */
+}
+
+/* WebKit (Chrome/Safari/móvil): scroll funcional, barra oculta. */
+.sidebar-menu::-webkit-scrollbar,
+.sidebar-bottom::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 /* El pie del sidebar (perfil + cerrar sesión) nunca se comprime;
    el que hace scroll es .sidebar-menu. */
 .sidebar-footer {
   flex-shrink: 0;
-}
-
-.sidebar-menu::-webkit-scrollbar,
-.sidebar-bottom::-webkit-scrollbar {
-  width: 4px;
-}
-
-.sidebar-menu::-webkit-scrollbar-track,
-.sidebar-bottom::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar-menu::-webkit-scrollbar-thumb,
-.sidebar-bottom::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 2px;
 }
 
 .dashboard-sidebar.collapsed .sidebar-menu,
@@ -1063,26 +1058,40 @@
     max-width: 85vw;
     z-index: 1050;
     padding-top: 0.5rem;
+    padding-bottom: 1rem;
     transition: left 0.3s ease;
     box-shadow: 4px 4px 24px rgba(0, 0, 0, 0.25);
     background: var(--bg-sidebar);
     border-right: 1px solid var(--border-color);
     display: flex;
     flex-direction: column;
-    overflow: hidden;
-  }
-
-  /* Dentro del drawer, el que scrollea es el menú; el pie queda fijo abajo. */
-  .dashboard-sidebar .sidebar-menu {
-    flex: 1 1 auto;
-    min-height: 0;
+    /* El drawer ENTERO scrollea: así nada del menú ni del pie se corta,
+       aunque la pantalla sea muy baja. Barra de scroll oculta. */
     overflow-y: auto;
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .dashboard-sidebar::-webkit-scrollbar,
+  .admin-sidebar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
+  /* El contenido fluye con su alto natural; el que desplaza es el drawer. */
+  .dashboard-sidebar .sidebar-menu {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
   }
 
   .dashboard-sidebar .sidebar-footer {
-    flex-shrink: 0;
+    flex: 0 0 auto;
+    margin-top: auto; /* pegado abajo si sobra espacio; fluye tras el menú si no cabe */
   }
 
   .dashboard-sidebar.mobile-open,
