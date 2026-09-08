@@ -25,6 +25,10 @@ class Config:
     MAIL_PASSWORD                  = os.environ.get('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER            = os.environ.get('MAIL_DEFAULT_SENDER')
 
+    # URL pública del sitio: se usa para construir enlaces e imágenes absolutas
+    # dentro de los correos (la plantilla de marca carga /assets/images/... del backend).
+    PUBLIC_BASE_URL               = os.environ.get('PUBLIC_BASE_URL', 'https://sena.newonline.digital').rstrip('/')
+
     # CORS: dominios permitidos (separados por coma en la variable de entorno)
     CORS_ORIGINS                   = os.environ.get('CORS_ORIGINS', 'http://localhost:5173').split(',')
 
