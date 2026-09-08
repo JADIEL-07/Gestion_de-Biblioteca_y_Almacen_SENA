@@ -1058,12 +1058,14 @@
   }
 
   /* Sidebar como drawer en móvil.
-     Clave: NO usamos height:100vh/100dvh ni flexbox aquí. El drawer se ancla
-     con top:70px + bottom:0 (el navegador calcula la altura contra el área
-     REALMENTE visible, sin unidades vh que fallan con la barra del móvil), y
-     es un simple bloque con overflow-y:auto. Así el contenido se apila de
-     arriba a abajo y, si no cabe, SIEMPRE se puede scrollear hasta "Cerrar
-     sesión". Sin flex-grow => sin el hueco enorme entre grupos de items. */
+     - Se ancla con top:70px + bottom:0: el alto se calcula contra el área
+       REALMENTE visible (sin unidades vh/dvh que fallan con la barra del móvil).
+     - Es flex column con overflow-y:auto. El menú usa flex:1 0 auto:
+         · Si TODO cabe -> el menú crece y empuja el pie abajo => queda el
+           espacio entre grupos (el que te gusta).
+         · Si NO cabe (pantalla baja) -> el menú NO crece ni se comprime, el
+           panel entero scrollea y "Cerrar sesión" siempre se alcanza, sin hueco.
+       O sea: el espacio aparece solo cuando la pantalla da para ello. */
   .dashboard-sidebar,
   .admin-sidebar {
     position: fixed;
@@ -1079,7 +1081,8 @@
     box-shadow: 4px 4px 24px rgba(0, 0, 0, 0.25);
     background: var(--bg-sidebar);
     border-right: 1px solid var(--border-color);
-    display: block;
+    display: flex;
+    flex-direction: column;
     overflow-y: auto;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
@@ -1095,11 +1098,19 @@
     display: none;
   }
 
-  /* Neutralizar el flex-grow de las reglas base: en el drawer los grupos
-     van a su alto natural, sin estirarse ni crear huecos. */
-  .dashboard-sidebar > *,
-  .admin-sidebar > * {
-    flex: 0 0 auto !important;
+  /* El menú crece para dejar el espacio cuando cabe; nunca se comprime. */
+  .dashboard-sidebar .sidebar-menu,
+  .admin-sidebar .admin-sidebar-menu {
+    flex: 1 0 auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  /* Grupos inferiores y pie: siempre a su alto natural. */
+  .dashboard-sidebar .sidebar-footer,
+  .admin-sidebar .admin-sidebar-bottom,
+  .admin-sidebar .admin-sidebar-footer {
+    flex: 0 0 auto;
   }
 
   .dashboard-sidebar.mobile-open,
