@@ -1098,7 +1098,7 @@
     display: none;
   }
 
-  /* El menú crece para dejar el espacio cuando cabe; nunca se comprime. */
+  /* El menú crece para empujar el pie abajo cuando sobra sitio; nunca se comprime. */
   .dashboard-sidebar .sidebar-menu,
   .admin-sidebar .admin-sidebar-menu {
     flex: 1 0 auto;
@@ -1111,6 +1111,18 @@
   .admin-sidebar .admin-sidebar-bottom,
   .admin-sidebar .admin-sidebar-footer {
     flex: 0 0 auto;
+  }
+
+  /* Espacio GARANTIZADO entre el grupo de arriba y el de abajo (el que gustaba).
+     Es un margen fijo: si sobra sitio, flex:1 0 auto del menú lo agranda y deja
+     el pie abajo; si NO cabe, el margen se mantiene y el panel scrollea
+     (respeta el tamaño de la pantalla en vez de recortar). */
+  .admin-sidebar .admin-sidebar-bottom {
+    margin-top: 2.25rem;
+  }
+
+  .dashboard-sidebar .sidebar-footer {
+    margin-top: 2.25rem;
   }
 
   .dashboard-sidebar.mobile-open,
