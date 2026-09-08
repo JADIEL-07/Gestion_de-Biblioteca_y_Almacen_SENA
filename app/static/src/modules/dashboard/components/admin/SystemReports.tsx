@@ -44,10 +44,13 @@ export const SystemReports: React.FC = () => {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
         }).then(r => r.json())
       ]);
-      setReports(rData);
-      setStats(sData);
+      // La API puede devolver {error: ...} en vez de un array (401, 403, 500);
+      // sin este guard, reports.filter(...) revienta toda la vista.
+      setReports(Array.isArray(rData) ? rData : []);
+      setStats(sData && typeof sData.total === 'number' ? sData : { total: 0, open: 0, critical: 0 });
     } catch (error) {
       console.error('Error fetching reports:', error);
+      setReports([]);
     } finally {
       setLoading(false);
     }
@@ -70,9 +73,9 @@ export const SystemReports: React.FC = () => {
     const s = searchTerm.toLowerCase();
     const reportDate = new Date(r.created_at);
     
-    const matchesSearch = 
-      r.subject.toLowerCase().includes(s) ||
-      r.reported_by.toLowerCase().includes(s) ||
+    const matchesSearch =
+      (r.subject || '').toLowerCase().includes(s) ||
+      (r.reported_by || '').toLowerCase().includes(s) ||
       r.id.toString().includes(searchTerm);
     
     const start = startDate ? new Date(startDate + 'T00:00:00') : null;
@@ -194,7 +197,9 @@ export const SystemReports: React.FC = () => {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="td-center">Cargando reportes del sistema...</td></tr>
+              <tr><td colSpan={8} className="td-center">Cargando reportes del sistema...</td></tr>
+            ) : filteredReports.length === 0 ? (
+              <tr><td colSpan={8} className="td-center">No hay reportes para los filtros seleccionados.</td></tr>
             ) : filteredReports.map(report => (
               <tr key={report.id}>
                 <td><span className="id-badge">#{report.id}</span></td>
@@ -223,22 +228,21 @@ export const SystemReports: React.FC = () => {
                 </td>
                 <td className="date-cell">
                   <FiClock className="small-icon" />
-                  {new Date(report.created_at).toLocaleDateString()}
+                  {report.created_at ? new Date(report.created_at).toLocaleDateString() : '—'}
                 </td>
                 <td>
-                  <span className={`status-tag ${report.status.toLowerCase()}`}>
-                    {report.status}
+                  <span className={`status-tag ${(report.status || '').toLowerCase()}`}>
+                    {report.status || '—'}
                   </span>
                 </td>
                 <td>
                   {report.photo ? (
-                    <img 
-                      src={report.photo} 
-                      alt="Adjunto" 
-                      style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--admin-border-color)' }}
+                    <img
+                      src={report.photo}
+                      alt="Adjunto"
                       onClick={() => window.open(report.photo, '_blank')}
                       title="Ver adjunto completo"
-                      style={{cursor: 'pointer', width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--admin-border-color)'}}
+                      style={{ cursor: 'pointer', width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', border: '1px solid var(--admin-border-color)' }}
                     />
                   ) : (
                     <span style={{color: 'var(--admin-text-muted)', fontSize: '0.8rem'}}>Sin adjunto</span>

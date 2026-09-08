@@ -148,19 +148,16 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: none;      /* scroll funcional, barra oculta */
+  -ms-overflow-style: none;
 }
 
-/* Custom scrollbar for the sidebar menu */
 .admin-sidebar-menu::-webkit-scrollbar {
-  width: 4px;
-}
-.admin-sidebar-menu::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
-}
-.admin-sidebar-menu::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .admin-sidebar-spacer {
@@ -606,6 +603,42 @@
 
   .kpi-value {
     font-size: 1.25rem;
+  }
+
+  /* Drawer del sidebar admin: scrollea TODO el panel para que el menú, los
+     botones inferiores y "Cerrar sesión" siempre se alcancen aunque la
+     pantalla sea baja. Posición fija/ancho vienen de UserDashboard.css. */
+  .admin-sidebar {
+    justify-content: flex-start;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .admin-sidebar::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none;
+  }
+
+  /* El contenido fluye con su alto natural; el que desplaza es el drawer. */
+  .admin-sidebar .admin-sidebar-menu {
+    flex: 0 0 auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .admin-sidebar .admin-sidebar-header,
+  .admin-sidebar .admin-sidebar-bottom {
+    flex: 0 0 auto;
+  }
+
+  .admin-sidebar .admin-sidebar-footer {
+    flex: 0 0 auto;
+    margin-top: auto; /* pegado abajo si sobra espacio; fluye si no cabe */
   }
 }
 
