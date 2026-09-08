@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiAlertCircle, FiPhone, FiCreditCard, FiShield, FiSmartphone } from 'react-icons/fi';
 import './LoginForm.css';
 import { FloatingParticles } from '../../../components/ui/FloatingParticles';
@@ -20,6 +20,10 @@ const PHONE_CO_RE = /^3\d{9}$/;
 
 export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // Si venimos del botón "Ir a la plataforma" del correo, traemos un token para
+  // precargar los datos del registro pendiente y saltar directo al paso del código.
+  const [prefilling, setPrefilling] = useState<boolean>(!!searchParams.get('verify'));
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -47,6 +51,52 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   const [twoFaCode, setTwoFaCode] = useState('');
 
   const isRegister = mode === 'register';
+
+  // ── Llegada desde el correo: precargar datos + ir al paso del código ──
+  useEffect(() => {
+    const verifyToken = searchParams.get('verify');
+    if (!verifyToken) return;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/v1/auth/pending-registration?token=${encodeURIComponent(verifyToken)}`
+        );
+        const data = await res.json();
+        if (cancelled) return;
+
+        if (data.found) {
+          // Datos traídos del servidor: funcionan en cualquier dispositivo.
+          setNombre(data.name || '');
+          setEmail(data.email || '');
+          setPhone(data.phone || '');
+          setDocumentType(data.document_type || 'CC');
+          setDocumentNumber(data.document_number || '');
+          setAcceptedTerms(true);
+          // Salta directo a la pantalla de ingresar el código.
+          setPendingVerifyEmail(data.email);
+        } else if (data.reason === 'already_verified') {
+          setSuccessMsg('Tu cuenta ya está verificada. Inicia sesión.');
+          if (data.email) setEmail(data.email);
+        } else {
+          setServerError('El enlace expiró o ya no está disponible. Vuelve a registrarte si lo necesitas.');
+          if (data.email) setEmail(data.email);
+        }
+      } catch {
+        if (!cancelled) setServerError('No pudimos cargar tus datos de registro. Inténtalo de nuevo.');
+      } finally {
+        if (!cancelled) {
+          setPrefilling(false);
+          // Quitar el token de la URL (no dejarlo en el historial ni re-consultarlo al refrescar).
+          window.history.replaceState({}, '', '/register');
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Validación ────────────────────────────────────────────────────
 
@@ -308,6 +358,27 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   // ──────────────────────────────────────────────────────────────────
   //  Render
   // ──────────────────────────────────────────────────────────────────
+
+  // ─── Cargando datos del registro (llegada desde el correo) ──────
+  if (prefilling) {
+    return (
+      <div className="login-wrapper">
+        <HeroBackground variant="panel" alt="Biblioteca SENA" />
+        <FloatingParticles />
+        <div className="login-form-centered">
+          <div className="clean-form">
+            <div className="sena-logo">
+              <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Logo SENA" className="sena-logo-img" />
+            </div>
+            <div className="form-header">
+              <h3 className="login-title">Cargando tu registro…</h3>
+              <p>Un momento, estamos recuperando tus datos.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ─── Pantalla de verificación con código ────────────────────────
   if (pendingVerifyEmail) {

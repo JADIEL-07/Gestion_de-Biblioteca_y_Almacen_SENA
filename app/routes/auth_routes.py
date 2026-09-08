@@ -184,6 +184,15 @@ def resend_verification():
     return jsonify(result), status
 
 
+@auth_bp.route('/pending-registration', methods=['GET'])
+def pending_registration():
+    """Datos de un registro pendiente a partir del token del correo.
+    El frontend lo usa para precargar el formulario y saltar al paso del código."""
+    token = request.args.get('token') or request.args.get('verify') or ''
+    result, status = AuthService.get_pending_registration(token)
+    return jsonify(result), status
+
+
 # ─────────────────────────  SESIONES ACTIVAS  ─────────────────────────
 
 @auth_bp.route('/sessions', methods=['GET'])

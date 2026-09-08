@@ -337,8 +337,13 @@ class EmailService:
 
     # ── Registro de cuenta ──
     @staticmethod
-    def send_verification_code(email: str, code: str, user_name: str = '') -> bool:
-        """Código de 6 dígitos para confirmar el registro de cuenta."""
+    def send_verification_code(email: str, code: str, user_name: str = '', verify_link: str = None) -> bool:
+        """Código de 6 dígitos para confirmar el registro de cuenta.
+
+        `verify_link`: URL del botón "Ir a la plataforma". Si se pasa, lleva a la
+        pantalla de ingresar el código con los datos del registro ya precargados
+        (funciona en cualquier dispositivo). Si no, cae a la portada del sitio.
+        """
         subject = "Verifica tu cuenta — Biblioteca SENA"
         content = _card(
             _code_box(code, "15 minutos"),
@@ -353,7 +358,7 @@ class EmailService:
                    "Solo falta un paso para activar tu cuenta."),
             content_html=content,
             cta_text="Ir a la plataforma",
-            cta_url=_base_url(),
+            cta_url=verify_link or _base_url(),
             preheader="Código para activar tu cuenta en Biblioteca & Almacén SENA",
         )
         text = (

@@ -6,7 +6,8 @@ import hashlib
 import json
 from typing import Optional
 from datetime import datetime, timedelta
-from flask import request
+from flask import request, current_app
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from sqlalchemy import or_
 from ..extensions import db
 from ..models.user import User, Role
@@ -62,6 +63,23 @@ def _validate_password_strength(password: str) -> Optional[str]:
 
 def _hash_code(code: str) -> str:
     return hashlib.sha256(code.encode()).hexdigest()
+
+
+# ── Enlace del correo de verificación ────────────────────────────────
+# El botón "Ir a la plataforma" del correo lleva un token firmado con el email.
+# Al abrirlo (en cualquier dispositivo) el frontend pide los datos del registro
+# pendiente y precarga el formulario + salta al paso del código.
+_VERIFY_LINK_SALT = 'pending-registration-link'
+_VERIFY_LINK_MAX_AGE = 60 * 60  # margen de la firma; la validez real la da pending.expires_at
+
+
+def _link_serializer() -> URLSafeTimedSerializer:
+    return URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt=_VERIFY_LINK_SALT)
+
+
+def _public_base_url() -> str:
+    raw = current_app.config.get('PUBLIC_BASE_URL') or 'https://sena.newonline.digital'
+    return raw.rstrip('/')
 
 
 def _generate_6digit_code() -> str:
@@ -172,7 +190,8 @@ class AuthService:
         #    (no hay forma de verificar), así que revertimos el pendiente para que
         #    la persona pueda reintentar de inmediato — de lo contrario el chequeo
         #    de "ya hay un registro pendiente" la bloquearía 15 minutos.
-        sent = EmailService.send_verification_code(new_pending.email, code, name.strip())
+        verify_link = AuthService.make_verify_link(new_pending.email)
+        sent = EmailService.send_verification_code(new_pending.email, code, name.strip(), verify_link=verify_link)
         if not sent:
             db.session.delete(new_pending)
             db.session.commit()
@@ -290,10 +309,63 @@ class AuthService:
         except:
              name = ""
              
-        sent = EmailService.send_verification_code(email, code, name)
+        sent = EmailService.send_verification_code(
+            email, code, name, verify_link=AuthService.make_verify_link(email)
+        )
         if not sent:
             return {"error": "No pudimos reenviar el código en este momento. Inténtalo más tarde."}, 502
         return {"success": True, "message": "Código reenviado."}, 200
+
+    @staticmethod
+    def make_verify_link(email: str) -> str:
+        """URL para el botón del correo: /register?verify=<token firmado con el email>."""
+        token = _link_serializer().dumps((email or '').strip().lower())
+        return f"{_public_base_url()}/register?verify={token}"
+
+    @staticmethod
+    def get_pending_registration(token: str):
+        """Datos del registro pendiente asociado a un token de enlace, si sigue vigente.
+        Sirve para precargar el formulario y saltar al paso del código desde cualquier
+        dispositivo (los datos vienen del servidor, no del navegador que registró)."""
+        if not token:
+            return {"found": False, "reason": "missing_token"}, 200
+
+        try:
+            email = _link_serializer().loads(token, max_age=_VERIFY_LINK_MAX_AGE)
+        except SignatureExpired:
+            return {"found": False, "reason": "expired"}, 200
+        except BadSignature:
+            return {"found": False, "reason": "invalid"}, 200
+
+        email = (email or '').strip().lower()
+
+        if User.query.filter_by(email=email, is_deleted=False).first():
+            return {"found": False, "reason": "already_verified", "email": email}, 200
+
+        pending = PendingRegistration.query.filter_by(email=email).first()
+        if not pending:
+            return {"found": False, "reason": "not_found", "email": email}, 200
+
+        now = datetime.utcnow()
+        if pending.expires_at < now:
+            return {"found": False, "reason": "expired", "email": email}, 200
+
+        try:
+            payload = json.loads(pending.payload)
+        except Exception:
+            payload = {}
+
+        return {
+            "found": True,
+            "email": email,
+            "name": payload.get("name", ""),
+            "phone": payload.get("phone") or "",
+            "document_type": payload.get("document_type", "CC"),
+            "document_number": payload.get("id") or pending.document_number or "",
+            "formation_ficha": payload.get("formation_ficha") or "",
+            "expires_at": pending.expires_at.isoformat(),
+            "seconds_left": max(int((pending.expires_at - now).total_seconds()), 0),
+        }, 200
 
     # ── Login ─────────────────────────────────────────────────────────
 
