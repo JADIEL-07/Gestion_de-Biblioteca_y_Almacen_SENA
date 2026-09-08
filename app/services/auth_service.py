@@ -18,6 +18,7 @@ from ..models.verification_code import VerificationCode
 from ..models.pending_registration import PendingRegistration
 from .token_service import TokenService
 from .email_service import EmailService
+from .sms_service import SmsService
 from flask_jwt_extended import create_access_token
 import pyotp
 
@@ -443,14 +444,17 @@ class AuthService:
         if user.is_2fa_enabled and user.totp_secret:
             # En lugar de loguearlo inmediatamente, devolvemos un token temporal
             temp_token = create_access_token(
-                identity=str(user.id), 
+                identity=str(user.id),
                 additional_claims={"type": "2fa_temp"},
                 expires_delta=timedelta(minutes=10)
             )
+            has_phone = bool((user.phone or '').strip())
             return {
                 "requires_2fa": True,
                 "temp_token": temp_token,
-                "message": "Verificación en dos pasos requerida."
+                "message": "Verificación en dos pasos requerida.",
+                "has_phone": has_phone,
+                "phone_hint": AuthService._mask_phone(user.phone) if has_phone else None,
             }, 200
 
         # Éxito sin 2FA
@@ -476,18 +480,72 @@ class AuthService:
         }, 200
 
     @staticmethod
-    def verify_2fa(user_id, code):
-        """Valida el código TOTP tras un inicio de sesión parcial."""
+    def send_2fa_sms(user_id):
+        """Genera un código 2FA y lo envía por SMS al celular del usuario.
+        Se llama con el token temporal de 2FA (tras validar usuario+contraseña)."""
         user = User.query.filter_by(id=user_id, is_deleted=False).first()
         if not user or not user.is_active or user.is_blocked:
             return {"error": "Acceso denegado"}, 403
 
-        if not user.totp_secret:
-            return {"error": "2FA no está configurado para este usuario"}, 400
+        phone = (user.phone or '').strip()
+        if not phone:
+            return {"error": "No tienes un número de celular registrado. Usa tu app de autenticación."}, 400
 
-        totp = pyotp.TOTP(user.totp_secret)
-        if not totp.verify(code):
-             return {"error": "Código 2FA incorrecto"}, 401
+        # Anti-spam: no reenviar si se pidió uno hace menos de 45 s
+        recent = (VerificationCode.query
+                  .filter_by(user_id=user.id, purpose='LOGIN_2FA_SMS', is_used=False)
+                  .order_by(VerificationCode.created_at.desc())
+                  .first())
+        if recent and (datetime.utcnow() - recent.created_at).total_seconds() < 45:
+            return {"error": "Espera unos segundos antes de pedir otro código."}, 429
+
+        VerificationCode.query.filter_by(
+            user_id=user.id, purpose='LOGIN_2FA_SMS', is_used=False
+        ).update({"is_used": True})
+
+        code = _generate_6digit_code()
+        db.session.add(VerificationCode(
+            user_id=user.id,
+            purpose='LOGIN_2FA_SMS',
+            code_hash=_hash_code(code),
+            expires_at=datetime.utcnow() + timedelta(minutes=5),
+        ))
+        db.session.commit()
+
+        sent = SmsService.send_2fa_code(phone, code)
+        if not sent:
+            return {"error": "No pudimos enviar el SMS. Inténtalo de nuevo o usa tu app de autenticación."}, 502
+
+        AuthService._log_audit(user.id, "2FA_SMS_SENT", ip=request.remote_addr)
+        return {
+            "success": True,
+            "message": f"Código enviado por SMS a {AuthService._mask_phone(phone)}",
+        }, 200
+
+    @staticmethod
+    def verify_2fa(user_id, code):
+        """Valida el código de dos pasos: acepta tanto el de la app de
+        autenticación (TOTP) como el enviado por SMS."""
+        user = User.query.filter_by(id=user_id, is_deleted=False).first()
+        if not user or not user.is_active or user.is_blocked:
+            return {"error": "Acceso denegado"}, 403
+
+        code = (code or '').strip()
+
+        ok = False
+        # 1) Código de la app de autenticación
+        if user.totp_secret:
+            try:
+                ok = pyotp.TOTP(user.totp_secret).verify(code)
+            except Exception:
+                ok = False
+        # 2) Código enviado por SMS
+        if not ok:
+            vc = AuthService._consume_code(user.id, code, purpose='LOGIN_2FA_SMS')
+            ok = not isinstance(vc, dict)
+
+        if not ok:
+            return {"error": "Código 2FA incorrecto"}, 401
 
         # Éxito
         user.failed_attempts = 0
@@ -715,6 +773,13 @@ class AuthService:
         vc.is_used = True
         db.session.commit()
         return vc
+
+    @staticmethod
+    def _mask_phone(phone: str) -> str:
+        digits = re.sub(r'\D', '', phone or '')
+        if len(digits) < 4:
+            return '***'
+        return '*** *** ' + digits[-4:]
 
     @staticmethod
     def _mask_email(email: str) -> str:

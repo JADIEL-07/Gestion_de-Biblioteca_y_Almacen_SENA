@@ -49,6 +49,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   const [tempToken2fa, setTempToken2fa] = useState('');
   const [totpData, setTotpData] = useState<{ totp_secret: string, otpauth_url: string } | null>(null);
   const [twoFaCode, setTwoFaCode] = useState('');
+  const [twoFaHasPhone, setTwoFaHasPhone] = useState(false);
+  const [twoFaPhoneHint, setTwoFaPhoneHint] = useState<string | null>(null);
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsSent, setSmsSent] = useState(false);
 
   const isRegister = mode === 'register';
 
@@ -222,7 +226,10 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         if (data.requires_2fa) {
           setRequires2fa(true);
           setTempToken2fa(data.temp_token);
-          setSuccessMsg('Credenciales correctas. Ingresa tu código de autenticador.');
+          setTwoFaHasPhone(!!data.has_phone);
+          setTwoFaPhoneHint(data.phone_hint || null);
+          setSmsSent(false);
+          setSuccessMsg('Credenciales correctas. Ingresa tu código de verificación.');
           return;
         }
 
@@ -322,6 +329,31 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
       setTimeout(() => setServerError(''), 4000);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ── Enviar código 2FA por SMS ────────────────────────────────────
+  const sendSmsCode = async () => {
+    setServerError('');
+    setSmsSending(true);
+    try {
+      const res = await fetch('/api/v1/auth/2fa/send-sms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${tempToken2fa}`,
+        },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'No se pudo enviar el SMS.');
+      setSmsSent(true);
+      setSuccessMsg(data.message || 'Código enviado por SMS.');
+      setTimeout(() => setSuccessMsg(''), 5000);
+    } catch (err: any) {
+      setServerError(err.message);
+      setTimeout(() => setServerError(''), 4000);
+    } finally {
+      setSmsSending(false);
     }
   };
 
@@ -498,7 +530,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
             </div>
             <div className="form-header">
               <h3 className="login-title">Verificación 2FA</h3>
-              <p>Ingresa el código de 6 dígitos de tu aplicación de autenticación.</p>
+              <p>Ingresa el código de 6 dígitos de tu app de autenticación o el que te llegue por SMS.</p>
             </div>
 
             {serverError && <div className="alert-error fade-in"><FiAlertCircle /> {serverError}</div>}
@@ -506,7 +538,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
 
             <form onSubmit={handleVerify2fa} noValidate>
               <div className="input-group">
-                <label className="input-label">Código de Autenticador</label>
+                <label className="input-label">Código de verificación</label>
                 <div className="input-field-wrapper">
                   <FiSmartphone className="input-icon" />
                   <input
@@ -529,7 +561,18 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
               </button>
             </form>
 
-            <button className="back-btn" onClick={() => { setRequires2fa(false); setTempToken2fa(''); }}>
+            {twoFaHasPhone && (
+              <div className="auth-footer">
+                <p style={{ fontSize: '0.85em' }}>
+                  ¿Prefieres un código por SMS{twoFaPhoneHint ? ` a ${twoFaPhoneHint}` : ''}?{' '}
+                  <button type="button" className="switch-mode-btn" onClick={sendSmsCode} disabled={smsSending}>
+                    {smsSending ? 'Enviando…' : smsSent ? 'Reenviar SMS' : 'Enviar código por SMS'}
+                  </button>
+                </p>
+              </div>
+            )}
+
+            <button className="back-btn" onClick={() => { setRequires2fa(false); setTempToken2fa(''); setSmsSent(false); }}>
               Volver atrás
             </button>
             <div style={{ height: '20px' }}></div>
