@@ -83,6 +83,12 @@ def _device_serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='device-approval-link')
 
 
+def _poll_serializer() -> URLSafeTimedSerializer:
+    """Ticket firmado que conserva el dispositivo ORIGINAL para consultar si ya
+    fue autorizado desde el correo (aunque el correo se abra en otro dispositivo)."""
+    return URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt='device-approval-poll')
+
+
 def _public_base_url() -> str:
     raw = current_app.config.get('PUBLIC_BASE_URL') or 'https://sena.newonline.digital'
     return raw.rstrip('/')
@@ -539,11 +545,13 @@ class AuthService:
                 sent = None
 
             if sent:
+                poll_token = _poll_serializer().dumps({"uid": str(user.id), "did": device_id or ''}) if device_id else None
                 return {
                     "requires_device_approval": True,
                     "message": "Detectamos un inicio de sesión desde un dispositivo nuevo. "
                                "Te enviamos un correo para autorizarlo.",
                     "email_hint": AuthService._mask_email(user.email),
+                    "poll_token": poll_token,
                 }, 200
             if sent is False:
                 return {"error": "No pudimos enviar el correo de autorización. Inténtalo de nuevo en unos minutos."}, 502
@@ -790,6 +798,63 @@ class AuthService:
         return {
             "success": True,
             "message": "Sesión iniciada con éxito.",
+            "access_token": access,
+            "refresh_token": refresh,
+            "must_change_password": bool(user.must_change_password),
+            "user": AuthService._user_payload(user),
+        }, 200
+
+    @staticmethod
+    def check_device_approval(poll_token):
+        """Lo consulta el dispositivo ORIGINAL (el que mostró 'revisa tu correo').
+        Devuelve 'pending' hasta que se aprueba desde el correo; entonces devuelve
+        los tokens para iniciar sesión también en ese dispositivo. Un solo uso."""
+        if not poll_token:
+            return {"status": "invalid"}, 400
+        try:
+            data = _poll_serializer().loads(poll_token, max_age=30 * 60)
+        except SignatureExpired:
+            return {"status": "expired"}, 200
+        except BadSignature:
+            return {"status": "invalid"}, 400
+
+        uid = str(data.get("uid") or '')
+        did = str(data.get("did") or '')
+        if not uid or not did:
+            return {"status": "pending"}, 200
+
+        user = User.query.filter_by(id=uid, is_deleted=False).first()
+        if not user or not user.is_active or user.is_blocked:
+            return {"status": "pending"}, 200
+
+        vc = (VerificationCode.query
+              .filter_by(user_id=uid, purpose='DEVICE_APPROVAL')
+              .order_by(VerificationCode.created_at.desc())
+              .first())
+        if not vc:
+            return {"status": "expired"}, 200
+        try:
+            meta = json.loads(vc.payload or '{}')
+        except Exception:
+            meta = {}
+        if (meta.get("device_id") or '') != did:
+            return {"status": "pending"}, 200
+        if not vc.is_used:
+            return {"status": "pending"}, 200        # aún no se ha aprobado desde el correo
+        if (datetime.utcnow() - vc.created_at) > timedelta(minutes=30):
+            return {"status": "expired"}, 200
+
+        # Aprobado y fresco: emitir sesión para el dispositivo original y consumir.
+        db.session.delete(vc)
+        user.failed_attempts = 0
+        user.last_failed_login = None
+        user.last_login = datetime.utcnow()
+        db.session.commit()
+
+        access, refresh = TokenService.generate_auth_tokens(user, AuthService._get_user_agent())
+        AuthService._log_audit(user.id, "LOGIN_SUCCESS_DEVICE", ip=_client_ip())
+        return {
+            "status": "approved",
             "access_token": access,
             "refresh_token": refresh,
             "must_change_password": bool(user.must_change_password),

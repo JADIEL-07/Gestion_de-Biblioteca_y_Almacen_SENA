@@ -57,6 +57,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   // ── Autorización de dispositivo nuevo (correo con enlace de 15 min) ──
   const [deviceApprovalHint, setDeviceApprovalHint] = useState<string | null>(null);
   const [awaitingDeviceApproval, setAwaitingDeviceApproval] = useState(false);
+  const [deviceApprovalPoll, setDeviceApprovalPoll] = useState<string | null>(null);
 
   // ── T&C en el login: una sola vez por dispositivo ──
   const [needLoginTos] = useState(() => mode === 'login' && !hasAcceptedTos());
@@ -113,6 +114,51 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Dispositivo nuevo: el dispositivo ORIGINAL sondea si ya se autorizó ──
+  useEffect(() => {
+    if (!awaitingDeviceApproval || !deviceApprovalPoll) return;
+    let stopped = false;
+
+    const finishLogin = (data: any) => {
+      localStorage.setItem('token', data.access_token);
+      if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
+      localStorage.setItem('user', JSON.stringify(data.user));
+      if (data.must_change_password) localStorage.setItem('force_password_change', '1');
+      if (onLoginSuccess) onLoginSuccess(data.user);
+    };
+
+    const tick = async () => {
+      try {
+        const res = await fetch('/api/v1/auth/device-approval-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ poll_token: deviceApprovalPoll }),
+        });
+        const data = await res.json();
+        if (stopped) return;
+        if (data.status === 'approved' && data.access_token) {
+          stopped = true;
+          window.clearInterval(id);
+          setSuccessMsg('¡Dispositivo autorizado! Entrando…');
+          finishLogin(data);
+        } else if (data.status === 'expired' || data.status === 'invalid') {
+          stopped = true;
+          window.clearInterval(id);
+          setServerError('El enlace de autorización expiró. Vuelve a iniciar sesión.');
+        }
+      } catch {
+        /* reintenta en el próximo tick */
+      }
+    };
+
+    const id = window.setInterval(tick, 3000);
+    tick();
+    // Deja de sondear a los ~10 min
+    const timeoutId = window.setTimeout(() => { stopped = true; window.clearInterval(id); }, 10 * 60 * 1000);
+
+    return () => { stopped = true; window.clearInterval(id); window.clearTimeout(timeoutId); };
+  }, [awaitingDeviceApproval, deviceApprovalPoll, onLoginSuccess]);
 
   // ── Validación ────────────────────────────────────────────────────
 
@@ -246,6 +292,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         if (data.requires_device_approval) {
           setAwaitingDeviceApproval(true);
           setDeviceApprovalHint(data.email_hint || null);
+          setDeviceApprovalPoll(data.poll_token || null);
           setSuccessMsg('');
           return;
         }
@@ -463,15 +510,21 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
             </div>
 
             {serverError && <div className="alert-error fade-in"><FiAlertCircle /> {serverError}</div>}
+            {successMsg && <div className="alert-success fade-in">{successMsg}</div>}
 
             <div className="alert-success fade-in" style={{ textAlign: 'left' }}>
-              Abre el correo y pulsa <strong>“Iniciar sesión”</strong> para autorizar este dispositivo.
-              El enlace vence en <strong>15 minutos</strong>. Puedes cerrar esta pestaña.
+              Abre el correo y pulsa <strong>“Iniciar sesión”</strong>. En cuanto lo hagas,
+              <strong> esta pantalla entrará sola</strong> — no necesitas volver aquí. El enlace vence
+              en <strong>15 minutos</strong>.
+            </div>
+
+            <div style={{ textAlign: 'center', fontSize: '0.85em', color: 'var(--text-muted, #64748b)', margin: '4px 0 8px' }}>
+              Esperando tu confirmación…
             </div>
 
             <button
               className="back-btn"
-              onClick={() => { setAwaitingDeviceApproval(false); setDeviceApprovalHint(null); }}
+              onClick={() => { setAwaitingDeviceApproval(false); setDeviceApprovalHint(null); setDeviceApprovalPoll(null); }}
             >
               Volver a iniciar sesión
             </button>

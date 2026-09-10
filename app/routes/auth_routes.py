@@ -91,6 +91,14 @@ def approve_device():
     return jsonify(result), status
 
 
+@auth_bp.route('/device-approval-status', methods=['POST'])
+def device_approval_status():
+    """El dispositivo original consulta aquí si ya se autorizó desde el correo."""
+    data = request.get_json() or {}
+    result, status = AuthService.check_device_approval(data.get('poll_token', ''))
+    return jsonify(result), status
+
+
 @auth_bp.route('/2fa/send-email', methods=['POST'])
 @jwt_required()
 def send_2fa_email():
