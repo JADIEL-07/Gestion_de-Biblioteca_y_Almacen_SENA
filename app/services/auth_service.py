@@ -518,19 +518,36 @@ class AuthService:
             }, 403
 
         # ── Dispositivo nuevo: pedir autorización por correo ─────────────
-        if user.email and not AuthService._is_trusted_device(user.id, device_id):
-            user.failed_attempts = 0
-            user.last_failed_login = None
-            db.session.commit()
-            sent = AuthService._send_device_approval(user, device_id)
-            if not sent:
+        # Envuelto en try/except: si algo falla aquí (BD, correo, geo), NUNCA
+        # debe bloquear el inicio de sesión — se cae al flujo normal (2FA/entrar).
+        try:
+            device_trusted = AuthService._is_trusted_device(user.id, device_id)
+        except Exception as e:
+            print(f"[device-approval] no se pudo comprobar el dispositivo, se omite: {e}")
+            db.session.rollback()
+            device_trusted = True
+
+        if user.email and not device_trusted:
+            try:
+                user.failed_attempts = 0
+                user.last_failed_login = None
+                db.session.commit()
+                sent = AuthService._send_device_approval(user, device_id)
+            except Exception as e:
+                print(f"[device-approval] fallo al enviar la autorización, se omite: {e}")
+                db.session.rollback()
+                sent = None
+
+            if sent:
+                return {
+                    "requires_device_approval": True,
+                    "message": "Detectamos un inicio de sesión desde un dispositivo nuevo. "
+                               "Te enviamos un correo para autorizarlo.",
+                    "email_hint": AuthService._mask_email(user.email),
+                }, 200
+            if sent is False:
                 return {"error": "No pudimos enviar el correo de autorización. Inténtalo de nuevo en unos minutos."}, 502
-            return {
-                "requires_device_approval": True,
-                "message": "Detectamos un inicio de sesión desde un dispositivo nuevo. "
-                           "Te enviamos un correo para autorizarlo.",
-                "email_hint": AuthService._mask_email(user.email),
-            }, 200
+            # sent is None -> excepción inesperada: continuar con el login normal
 
         # 2FA check
         if user.is_2fa_enabled and user.totp_secret:

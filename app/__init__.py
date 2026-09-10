@@ -27,6 +27,20 @@ def _apply_runtime_migrations():
     except Exception as e:
         print(f"[runtime-migration] db.create_all aviso: {e}")
 
+    # 1.b) Red de seguridad: crear trusted_devices si create_all no llegó a hacerlo.
+    try:
+        from sqlalchemy import inspect as _sa_inspect
+        if 'trusted_devices' not in set(_sa_inspect(db.engine).get_table_names()):
+            from .models.trusted_device import TrustedDevice
+            TrustedDevice.__table__.create(bind=db.engine, checkfirst=True)
+            print("[runtime-migration] tabla trusted_devices creada.")
+    except Exception as e:
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        print(f"[runtime-migration] aviso (trusted_devices): {e}")
+
     # 2) Agregar columnas nuevas a tablas existentes (idempotente con IF NOT EXISTS).
     #    `is_verified` se añade con DEFAULT TRUE para no romper usuarios legítimos preexistentes.
     column_migrations = [
