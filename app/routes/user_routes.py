@@ -274,27 +274,34 @@ def get_user_detail(id):
 @jwt_required()
 def create_user():
     data = request.get_json()
-    
+
+    # Normalizar: sin espacios en el documento (rompen el login) y correo en minúsculas.
+    doc_id = str(data.get('id') or '').strip()
+    email = str(data.get('email') or '').strip().lower()
+    if not doc_id:
+        return jsonify({"error": "El número de documento es requerido"}), 400
+
     # Validar si el usuario ya existe
-    if User.query.get(data.get('id')):
+    if User.query.get(doc_id):
         return jsonify({"error": "El documento ya está registrado"}), 400
-    
-    if User.query.filter_by(email=data.get('email')).first():
+
+    if email and User.query.filter_by(email=email).first():
         return jsonify({"error": "El email ya está registrado"}), 400
 
     role = Role.query.filter_by(name=data.get('role')).first()
     if not role:
         return jsonify({"error": "Rol no válido"}), 400
 
-    # Hash password
-    password = data.get('password', data.get('id')) # Default password is ID if not provided
+    # Contraseña: la que se envíe; si viene vacía, por defecto es el documento.
+    raw_pw = str(data.get('password') or '').strip()
+    password = raw_pw if raw_pw else doc_id
     hashed_pw = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
     new_user = User(
-        id=data.get('id'),
+        id=doc_id,
         document_type=data.get('document_type', 'CC'),
         name=data.get('name'),
-        email=data.get('email'),
+        email=email,
         phone=data.get('phone'),
         password=hashed_pw,
         role_id=role.id,

@@ -198,7 +198,9 @@ class AuthService:
         # 1) Validaciones
         if not name or not name.strip():
             return {"error": "El nombre es requerido"}, 400
-        if not document_number or not str(document_number).strip():
+        # Normalizar el documento: sin espacios (un id con espacios rompe el login).
+        document_number = str(document_number or '').strip()
+        if not document_number:
             return {"error": "El número de documento es requerido"}, 400
 
         err = _validate_email(email)
@@ -469,40 +471,83 @@ class AuthService:
         Si el dispositivo no está en `trusted_devices`, envía un correo de autorización
         en lugar de iniciar sesión."""
         document = (identifier or '').strip()
-        user = User.query.filter(
-            User.id == document,
-            User.is_deleted == False
-        ).first()
+        if not document:
+            return {"error": "Ingresa tu número de documento."}, 400
+
+        # is_deleted NULL (columna añadida sin backfill) cuenta como "no borrado".
+        not_deleted = or_(User.is_deleted == False, User.is_deleted.is_(None))
+
+        # Búsqueda del documento tolerante a espacios accidentales guardados en el id:
+        # 1) match exacto (usa el índice de la PK)  2) recorta extremos  3) sin espacios.
+        user = User.query.filter(User.id == document, not_deleted).first()
+        if not user:
+            user = User.query.filter(db.func.trim(User.id) == document, not_deleted).first()
+        if not user:
+            doc_nospace = document.replace(' ', '')
+            user = User.query.filter(
+                db.func.replace(User.id, ' ', '') == doc_nospace, not_deleted
+            ).first()
 
         if not user:
-            return {"error": "No encontramos ninguna cuenta con ese número de documento."}, 401
+            # ¿Existe pero marcada como eliminada? -> mensaje verídico y distinto.
+            deleted_user = User.query.filter(db.func.trim(User.id) == document).first()
+            if deleted_user is not None:
+                AuthService._log_audit(deleted_user.id, "LOGIN_ON_DELETED", ip=_client_ip())
+                print(f"[login] documento {document!r}: la cuenta existe pero está marcada como eliminada.")
+                return {"error": "Esta cuenta fue eliminada. Contacta al administrador."}, 403
+            AuthService._log_audit(None, "LOGIN_FAILED_NO_USER", ip=_client_ip())
+            print(f"[login] documento no registrado: {document!r}")
+            return {"error": "Usuario no registrado."}, 401
 
-        if not user.is_active:
-            return {"error": "Esta cuenta está inactiva. Contacte al administrador."}, 401
+        # is_active NULL (default del modelo es True) -> se trata como activa.
+        if user.is_active is False:
+            AuthService._log_audit(user.id, "LOGIN_INACTIVE", ip=_client_ip())
+            return {"error": "Esta cuenta está inactiva. Contacta al administrador."}, 403
 
         if user.is_blocked:
-            AuthService._log_audit(user.id, "LOGIN_BLOCKED_PERMANENT", ip=request.remote_addr)
-            return {"error": "Cuenta bloqueada por seguridad. Contacte al administrador."}, 403
+            AuthService._log_audit(user.id, "LOGIN_BLOCKED_PERMANENT", ip=_client_ip())
+            return {"error": "Cuenta bloqueada por seguridad. Contacta al administrador."}, 403
 
-        if user.failed_attempts >= 5:
-            user.is_blocked = True
-            db.session.commit()
-            AuthService._log_audit(user.id, "USER_BLOCKED_AUTO", ip=request.remote_addr)
+        attempts = user.failed_attempts or 0
+        if attempts >= 5:
+            if not user.is_blocked:
+                user.is_blocked = True
+                db.session.commit()
+                AuthService._log_audit(user.id, "USER_BLOCKED_AUTO", ip=_client_ip())
             return {"error": "Cuenta bloqueada por demasiados intentos fallidos."}, 403
 
-        if not bcrypt.checkpw(password.encode('utf-8'), user.password.encode('utf-8')):
-            user.failed_attempts += 1
+        # Verificación de contraseña robusta ante hash vacío o corrupto en BD.
+        stored_hash = (user.password or '').strip()
+        try:
+            pw_ok = bool(stored_hash) and bcrypt.checkpw(
+                password.encode('utf-8'), stored_hash.encode('utf-8')
+            )
+        except (ValueError, TypeError) as e:
+            print(f"[login] hash inválido para el documento {user.id!r}: {e}")
+            pw_ok = False
+
+        if not pw_ok:
+            user.failed_attempts = attempts + 1
             user.last_failed_login = datetime.utcnow()
             db.session.commit()
-            AuthService._log_audit(user.id, "LOGIN_FAILED", ip=request.remote_addr)
+            AuthService._log_audit(user.id, "LOGIN_FAILED", ip=_client_ip())
+            if not stored_hash:
+                print(f"[login] el documento {user.id!r} no tiene contraseña definida (hash vacío en BD).")
+            else:
+                print(f"[login] contraseña incorrecta para {user.id!r} (intento {user.failed_attempts}).")
             remaining = max(0, 5 - user.failed_attempts)
             if remaining == 0:
                 msg = "Contraseña incorrecta. El próximo intento fallido bloqueará la cuenta."
             elif remaining <= 2:
                 msg = f"Contraseña incorrecta. Te quedan {remaining} intento(s) antes de bloquear la cuenta."
             else:
-                msg = "La contraseña es incorrecta."
+                msg = "Contraseña incorrecta."
             return {"error": msg}, 401
+
+        # Credenciales correctas: limpiar contador de intentos si venía sucio.
+        if (user.failed_attempts or 0) != 0 or user.last_failed_login is not None:
+            user.failed_attempts = 0
+            user.last_failed_login = None
 
         if accepted_tos:
             try:

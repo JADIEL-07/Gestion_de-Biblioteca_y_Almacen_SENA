@@ -200,13 +200,21 @@ export const UserManagement: React.FC = () => {
     e.preventDefault();
     setIsSubmitting(true);
     try {
+      // Normalizar antes de enviar: sin espacios en el documento (rompen el login),
+      // correo en minúsculas.
+      const payload = {
+        ...newUser,
+        id: newUser.id.trim(),
+        email: newUser.email.trim().toLowerCase(),
+        password: newUser.password.trim(),
+      };
       const response = await fetch('/api/v1/users_mgmt/', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}` 
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify(newUser)
+        body: JSON.stringify(payload)
       });
       
       const result = await response.json();

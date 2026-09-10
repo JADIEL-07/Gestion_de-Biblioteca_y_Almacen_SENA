@@ -57,6 +57,28 @@ def _apply_runtime_migrations():
             db.session.rollback()
             print(f"[runtime-migration] aviso ({stmt[:60]}...): {e}")
 
+    # 2.b) Rellenar NULLs en las banderas de `users`. Un NULL aquí hace que el
+    #      login falle silenciosamente ("usuario no registrado" / errores raros)
+    #      porque `WHERE is_deleted = false` excluye las filas con NULL y
+    #      `failed_attempts >= 5` revienta si failed_attempts es NULL.
+    user_flag_fixes = [
+        "UPDATE users SET is_deleted = FALSE WHERE is_deleted IS NULL",
+        "UPDATE users SET is_active = TRUE WHERE is_active IS NULL",
+        "UPDATE users SET is_blocked = FALSE WHERE is_blocked IS NULL",
+        "UPDATE users SET failed_attempts = 0 WHERE failed_attempts IS NULL",
+        "UPDATE users SET is_verified = TRUE WHERE is_verified IS NULL",
+        "UPDATE users SET must_change_password = FALSE WHERE must_change_password IS NULL",
+    ]
+    for _stmt in user_flag_fixes:
+        try:
+            _res = db.session.execute(text(_stmt))
+            db.session.commit()
+            if getattr(_res, 'rowcount', 0):
+                print(f"[runtime-migration] {_stmt[:52]}... → {_res.rowcount} fila(s) corregida(s).")
+        except Exception as _e:
+            db.session.rollback()
+            print(f"[runtime-migration] aviso ({_stmt[:52]}...): {_e}")
+
     # Migración de la columna biography (compatible con SQLite y Postgres)
     try:
         bind = db.engine

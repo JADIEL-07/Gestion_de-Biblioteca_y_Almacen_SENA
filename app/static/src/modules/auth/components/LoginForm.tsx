@@ -253,7 +253,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
             document_number: documentNumber.trim(),
           }
         : {
-            nombre,
+            nombre: nombre.trim(),
             password,
             device_id: getDeviceId(),
             ...(needLoginTos ? { accepted_tos: true } : {}),
