@@ -141,22 +141,43 @@ def _describe_user_agent(ua: str) -> str:
 
 
 def _geolocate(ip: str) -> Optional[str]:
-    """'Ciudad, Región, País' aproximado a partir de la IP. None si no se puede."""
+    """'Ciudad, Región, País' aproximado a partir de la IP. None si no se puede.
+    Prueba dos proveedores gratuitos (uno HTTP, otro HTTPS) por si uno falla o
+    está bloqueado en el servidor."""
     if not ip or ip.startswith(_PRIVATE_IP_PREFIXES) or ip in ('localhost', '::1'):
+        print(f"[geo] IP privada o vacía, sin ubicación: {ip!r}")
         return None
+
+    # 1) ip-api.com (HTTP, sin clave, 45 req/min)
     try:
         r = requests.get(
             f"http://ip-api.com/json/{ip}",
-            params={"fields": "status,country,regionName,city", "lang": "es"},
-            timeout=4,
+            params={"fields": "status,message,country,regionName,city", "lang": "es"},
+            timeout=5,
         )
         d = r.json()
-        if d.get("status") != "success":
-            return None
-        parts = [d.get("city"), d.get("regionName"), d.get("country")]
-        return ", ".join(p for p in parts if p) or None
-    except Exception:
-        return None
+        if d.get("status") == "success":
+            loc = ", ".join(p for p in (d.get("city"), d.get("regionName"), d.get("country")) if p)
+            if loc:
+                return loc
+        print(f"[geo] ip-api sin resultado para {ip!r}: {d}")
+    except Exception as e:
+        print(f"[geo] ip-api falló para {ip!r}: {e}")
+
+    # 2) ipapi.co (HTTPS, sin clave)
+    try:
+        r = requests.get(f"https://ipapi.co/{ip}/json/", timeout=5,
+                         headers={"User-Agent": "biblioteca-sena/1.0"})
+        d = r.json()
+        if not d.get("error"):
+            loc = ", ".join(p for p in (d.get("city"), d.get("region"), d.get("country_name")) if p)
+            if loc:
+                return loc
+        print(f"[geo] ipapi.co sin resultado para {ip!r}: {d}")
+    except Exception as e:
+        print(f"[geo] ipapi.co falló para {ip!r}: {e}")
+
+    return None
 
 
 def _generate_6digit_code() -> str:
@@ -860,6 +881,8 @@ class AuthService:
         label = _describe_user_agent(ua)
         location = _geolocate(ip)
         when = datetime.now().strftime('%d/%m/%Y %H:%M')
+        print(f"[device-approval] enviando correo a {user.email} | ip={ip!r} "
+              f"label={label!r} location={location!r}")
 
         nonce = secrets.token_urlsafe(24)
         VerificationCode.query.filter_by(
@@ -956,11 +979,16 @@ class AuthService:
         AuthService._log_audit(user.id, "DEVICE_APPROVED", ip=_client_ip())
         return {
             "success": True,
-            "message": "Sesión iniciada con éxito.",
+            "message": "Inicio de sesión aprobado en el dispositivo.",
             "access_token": access,
             "refresh_token": refresh,
             "must_change_password": bool(user.must_change_password),
             "user": AuthService._user_payload(user),
+            "device": {
+                "label": meta.get("label") or "Dispositivo desconocido",
+                "location": meta.get("location") or None,
+                "ip": meta.get("ip") or None,
+            },
         }, 200
 
     @staticmethod
