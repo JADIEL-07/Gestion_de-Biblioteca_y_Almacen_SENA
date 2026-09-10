@@ -109,17 +109,24 @@ def _client_ip() -> str:
 
 
 def _describe_user_agent(ua: str) -> str:
-    """'Chrome en Windows' a partir del User-Agent (sin dependencias externas)."""
+    """'Chrome en Android' a partir del User-Agent (sin dependencias externas)."""
     ua = ua or ''
-    if 'Edg/' in ua:
+    if not ua.strip():
+        return 'Dispositivo desconocido'
+
+    if 'Edg/' in ua or 'EdgA/' in ua or 'EdgiOS/' in ua:
         browser = 'Edge'
     elif 'OPR/' in ua or 'Opera' in ua:
         browser = 'Opera'
-    elif 'Firefox/' in ua:
+    elif 'SamsungBrowser/' in ua:
+        browser = 'Samsung Internet'
+    elif 'Firefox/' in ua or 'FxiOS/' in ua:
         browser = 'Firefox'
+    elif 'CriOS/' in ua:
+        browser = 'Chrome'
     elif 'Chrome/' in ua and 'Chromium' not in ua:
         browser = 'Chrome'
-    elif 'Safari/' in ua and 'Chrome/' not in ua:
+    elif 'Safari/' in ua and 'Chrome/' not in ua and 'CriOS/' not in ua:
         browser = 'Safari'
     else:
         browser = 'Navegador'
@@ -128,14 +135,16 @@ def _describe_user_agent(ua: str) -> str:
         system = 'Windows'
     elif 'Android' in ua:
         system = 'Android'
-    elif 'iPhone' in ua or 'iPad' in ua:
+    elif 'iPhone' in ua or 'iPad' in ua or 'iPod' in ua or 'iOS' in ua:
         system = 'iOS'
     elif 'Mac OS X' in ua or 'Macintosh' in ua:
         system = 'macOS'
+    elif 'CrOS' in ua:
+        system = 'ChromeOS'
     elif 'Linux' in ua:
         system = 'Linux'
     else:
-        system = 'dispositivo desconocido'
+        system = 'sistema desconocido'
 
     return f"{browser} en {system}"
 
@@ -780,10 +789,17 @@ class AuthService:
                 "email_hint": AuthService._mask_email(user.email) if user.email else None,
             }, 200
 
-        # Éxito sin 2FA
+        # Éxito sin 2FA (dispositivo ya de confianza): refrescamos su etiqueta/ubicación
+        # con los datos reales de ESTA petición, para que no quede una etiqueta vieja.
         user.failed_attempts = 0
         user.last_failed_login = None
         user.last_login = datetime.utcnow()
+        if device_id:
+            AuthService._upsert_trusted_device(
+                user.id, device_id,
+                label=_describe_user_agent(AuthService._get_user_agent() or ''),
+                ip=_client_ip(),
+            )
         db.session.add(Notification(
             user_id=str(user.id),
             type='NEW_LOGIN',
@@ -874,6 +890,12 @@ class AuthService:
         user.failed_attempts = 0
         user.last_failed_login = None
         user.last_login = datetime.utcnow()
+        if device_id:
+            AuthService._upsert_trusted_device(
+                user.id, device_id,
+                label=_describe_user_agent(AuthService._get_user_agent() or ''),
+                ip=_client_ip(),
+            )
         db.session.add(Notification(
             user_id=str(user.id),
             type='NEW_LOGIN',
@@ -975,19 +997,26 @@ class AuthService:
         except Exception:
             meta = {}
 
-        # Dispositivo a marcar de confianza = el que INICIÓ el login (meta.device_id).
-        # El que abre el enlace (request_device_id) solo cuenta si es el mismo aparato;
-        # si es distinto suele ser un webview efímero del cliente de correo -> no se guarda.
-        login_did = (meta.get("device_id") or '').strip()
-        opener_did = (request_device_id or '').strip()
-        trust_did = login_did or opener_did
+        login_did = (meta.get("device_id") or '').strip()      # el que inició el login (Windows/Edge…)
+        opener_did = (request_device_id or '').strip()          # el que abrió el enlace AHORA (este aparato)
+        opener_ua = AuthService._get_user_agent() or ''
+        opener_label = _describe_user_agent(opener_ua)
 
-        if trust_did:
+        # 1) El dispositivo que ORIGINÓ el login queda de confianza con SU etiqueta
+        #    (la que se guardó en el correo). Así, al re-iniciar sesión desde ahí, entra directo.
+        if login_did:
             AuthService._upsert_trusted_device(
-                uid, trust_did,
+                uid, login_did,
                 label=meta.get("label"), ip=meta.get("ip"), location=meta.get("location"),
             )
-        # La sesión que se emite queda ligada al aparato que abrió el enlace (su device real).
+        # 2) El dispositivo que abre el enlace (el que se está autenticando AHORA) también
+        #    queda de confianza, pero con SU PROPIA etiqueta (leída de su User-Agent real),
+        #    nunca con la del correo. Esto arregla el "me pone Edge en Windows en el celular".
+        if opener_did:
+            AuthService._upsert_trusted_device(
+                uid, opener_did, label=opener_label, ip=_client_ip(),
+            )
+        # La sesión emitida queda ligada al aparato que abrió el enlace (este).
         session_did = opener_did or login_did
 
         user.failed_attempts = 0
@@ -1061,10 +1090,13 @@ class AuthService:
             return {"status": "expired"}, 200
 
         # Aprobado y fresco: marcar ESTE dispositivo (el que hizo login y sondea)
-        # como de confianza, emitir su sesión y consumir el código.
+        # como de confianza. La etiqueta se lee del User-Agent de ESTA petición
+        # (que viene de ese mismo dispositivo), no de la guardada en el correo.
         AuthService._upsert_trusted_device(
             uid, did,
-            label=meta.get("label"), ip=meta.get("ip"), location=meta.get("location"),
+            label=_describe_user_agent(AuthService._get_user_agent() or '') or meta.get("label"),
+            ip=_client_ip() or meta.get("ip"),
+            location=meta.get("location"),
         )
         # Evitar sesión duplicada del mismo aparato: si el enlace se abrió en un
         # webview/pestaña efímera que comparte device_id, revocar esas sesiones
@@ -1096,7 +1128,9 @@ class AuthService:
 
     @staticmethod
     def _upsert_trusted_device(user_id, device_id, *, label=None, ip=None, location=None):
-        """Crea o actualiza la fila de trusted_devices. No hace commit."""
+        """Crea o actualiza la fila de trusted_devices. No hace commit.
+        `label` se REFRESCA siempre que se pase uno (así una etiqueta vieja
+        se auto-corrige en el siguiente login desde ese dispositivo)."""
         did = (device_id or '').strip()
         if not did:
             return
@@ -1107,7 +1141,7 @@ class AuthService:
                 td.last_ip = ip
             if location:
                 td.last_location = location
-            if label and not td.label:
+            if label:
                 td.label = label
         else:
             db.session.add(TrustedDevice(

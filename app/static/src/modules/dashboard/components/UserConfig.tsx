@@ -568,9 +568,14 @@ const SessionsPanel: React.FC = () => {
 
   useEffect(() => { load(); }, [load]);
 
+  // "Este dispositivo": para sesiones vale el is_current del backend (basado en el
+  // token real); para dispositivos sin sesión, comparamos el device_id local.
+  const isThisDevice = (r: SessionRow) =>
+    r.kind === 'session' ? r.is_current : r.device_id === myDeviceId;
+
   // Cerrar una sesión = cerrar sesión + olvidar el dispositivo.
   const closeRow = async (row: SessionRow) => {
-    const isMine = row.is_current || row.device_id === myDeviceId;
+    const isMine = isThisDevice(row);
     if (isMine && !confirm('Vas a cerrar la sesión de ESTE dispositivo. Se cerrará tu sesión aquí. ¿Continuar?')) return;
 
     const key = row.kind === 'session' ? `s${row.id}` : `t${row.trusted_device_id}`;
@@ -616,7 +621,7 @@ const SessionsPanel: React.FC = () => {
           <p className="card-hint">No hay sesiones ni dispositivos registrados.</p>
         ) : (
           rows.map((r) => {
-            const mine = r.is_current || r.device_id === myDeviceId;
+            const mine = isThisDevice(r);
             const key = r.kind === 'session' ? `s${r.id}` : `t${r.trusted_device_id}`;
             return (
               <div key={key} className="session-row">
