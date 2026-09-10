@@ -377,11 +377,7 @@ function AppRoutes() {
         />
         <Route
           path="/aprobar-dispositivo"
-          element={
-            loggedUser
-              ? <Navigate to={isAdmin ? '/admin' : isBibliotecario ? '/bibliotecario' : isAlmacenista ? '/almacenista' : isSoporte ? '/soporte' : '/dashboard'} replace />
-              : <DeviceApproval onApproved={handleLoginSuccess} />
-          }
+          element={<DeviceApproval onApproved={handleLoginSuccess} />}
         />
 
         {/* Admin dashboard */}

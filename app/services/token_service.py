@@ -7,12 +7,13 @@ from ..models.token import RefreshToken, PasswordResetToken
 
 class TokenService:
     @staticmethod
-    def generate_auth_tokens(user, user_agent=None):
+    def generate_auth_tokens(user, user_agent=None, device_id=None):
         """Generates access and refresh tokens (JWT) with rotation and revocation.
 
         El access token lleva `sid` = id de la fila RefreshToken (la "sesión").
         Así el backend puede rechazar un access token cuya sesión fue cerrada
-        (aunque el token aún no haya vencido)."""
+        (aunque el token aún no haya vencido). La sesión guarda también el
+        `device_id` para poder "olvidar el dispositivo" al cerrarla."""
         # Refresh Token (JWT) — se crea primero para tener el id de la sesión.
         refresh_token = create_refresh_token(identity=str(user.id))
         refresh_jti = get_jti(refresh_token)
@@ -24,13 +25,14 @@ class TokenService:
             token_hash=jti_hash,
             expires_at=expires_at,
             user_agent=user_agent,
+            device_id=device_id or None,
         )
         db.session.add(new_refresh)
         try:
             db.session.commit()
         except Exception:
             db.session.rollback()
-            # Si falla (columna user_agent puede faltar en BD antigua), reintentar sin user_agent
+            # Si falla (columnas user_agent/device_id pueden faltar en BD antigua), reintentar mínimo
             new_refresh = RefreshToken(
                 user_id=user.id,
                 token_hash=jti_hash,
@@ -67,9 +69,12 @@ class TokenService:
         # Revoke the current token
         target_token.is_revoked = True
         db.session.commit()
-        
-        # Generate new tokens preserving user_agent
-        return TokenService.generate_auth_tokens(target_token.user, target_token.user_agent)
+
+        # Generate new tokens preservando user_agent y device_id de la sesión
+        return TokenService.generate_auth_tokens(
+            target_token.user, target_token.user_agent,
+            device_id=getattr(target_token, 'device_id', None),
+        )
 
     @staticmethod
     def revoke_all_user_tokens(user_id):

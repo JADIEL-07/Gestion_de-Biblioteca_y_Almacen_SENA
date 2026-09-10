@@ -32,16 +32,24 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
 
   useEffect(() => {
     const token = params.get('token');
-    // Sin token (p. ej. se volvió atrás a esta URL): no dejar la vista colgada.
+    // El token NUNCA debe quedar en el historial. Lo quitamos de la URL de una vez.
+    if (token) window.history.replaceState({}, '', '/aprobar-dispositivo');
+
+    const alreadyLoggedIn = () => {
+      try { return !!localStorage.getItem('token'); } catch { return false; }
+    };
+
     if (!token) {
-      navigate('/login', { replace: true });
+      // Se llegó aquí sin token (atrás en el navegador, enlace incompleto…).
+      setStatus('error');
+      setMessage(alreadyLoggedIn()
+        ? 'Este enlace ya se usó. Ya tienes la sesión iniciada.'
+        : 'El enlace no es válido o ya se usó.');
       return;
     }
+
     let cancelled = false;
     let redirectTimer: number | undefined;
-
-    // Quitar el token de la barra de direcciones cuanto antes (no queda en el historial).
-    window.history.replaceState({}, '', '/aprobar-dispositivo');
 
     (async () => {
       try {
@@ -54,13 +62,11 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
         if (cancelled) return;
 
         if (!res.ok) {
+          // Enlace ya usado / vencido: NO redirigir solo. El usuario decide.
           setStatus('error');
-          setMessage(data.error || 'No pudimos autorizar el dispositivo.');
-          // Un enlace ya usado / vencido no debe dejar al usuario varado:
-          // lo llevamos al login (si el dispositivo ya quedó de confianza, entrará directo).
-          redirectTimer = window.setTimeout(() => {
-            if (!cancelled) navigate('/login', { replace: true });
-          }, 4000);
+          setMessage(alreadyLoggedIn()
+            ? 'Este enlace ya se usó. Ya tienes la sesión iniciada en este dispositivo.'
+            : (data.error || 'El enlace ya se usó o venció. Vuelve a iniciar sesión.'));
           return;
         }
 
@@ -83,9 +89,6 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
         if (!cancelled) {
           setStatus('error');
           setMessage('No pudimos conectar con el servidor. Inténtalo de nuevo.');
-          redirectTimer = window.setTimeout(() => {
-            if (!cancelled) navigate('/login', { replace: true });
-          }, 4000);
         }
       }
     })();
@@ -175,18 +178,22 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
             </p>
           </div>
 
-          {status === 'error' && (
-            <>
-              <div className="alert-error fade-in"><FiAlertCircle /> {message}</div>
-              <button
-                type="button"
-                className="submit-btn"
-                onClick={() => navigate('/login', { replace: true })}
-              >
-                Volver a iniciar sesión
-              </button>
-            </>
-          )}
+          {status === 'error' && (() => {
+            let hasSession = false;
+            try { hasSession = !!localStorage.getItem('token'); } catch { /* ignore */ }
+            return (
+              <>
+                <div className="alert-error fade-in"><FiAlertCircle /> {message}</div>
+                <button
+                  type="button"
+                  className="submit-btn"
+                  onClick={() => { window.location.href = hasSession ? '/' : '/login'; }}
+                >
+                  {hasSession ? 'Ir al inicio' : 'Iniciar sesión'}
+                </button>
+              </>
+            );
+          })()}
 
           <div style={{ height: '20px' }} />
         </div>

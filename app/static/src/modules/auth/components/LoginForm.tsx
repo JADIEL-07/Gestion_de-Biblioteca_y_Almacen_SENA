@@ -340,7 +340,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
       const res = await fetch('/api/v1/auth/verify-account', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: pendingVerifyEmail, code: verifyCode }),
+        body: JSON.stringify({ email: pendingVerifyEmail, code: verifyCode, device_id: getDeviceId() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Código inválido');
@@ -385,7 +385,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${tempToken2fa}`
         },
-        body: JSON.stringify({ code: twoFaCode }),
+        body: JSON.stringify({ code: twoFaCode, device_id: getDeviceId() }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Código incorrecto');

@@ -93,19 +93,22 @@ def _apply_runtime_migrations():
         if "duplicate column" not in str(e).lower() and "already exists" not in str(e).lower():
             print(f"[runtime-migration] aviso (biography): {e}")
 
-    # Migración user_agent en refresh_tokens (con chequeo previo para evitar crash)
+    # Migración user_agent / device_id en refresh_tokens (chequeo previo para evitar crash)
     try:
         from sqlalchemy import inspect
         insp = inspect(db.engine)
         cols = [c['name'] for c in insp.get_columns('refresh_tokens')]
         if 'user_agent' not in cols:
-            stmt_ua = "ALTER TABLE refresh_tokens ADD COLUMN user_agent TEXT"
-            db.session.execute(text(stmt_ua))
+            db.session.execute(text("ALTER TABLE refresh_tokens ADD COLUMN user_agent TEXT"))
             db.session.commit()
             print("[runtime-migration] Columna user_agent agregada en refresh_tokens.")
+        if 'device_id' not in cols:
+            db.session.execute(text("ALTER TABLE refresh_tokens ADD COLUMN device_id VARCHAR(64)"))
+            db.session.commit()
+            print("[runtime-migration] Columna device_id agregada en refresh_tokens.")
     except Exception as e:
         db.session.rollback()
-        print(f"[runtime-migration] aviso (user_agent): {e}")
+        print(f"[runtime-migration] aviso (user_agent/device_id): {e}")
 
     # Migración is_deleted en items (soft-delete). Chequeo previo, compatible SQLite/Postgres.
     try:

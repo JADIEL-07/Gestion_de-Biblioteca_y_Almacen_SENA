@@ -453,6 +453,12 @@
 }
 .badge-verified { background: rgba(34, 197, 94, 0.15); color: #22c55e; }
 .badge-current { background: var(--uc-sena-green); color: #fff; margin-left: 0.5rem; }
+.session-row .badge:not(.badge-current) {
+  margin-left: 0.5rem;
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--uc-text-muted, #94a3b8);
+  font-weight: 600;
+}
 
 /* Password input */
 .password-input { position: relative; }

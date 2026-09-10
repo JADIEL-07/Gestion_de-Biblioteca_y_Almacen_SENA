@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   FiUser, FiMail, FiLock, FiShield, FiMonitor,
   FiBell, FiClock, FiTrash2, FiUpload, FiDownload,
-  FiCheck, FiAlertTriangle, FiEye, FiEyeOff, FiInfo, FiLogOut, FiRefreshCw
+  FiCheck, FiAlertTriangle, FiEye, FiEyeOff, FiInfo, FiRefreshCw
 } from 'react-icons/fi';
 import './UserConfig.css';
 import { getDeviceId } from '../../../shared/device';
@@ -510,14 +510,7 @@ const TwoFAPanel: React.FC = () => {
   );
 };
 
-// ── Sesiones activas ───────────────────────────────────────────────────
-
-interface Session {
-  id: number;
-  created_at: string;
-  expires_at: string;
-  device: string | null;
-}
+// ── Sesiones activas / dispositivos ────────────────────────────────────
 
 function parseDevice(ua: string | null): string {
   if (!ua) return 'Dispositivo desconocido';
@@ -545,184 +538,130 @@ function parseLocation(ip: string | null): string {
   return 'Vélez, Colombia';
 }
 
-interface TrustedDevice {
-  id: number;
+interface SessionRow {
+  id: number | null;                 // id del RefreshToken (kind="session")
+  kind: 'session' | 'trusted_only';
+  trusted_device_id?: number;        // id de trusted_devices (kind="trusted_only")
+  device_id: string | null;
   label: string;
   location: string | null;
   ip: string | null;
-  approved_at: string | null;
-  last_seen_at: string | null;
+  created_at: string | null;
+  expires_at: string | null;
   is_current: boolean;
+  trusted: boolean;
 }
 
 const SessionsPanel: React.FC = () => {
   const { show, Toast } = useToast();
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [busy, setBusy]         = useState<number | null>(null);
-
-  const [devices, setDevices]       = useState<TrustedDevice[]>([]);
-  const [devLoading, setDevLoading] = useState(true);
-  const [devBusy, setDevBusy]       = useState<number | null>(null);
+  const [rows, setRows]     = useState<SessionRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy]     = useState<string | null>(null);
+  const myDeviceId = getDeviceId();
 
   const load = useCallback(async () => {
     setLoading(true);
     const { ok, data } = await apiFetch('/auth/sessions');
-    if (ok) setSessions(data);
+    if (ok && Array.isArray(data)) setRows(data);
     setLoading(false);
   }, []);
 
-  const loadDevices = useCallback(async () => {
-    setDevLoading(true);
-    const { ok, data } = await apiFetch(`/auth/trusted-devices?device_id=${encodeURIComponent(getDeviceId())}`);
-    if (ok && Array.isArray(data)) setDevices(data);
-    setDevLoading(false);
-  }, []);
+  useEffect(() => { load(); }, [load]);
 
-  useEffect(() => { load(); loadDevices(); }, [load, loadDevices]);
+  // Cerrar una sesión = cerrar sesión + olvidar el dispositivo.
+  const closeRow = async (row: SessionRow) => {
+    const isMine = row.is_current || row.device_id === myDeviceId;
+    if (isMine && !confirm('Vas a cerrar la sesión de ESTE dispositivo. Se cerrará tu sesión aquí. ¿Continuar?')) return;
 
-  const forgetDevice = async (id: number) => {
-    setDevBusy(id);
-    const { ok, data } = await apiFetch(`/auth/trusted-devices/${id}`, { method: 'DELETE' });
-    setDevBusy(null);
-    show(ok ? (data.message || 'Dispositivo olvidado.') : (data.error || 'Error.'), ok ? 'ok' : 'err');
-    if (ok) loadDevices();
-  };
-
-  const forgetAllDevices = async () => {
-    if (!confirm('¿Olvidar todos los dispositivos excepto este? La próxima vez que inicies sesión desde ellos pediremos autorización por correo.')) return;
-    const { ok, data } = await apiFetch('/auth/trusted-devices', {
-      method: 'DELETE',
-      body: JSON.stringify({ keep_device_id: getDeviceId() }),
-    });
-    show(ok ? (data.message || 'Listo.') : (data.error || 'Error.'), ok ? 'ok' : 'err');
-    if (ok) loadDevices();
-  };
-
-  const revoke = async (id: number) => {
-    setBusy(id);
-    const { ok, data } = await apiFetch(`/auth/sessions/${id}`, { method: 'DELETE' });
+    const key = row.kind === 'session' ? `s${row.id}` : `t${row.trusted_device_id}`;
+    setBusy(key);
+    const url = row.kind === 'session'
+      ? `/auth/sessions/${row.id}`
+      : `/auth/trusted-devices/${row.trusted_device_id}`;
+    const { ok, data } = await apiFetch(url, { method: 'DELETE' });
     setBusy(null);
-    show(ok ? 'Sesión cerrada.' : (data.error || 'Error.'), ok ? 'ok' : 'err');
-    if (ok) load();
+    show(ok ? (data.message || 'Listo.') : (data.error || 'Error.'), ok ? 'ok' : 'err');
+    if (ok && !isMine) load();
+    // Si cerraste tu propia sesión, el latido de App.tsx mostrará "sesión expirada".
   };
 
   const revokeAll = async () => {
-    if (!confirm('¿Cerrar todas las sesiones?')) return;
+    if (!confirm('¿Cerrar TODAS las sesiones y olvidar TODOS los dispositivos? Tendrás que iniciar sesión y volver a autorizar por correo en cada uno.')) return;
     const { ok, data } = await apiFetch('/auth/sessions/all', { method: 'DELETE' });
-    show(ok ? 'Todas las sesiones han sido cerradas.' : (data.error || 'Error.'), ok ? 'ok' : 'err');
+    show(ok ? (data.message || 'Listo.') : (data.error || 'Error.'), ok ? 'ok' : 'err');
     if (ok) load();
   };
 
-  const fmt = (iso: string) => new Date(iso).toLocaleString('es-CO', {
-    dateStyle: 'medium', timeStyle: 'short'
-  });
+  const fmt = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 
   return (
     <div className="config-section fade-in">
       {Toast}
       <div className="config-card">
-        <div className="toggle-row" style={{ marginBottom: 12 }}>
-          <h3 style={{ margin: 0 }}>Sesiones abiertas</h3>
-          <button className="btn-secondary" onClick={load} title="Actualizar"><FiRefreshCw /></button>
-        </div>
-        {loading ? (
-          <p className="card-hint">Cargando sesiones...</p>
-        ) : sessions.length === 0 ? (
-          <p className="card-hint">No hay sesiones activas registradas.</p>
-        ) : (
-          sessions.map((s, idx) => (
-            <div key={s.id} className="session-row">
-              <div className="session-info">
-                <span className="session-icon"><FiMonitor /></span>
-                <div>
-                  <strong>Sesión #{idx + 1} {idx === 0 ? <span className="badge badge-current">Más reciente</span> : ''}</strong>
-                  <span className="session-device">{parseDevice(s.device)} &nbsp;·&nbsp; <span style={{ opacity: 0.85 }}>Vélez, Colombia</span></span>
-                  <span className="card-hint">
-                    <FiClock /> Iniciada: {fmt(s.created_at)} &nbsp;·&nbsp; Expira: {fmt(s.expires_at)}
-                  </span>
-                </div>
-              </div>
-              <button
-                className="btn-danger-outline"
-                onClick={() => revoke(s.id)}
-                disabled={busy === s.id}
-              >
-                <FiLogOut /> {busy === s.id ? '...' : 'Cerrar'}
-              </button>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="config-card">
-        <div className="toggle-row" style={{ marginBottom: 12 }}>
+        <div className="toggle-row" style={{ marginBottom: 8 }}>
           <div>
-            <h3 style={{ margin: 0 }}>Dispositivos de confianza</h3>
+            <h3 style={{ margin: 0 }}>Sesiones activas</h3>
             <p className="card-hint">
-              Al aprobar un dispositivo por correo, queda aquí y no vuelve a pedir autorización.
-              Olvídalo para volver a exigir la confirmación por correo.
+              Cada dispositivo donde iniciaste sesión. Al <strong>cerrar</strong> uno, se cierra su sesión
+              y se olvida el dispositivo: la próxima vez pedirá autorización por correo.
             </p>
           </div>
-          <button className="btn-secondary" onClick={loadDevices} title="Actualizar"><FiRefreshCw /></button>
+          <button className="btn-secondary" onClick={load} title="Actualizar"><FiRefreshCw /></button>
         </div>
 
-        {devLoading ? (
-          <p className="card-hint">Cargando dispositivos...</p>
-        ) : devices.length === 0 ? (
-          <p className="card-hint">Aún no hay dispositivos de confianza.</p>
+        {loading ? (
+          <p className="card-hint">Cargando…</p>
+        ) : rows.length === 0 ? (
+          <p className="card-hint">No hay sesiones ni dispositivos registrados.</p>
         ) : (
-          devices.map((d) => (
-            <div key={d.id} className="session-row">
-              <div className="session-info">
-                <span className="session-icon"><FiMonitor /></span>
-                <div>
-                  <strong>
-                    {d.label}{' '}
-                    {d.is_current ? <span className="badge badge-current">Este dispositivo</span> : ''}
-                  </strong>
-                  <span className="session-device">
-                    {d.location || 'Ubicación no disponible'}
-                    {d.ip ? <> &nbsp;·&nbsp; <span style={{ opacity: 0.85 }}>{d.ip}</span></> : null}
-                  </span>
-                  {d.last_seen_at && (
-                    <span className="card-hint">
-                      <FiClock /> Aprobado: {fmt(d.approved_at || d.last_seen_at)}
+          rows.map((r) => {
+            const mine = r.is_current || r.device_id === myDeviceId;
+            const key = r.kind === 'session' ? `s${r.id}` : `t${r.trusted_device_id}`;
+            return (
+              <div key={key} className="session-row">
+                <div className="session-info">
+                  <span className="session-icon"><FiMonitor /></span>
+                  <div>
+                    <strong>
+                      {r.label}{' '}
+                      {mine
+                        ? <span className="badge badge-current">Este dispositivo</span>
+                        : r.kind === 'trusted_only'
+                          ? <span className="badge">De confianza · sin sesión</span>
+                          : null}
+                    </strong>
+                    <span className="session-device">
+                      {r.location || 'Ubicación no disponible'}
+                      {r.ip ? <> &nbsp;·&nbsp; <span style={{ opacity: 0.85 }}>{r.ip}</span></> : null}
                     </span>
-                  )}
+                    <span className="card-hint">
+                      <FiClock /> {r.kind === 'session' ? 'Iniciada' : 'Aprobado'}: {fmt(r.created_at)}
+                      {r.kind === 'session' && r.expires_at ? <> &nbsp;·&nbsp; Expira: {fmt(r.expires_at)}</> : null}
+                    </span>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  className="btn-forget-device"
+                  onClick={() => closeRow(r)}
+                  disabled={busy === key}
+                  title={r.kind === 'session' ? 'Cerrar sesión y olvidar el dispositivo' : 'Olvidar este dispositivo'}
+                  aria-label="Cerrar / olvidar"
+                >
+                  <FiTrash2 />
+                </button>
               </div>
-              <button
-                type="button"
-                className="btn-forget-device"
-                onClick={() => forgetDevice(d.id)}
-                disabled={devBusy === d.id}
-                title="Olvidar este dispositivo"
-                aria-label="Olvidar este dispositivo"
-              >
-                <FiTrash2 />
-              </button>
-            </div>
-          ))
-        )}
-
-        {devices.length > 1 && (
-          <button
-            type="button"
-            className="btn-secondary"
-            style={{ marginTop: 12 }}
-            onClick={forgetAllDevices}
-          >
-            <FiTrash2 /> Olvidar todos (excepto este)
-          </button>
+            );
+          })
         )}
       </div>
 
       <div className="config-card">
         <div className="toggle-row">
           <div>
-            <h3 style={{ marginBottom: 4 }}>Cerrar todas las sesiones</h3>
-            <p className="card-hint">Invalida todos los tokens de refresco activos.</p>
+            <h3 style={{ marginBottom: 4 }}>Cerrar todo</h3>
+            <p className="card-hint">Cierra todas las sesiones y olvida todos los dispositivos (incluido este).</p>
           </div>
           <button className="btn-danger" onClick={revokeAll}>Cerrar todo</button>
         </div>

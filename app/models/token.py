@@ -10,6 +10,7 @@ class RefreshToken(db.Model):
     is_revoked = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     user_agent = db.Column(db.Text)
+    device_id = db.Column(db.String(64), index=True)   # navegador que abrió esta sesión
 
 class PasswordResetToken(db.Model):
     __tablename__ = 'password_reset_tokens'

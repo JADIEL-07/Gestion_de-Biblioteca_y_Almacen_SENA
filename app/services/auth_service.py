@@ -14,7 +14,7 @@ from ..extensions import db
 from ..models.user import User, Role
 from ..models.movement import Notification
 from ..models.audit_log import AuditLog
-from ..models.token import PasswordResetToken
+from ..models.token import PasswordResetToken, RefreshToken
 from ..models.verification_code import VerificationCode
 from ..models.pending_registration import PendingRegistration
 from ..models.trusted_device import TrustedDevice
@@ -309,7 +309,7 @@ class AuthService:
         }, 201
 
     @staticmethod
-    def verify_account(email, code):
+    def verify_account(email, code, device_id=None):
         """Verifica una cuenta recién registrada usando el código de 6 dígitos."""
         if not email or not code:
             return {"error": "Correo y código son requeridos"}, 400
@@ -413,8 +413,14 @@ class AuthService:
         totp = pyotp.TOTP(totp_secret)
         otpauth_url = totp.provisioning_uri(name=email, issuer_name="Biblioteca SENA")
 
-        # Auto-login tras verificar
-        access, refresh = TokenService.generate_auth_tokens(new_user, AuthService._get_user_agent())
+        # Auto-login tras verificar. El dispositivo que verifica queda de confianza.
+        if device_id:
+            AuthService._upsert_trusted_device(new_user.id, device_id,
+                                               label=_describe_user_agent(AuthService._get_user_agent() or ''),
+                                               ip=_client_ip())
+            db.session.commit()
+        access, refresh = TokenService.generate_auth_tokens(
+            new_user, AuthService._get_user_agent(), device_id=device_id)
         return {
             "success": True,
             "message": "Cuenta creada y verificada exitosamente.",
@@ -786,7 +792,8 @@ class AuthService:
         ))
         db.session.commit()
 
-        access, refresh = TokenService.generate_auth_tokens(user, AuthService._get_user_agent())
+        access, refresh = TokenService.generate_auth_tokens(
+            user, AuthService._get_user_agent(), device_id=device_id)
         AuthService._log_audit(user.id, "LOGIN_SUCCESS", ip=request.remote_addr)
 
         return {
@@ -839,7 +846,7 @@ class AuthService:
         }, 200
 
     @staticmethod
-    def verify_2fa(user_id, code):
+    def verify_2fa(user_id, code, device_id=None):
         """Valida el código de dos pasos: acepta tanto el de la app de
         autenticación (TOTP) como el enviado por correo."""
         user = User.query.filter_by(id=user_id, is_deleted=False).first()
@@ -875,7 +882,8 @@ class AuthService:
         ))
         db.session.commit()
 
-        access, refresh = TokenService.generate_auth_tokens(user, AuthService._get_user_agent())
+        access, refresh = TokenService.generate_auth_tokens(
+            user, AuthService._get_user_agent(), device_id=device_id)
         AuthService._log_audit(user.id, "LOGIN_SUCCESS_2FA", ip=request.remote_addr)
 
         return {
@@ -967,22 +975,20 @@ class AuthService:
         except Exception:
             meta = {}
 
-        # Confiar en el dispositivo que inició el login y también en el que abre el enlace
-        for did in {(meta.get("device_id") or ''), (request_device_id or '')}:
-            if not did:
-                continue
-            td = TrustedDevice.query.filter_by(user_id=uid, device_id=did).first()
-            if td:
-                td.last_seen_at = datetime.utcnow()
-                td.last_ip = meta.get("ip") or td.last_ip
-                td.last_location = meta.get("location") or td.last_location
-            else:
-                db.session.add(TrustedDevice(
-                    user_id=uid, device_id=did,
-                    label=meta.get("label"),
-                    last_ip=meta.get("ip"),
-                    last_location=meta.get("location"),
-                ))
+        # Dispositivo a marcar de confianza = el que INICIÓ el login (meta.device_id).
+        # El que abre el enlace (request_device_id) solo cuenta si es el mismo aparato;
+        # si es distinto suele ser un webview efímero del cliente de correo -> no se guarda.
+        login_did = (meta.get("device_id") or '').strip()
+        opener_did = (request_device_id or '').strip()
+        trust_did = login_did or opener_did
+
+        if trust_did:
+            AuthService._upsert_trusted_device(
+                uid, trust_did,
+                label=meta.get("label"), ip=meta.get("ip"), location=meta.get("location"),
+            )
+        # La sesión que se emite queda ligada al aparato que abrió el enlace (su device real).
+        session_did = opener_did or login_did
 
         user.failed_attempts = 0
         user.last_failed_login = None
@@ -997,7 +1003,8 @@ class AuthService:
         ))
         db.session.commit()
 
-        access, refresh = TokenService.generate_auth_tokens(user, AuthService._get_user_agent())
+        access, refresh = TokenService.generate_auth_tokens(
+            user, AuthService._get_user_agent(), device_id=session_did)
         AuthService._log_audit(user.id, "DEVICE_APPROVED", ip=_client_ip())
         return {
             "success": True,
@@ -1053,14 +1060,29 @@ class AuthService:
         if (datetime.utcnow() - vc.created_at) > timedelta(minutes=30):
             return {"status": "expired"}, 200
 
-        # Aprobado y fresco: emitir sesión para el dispositivo original y consumir.
+        # Aprobado y fresco: marcar ESTE dispositivo (el que hizo login y sondea)
+        # como de confianza, emitir su sesión y consumir el código.
+        AuthService._upsert_trusted_device(
+            uid, did,
+            label=meta.get("label"), ip=meta.get("ip"), location=meta.get("location"),
+        )
+        # Evitar sesión duplicada del mismo aparato: si el enlace se abrió en un
+        # webview/pestaña efímera que comparte device_id, revocar esas sesiones
+        # recién creadas para que quede solo la de este dispositivo.
+        RefreshToken.query.filter(
+            RefreshToken.user_id == uid,
+            RefreshToken.device_id == did,
+            RefreshToken.is_revoked == False,  # noqa: E712
+            RefreshToken.created_at >= datetime.utcnow() - timedelta(minutes=5),
+        ).update({"is_revoked": True})
         db.session.delete(vc)
         user.failed_attempts = 0
         user.last_failed_login = None
         user.last_login = datetime.utcnow()
         db.session.commit()
 
-        access, refresh = TokenService.generate_auth_tokens(user, AuthService._get_user_agent())
+        access, refresh = TokenService.generate_auth_tokens(
+            user, AuthService._get_user_agent(), device_id=did)
         AuthService._log_audit(user.id, "LOGIN_SUCCESS_DEVICE", ip=_client_ip())
         return {
             "status": "approved",
@@ -1071,6 +1093,27 @@ class AuthService:
         }, 200
 
     # ── Dispositivos de confianza (gestión desde Configuración) ──────
+
+    @staticmethod
+    def _upsert_trusted_device(user_id, device_id, *, label=None, ip=None, location=None):
+        """Crea o actualiza la fila de trusted_devices. No hace commit."""
+        did = (device_id or '').strip()
+        if not did:
+            return
+        td = TrustedDevice.query.filter_by(user_id=str(user_id), device_id=did).first()
+        if td:
+            td.last_seen_at = datetime.utcnow()
+            if ip:
+                td.last_ip = ip
+            if location:
+                td.last_location = location
+            if label and not td.label:
+                td.label = label
+        else:
+            db.session.add(TrustedDevice(
+                user_id=str(user_id), device_id=did,
+                label=label, last_ip=ip, last_location=location,
+            ))
 
     @staticmethod
     def list_trusted_devices(user_id, current_device_id=None):

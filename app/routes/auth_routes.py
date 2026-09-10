@@ -77,7 +77,7 @@ def verify_2fa():
         return jsonify({"error": "Código requerido."}), 400
 
     user_id = get_jwt_identity()
-    result, status = AuthService.verify_2fa(user_id, code)
+    result, status = AuthService.verify_2fa(user_id, code, device_id=data.get('device_id'))
     return jsonify(result), status
 
 
@@ -232,7 +232,7 @@ def verify_account():
     data = request.get_json() or {}
     email = data.get('email', '').strip().lower()
     code = data.get('code', '').strip()
-    result, status = AuthService.verify_account(email, code)
+    result, status = AuthService.verify_account(email, code, device_id=data.get('device_id'))
     return jsonify(result), status
 
 
@@ -391,49 +391,89 @@ def session_check():
 @auth_bp.route('/sessions', methods=['GET'])
 @jwt_required()
 def get_sessions():
-    """Lista los refresh tokens activos del usuario (sesiones abiertas)."""
+    """Sesiones abiertas del usuario, con info del dispositivo y cuál es la actual.
+    Incluye también los dispositivos de confianza que ya no tienen sesión abierta."""
+    from ..models.trusted_device import TrustedDevice
+    from ..services.auth_service import _describe_user_agent
+
     user_id = get_jwt_identity()
+    current_sid = get_jwt().get('sid')
     now = datetime.utcnow()
+
     tokens = (RefreshToken.query
               .filter_by(user_id=user_id, is_revoked=False)
               .filter(RefreshToken.expires_at > now)
               .order_by(RefreshToken.created_at.desc())
               .all())
 
+    trusted = {d.device_id: d for d in TrustedDevice.query.filter_by(user_id=user_id).all()}
+    seen_devices = set()
+
     sessions = []
     for t in tokens:
+        td = trusted.get(t.device_id) if t.device_id else None
+        if t.device_id:
+            seen_devices.add(t.device_id)
         sessions.append({
             "id": t.id,
-            "created_at": t.created_at.isoformat(),
-            "expires_at": t.expires_at.isoformat(),
-            "device": t.user_agent or None,
+            "kind": "session",
+            "device_id": t.device_id,
+            "label": (td.label if td and td.label else None) or _describe_user_agent(t.user_agent or ''),
+            "location": td.last_location if td else None,
+            "ip": td.last_ip if td else None,
+            "created_at": t.created_at.isoformat() if t.created_at else None,
+            "expires_at": t.expires_at.isoformat() if t.expires_at else None,
+            "is_current": bool(current_sid and t.id == current_sid),
+            "trusted": td is not None,
         })
+
+    # Dispositivos de confianza sin sesión abierta
+    for did, td in trusted.items():
+        if did in seen_devices:
+            continue
+        sessions.append({
+            "id": None,
+            "kind": "trusted_only",
+            "trusted_device_id": td.id,
+            "device_id": did,
+            "label": td.label or "Dispositivo",
+            "location": td.last_location,
+            "ip": td.last_ip,
+            "created_at": td.approved_at.isoformat() if td.approved_at else None,
+            "expires_at": None,
+            "is_current": False,
+            "trusted": True,
+        })
+
     return jsonify(sessions), 200
 
 
 @auth_bp.route('/sessions/<int:session_id>', methods=['DELETE'])
 @jwt_required()
 def revoke_session(session_id):
-    """Revoca (cierra) una sesión específica por ID de refresh token."""
+    """Cierra una sesión Y olvida su dispositivo (volverá a pedir autorización por correo)."""
+    from ..models.trusted_device import TrustedDevice
     user_id = get_jwt_identity()
     token = RefreshToken.query.filter_by(id=session_id, user_id=user_id).first()
     if not token:
         return jsonify({"error": "Sesión no encontrada"}), 404
     token.is_revoked = True
+    if token.device_id:
+        TrustedDevice.query.filter_by(user_id=user_id, device_id=token.device_id).delete()
     db.session.commit()
-    return jsonify({"success": True, "message": "Sesión cerrada"}), 200
+    return jsonify({"success": True, "message": "Sesión cerrada y dispositivo olvidado."}), 200
 
 
 @auth_bp.route('/sessions/all', methods=['DELETE'])
 @jwt_required()
 def revoke_all_sessions():
-    """Revoca todas las sesiones del usuario excepto la actual."""
+    """Cierra TODAS las sesiones y olvida TODOS los dispositivos (incluida esta)."""
+    from ..models.trusted_device import TrustedDevice
     user_id = get_jwt_identity()
-
-    # Revocar todos los tokens (no podemos filtrar por jti ya que solo guardamos hash)
     RefreshToken.query.filter_by(user_id=user_id, is_revoked=False).update({"is_revoked": True})
+    TrustedDevice.query.filter_by(user_id=user_id).delete()
     db.session.commit()
-    return jsonify({"success": True, "message": "Todas las sesiones han sido cerradas"}), 200
+    return jsonify({"success": True, "message": "Todas las sesiones cerradas y dispositivos olvidados."}), 200
 
 
 # ─────────────────────────  HISTORIAL DE ACCESOS  ─────────────────────
