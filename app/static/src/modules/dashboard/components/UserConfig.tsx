@@ -5,6 +5,7 @@ import {
   FiCheck, FiAlertTriangle, FiEye, FiEyeOff, FiInfo, FiLogOut, FiRefreshCw
 } from 'react-icons/fi';
 import './UserConfig.css';
+import { getDeviceId } from '../../../shared/device';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -544,11 +545,25 @@ function parseLocation(ip: string | null): string {
   return 'Vélez, Colombia';
 }
 
+interface TrustedDevice {
+  id: number;
+  label: string;
+  location: string | null;
+  ip: string | null;
+  approved_at: string | null;
+  last_seen_at: string | null;
+  is_current: boolean;
+}
+
 const SessionsPanel: React.FC = () => {
   const { show, Toast } = useToast();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading]   = useState(true);
   const [busy, setBusy]         = useState<number | null>(null);
+
+  const [devices, setDevices]       = useState<TrustedDevice[]>([]);
+  const [devLoading, setDevLoading] = useState(true);
+  const [devBusy, setDevBusy]       = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -557,7 +572,32 @@ const SessionsPanel: React.FC = () => {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  const loadDevices = useCallback(async () => {
+    setDevLoading(true);
+    const { ok, data } = await apiFetch(`/auth/trusted-devices?device_id=${encodeURIComponent(getDeviceId())}`);
+    if (ok && Array.isArray(data)) setDevices(data);
+    setDevLoading(false);
+  }, []);
+
+  useEffect(() => { load(); loadDevices(); }, [load, loadDevices]);
+
+  const forgetDevice = async (id: number) => {
+    setDevBusy(id);
+    const { ok, data } = await apiFetch(`/auth/trusted-devices/${id}`, { method: 'DELETE' });
+    setDevBusy(null);
+    show(ok ? (data.message || 'Dispositivo olvidado.') : (data.error || 'Error.'), ok ? 'ok' : 'err');
+    if (ok) loadDevices();
+  };
+
+  const forgetAllDevices = async () => {
+    if (!confirm('¿Olvidar todos los dispositivos excepto este? La próxima vez que inicies sesión desde ellos pediremos autorización por correo.')) return;
+    const { ok, data } = await apiFetch('/auth/trusted-devices', {
+      method: 'DELETE',
+      body: JSON.stringify({ keep_device_id: getDeviceId() }),
+    });
+    show(ok ? (data.message || 'Listo.') : (data.error || 'Error.'), ok ? 'ok' : 'err');
+    if (ok) loadDevices();
+  };
 
   const revoke = async (id: number) => {
     setBusy(id);
@@ -612,6 +652,69 @@ const SessionsPanel: React.FC = () => {
               </button>
             </div>
           ))
+        )}
+      </div>
+
+      <div className="config-card">
+        <div className="toggle-row" style={{ marginBottom: 12 }}>
+          <div>
+            <h3 style={{ margin: 0 }}>Dispositivos de confianza</h3>
+            <p className="card-hint">
+              Al aprobar un dispositivo por correo, queda aquí y no vuelve a pedir autorización.
+              Olvídalo para volver a exigir la confirmación por correo.
+            </p>
+          </div>
+          <button className="btn-secondary" onClick={loadDevices} title="Actualizar"><FiRefreshCw /></button>
+        </div>
+
+        {devLoading ? (
+          <p className="card-hint">Cargando dispositivos...</p>
+        ) : devices.length === 0 ? (
+          <p className="card-hint">Aún no hay dispositivos de confianza.</p>
+        ) : (
+          devices.map((d) => (
+            <div key={d.id} className="session-row">
+              <div className="session-info">
+                <span className="session-icon"><FiMonitor /></span>
+                <div>
+                  <strong>
+                    {d.label}{' '}
+                    {d.is_current ? <span className="badge badge-current">Este dispositivo</span> : ''}
+                  </strong>
+                  <span className="session-device">
+                    {d.location || 'Ubicación no disponible'}
+                    {d.ip ? <> &nbsp;·&nbsp; <span style={{ opacity: 0.85 }}>{d.ip}</span></> : null}
+                  </span>
+                  {d.last_seen_at && (
+                    <span className="card-hint">
+                      <FiClock /> Aprobado: {fmt(d.approved_at || d.last_seen_at)}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn-forget-device"
+                onClick={() => forgetDevice(d.id)}
+                disabled={devBusy === d.id}
+                title="Olvidar este dispositivo"
+                aria-label="Olvidar este dispositivo"
+              >
+                <FiTrash2 />
+              </button>
+            </div>
+          ))
+        )}
+
+        {devices.length > 1 && (
+          <button
+            type="button"
+            className="btn-secondary"
+            style={{ marginTop: 12 }}
+            onClick={forgetAllDevices}
+          >
+            <FiTrash2 /> Olvidar todos (excepto este)
+          </button>
         )}
       </div>
 

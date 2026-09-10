@@ -1048,6 +1048,48 @@ class AuthService:
             "user": AuthService._user_payload(user),
         }, 200
 
+    # ── Dispositivos de confianza (gestión desde Configuración) ──────
+
+    @staticmethod
+    def list_trusted_devices(user_id, current_device_id=None):
+        rows = (TrustedDevice.query
+                .filter_by(user_id=str(user_id))
+                .order_by(TrustedDevice.id.desc())
+                .all())
+        return [{
+            "id": d.id,
+            "label": d.label or "Dispositivo",
+            "location": d.last_location or None,
+            "ip": d.last_ip or None,
+            "approved_at": d.approved_at.isoformat() if d.approved_at else None,
+            "last_seen_at": d.last_seen_at.isoformat() if d.last_seen_at else None,
+            "is_current": bool(current_device_id and d.device_id == current_device_id),
+        } for d in rows]
+
+    @staticmethod
+    def forget_trusted_device(user_id, row_id):
+        d = TrustedDevice.query.filter_by(id=row_id, user_id=str(user_id)).first()
+        if not d:
+            return {"error": "Dispositivo no encontrado."}, 404
+        db.session.delete(d)
+        db.session.commit()
+        AuthService._log_audit(user_id, "TRUSTED_DEVICE_FORGOTTEN", ip=_client_ip())
+        return {
+            "success": True,
+            "message": "Dispositivo olvidado. La próxima vez que inicies sesión desde ahí "
+                       "pediremos autorización por correo.",
+        }, 200
+
+    @staticmethod
+    def forget_all_trusted_devices(user_id, keep_device_id=None):
+        q = TrustedDevice.query.filter_by(user_id=str(user_id))
+        if keep_device_id:
+            q = q.filter(TrustedDevice.device_id != keep_device_id)
+        n = q.delete(synchronize_session=False)
+        db.session.commit()
+        AuthService._log_audit(user_id, "TRUSTED_DEVICES_CLEARED", ip=_client_ip())
+        return {"success": True, "message": f"{n} dispositivo(s) olvidado(s)."}, 200
+
     # ── Recuperación (contraseña temporal) ───────────────────────────
 
     @staticmethod

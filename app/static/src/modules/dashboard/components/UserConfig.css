@@ -579,6 +579,18 @@
 }
 .btn-danger-outline:hover { background: rgba(239, 68, 68, 0.1); }
 
+/* Icono de basura "olvidar dispositivo": solo el trazo, sin fondo ni borde */
+.btn-forget-device {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px;
+  background: transparent; border: none; border-radius: 8px;
+  color: var(--uc-text-muted, #94a3b8);
+  cursor: pointer; transition: color 0.15s, background 0.15s;
+}
+.btn-forget-device svg { width: 18px; height: 18px; stroke-width: 2; }
+.btn-forget-device:hover { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
+.btn-forget-device:disabled { opacity: 0.4; cursor: not-allowed; }
+
 /* QR / 2FA */
 .qr-block {
   display: grid; grid-template-columns: auto 1fr; gap: 1.5rem;

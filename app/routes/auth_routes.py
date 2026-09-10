@@ -100,6 +100,30 @@ def device_approval_status():
     return jsonify(result), status
 
 
+# ── Dispositivos de confianza (Configuración → Sesiones activas) ──
+@auth_bp.route('/trusted-devices', methods=['GET'])
+@jwt_required()
+def list_trusted_devices():
+    return jsonify(AuthService.list_trusted_devices(
+        get_jwt_identity(), request.args.get('device_id'))), 200
+
+
+@auth_bp.route('/trusted-devices/<int:dev_id>', methods=['DELETE'])
+@jwt_required()
+def forget_trusted_device(dev_id):
+    result, status = AuthService.forget_trusted_device(get_jwt_identity(), dev_id)
+    return jsonify(result), status
+
+
+@auth_bp.route('/trusted-devices', methods=['DELETE'])
+@jwt_required()
+def forget_all_trusted_devices():
+    data = request.get_json(silent=True) or {}
+    result, status = AuthService.forget_all_trusted_devices(
+        get_jwt_identity(), data.get('keep_device_id'))
+    return jsonify(result), status
+
+
 @auth_bp.route('/2fa/send-email', methods=['POST'])
 @jwt_required()
 def send_2fa_email():
