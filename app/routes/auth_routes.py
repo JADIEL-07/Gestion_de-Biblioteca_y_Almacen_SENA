@@ -260,6 +260,30 @@ def _login_diag():
     doc = (request.args.get('doc') or '').strip()
     action = (request.args.get('action') or '').strip()
 
+    # ── Diagnóstico de correo SMTP ──
+    if action in ('mail-status', 'test-email'):
+        from ..services.email_service import EmailService
+        from flask import current_app as _ca
+        pw = _ca.config.get('MAIL_PASSWORD') or ''
+        info = {
+            "mail_server": _ca.config.get('MAIL_SERVER'),
+            "mail_port": _ca.config.get('MAIL_PORT'),
+            "mail_use_tls": _ca.config.get('MAIL_USE_TLS'),
+            "mail_username": _ca.config.get('MAIL_USERNAME'),
+            "mail_password_set": bool(pw),
+            "mail_password_len": len(pw),
+            "mail_password_has_spaces": (' ' in pw),
+            "default_sender": str(_ca.config.get('MAIL_DEFAULT_SENDER')),
+        }
+        if action == 'test-email':
+            to = (request.args.get('to') or '').strip()
+            if not to:
+                return jsonify({"error": "Falta ?to=CORREO"}), 400
+            ok = EmailService.send_test(to)
+            info["test_sent"] = ok
+            info["last_error"] = EmailService.last_send_error()
+        return jsonify(info), 200
+
     # ── Acciones de recuperación ──
     if action == 'list-pending':
         rows = []

@@ -733,9 +733,31 @@ class AuthService:
                     "email_hint": AuthService._mask_email(user.email),
                     "poll_token": poll_token,
                 }, 200
-            if sent is False:
-                return {"error": "No pudimos enviar el correo de autorización. Inténtalo de nuevo en unos minutos."}, 502
-            # sent is None -> excepción inesperada: continuar con el login normal
+
+            # El correo NO salió (False) o hubo una excepción (None): no dejar a la
+            # persona fuera de su cuenta. Se permite el acceso, se marca el
+            # dispositivo como de confianza y se avisa dentro de la app.
+            print(f"[device-approval] correo no enviado para {user.id!r}; se permite el acceso (fallback).")
+            try:
+                if device_id and not AuthService._is_trusted_device(user.id, device_id):
+                    _ua = AuthService._get_user_agent() or ''
+                    db.session.add(TrustedDevice(
+                        user_id=str(user.id), device_id=device_id,
+                        label=_describe_user_agent(_ua), last_ip=_client_ip(),
+                    ))
+                db.session.add(Notification(
+                    user_id=str(user.id),
+                    type='NEW_LOGIN',
+                    title='Nuevo dispositivo (sin verificación por correo)',
+                    message='Se inició sesión desde un dispositivo nuevo. No pudimos enviar el '
+                            'correo de autorización, así que se permitió el acceso. Si no fuiste tú, '
+                            'cambia tu contraseña y revisa "Dispositivos de confianza" en Configuración.',
+                ))
+                db.session.commit()
+            except Exception as _fe:
+                db.session.rollback()
+                print(f"[device-approval] aviso registrando el fallback: {_fe}")
+            # continúa al flujo normal (2FA / éxito)
 
         # 2FA check
         if user.is_2fa_enabled and user.totp_secret:

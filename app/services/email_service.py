@@ -308,6 +308,10 @@ def render_email(subject, greeting_name="", intro="", content_html="",
     )
 
 
+# Último error de envío (para el endpoint de diagnóstico).
+_last_send_error = {"msg": None, "when": None}
+
+
 def _send(subject: str, recipients: list, text_body: str, html_body: str = None) -> bool:
     """Envía un correo. Si MAIL_SERVER no está configurado, hace print (modo local)."""
     try:
@@ -321,9 +325,12 @@ def _send(subject: str, recipients: list, text_body: str, html_body: str = None)
         if html_body:
             msg.html = html_body
         mail.send(msg)
+        _last_send_error["msg"] = None
         return True
     except Exception as e:
-        print(f"Error enviando correo '{subject}' a {recipients}: {e}")
+        _last_send_error["msg"] = f"{type(e).__name__}: {e}"
+        _last_send_error["when"] = datetime.utcnow().isoformat()
+        print(f"Error enviando correo '{subject}' a {recipients}: {type(e).__name__}: {e}")
         return False
 
 
@@ -335,6 +342,20 @@ class EmailService:
     def status_pill(text: str, bg: str = GREEN) -> str:
         """Etiqueta de estado redondeada, para usar en `rows` de send_notification."""
         return status_pill(text, bg)
+
+    @staticmethod
+    def last_send_error():
+        """Último error de envío SMTP (o None si el último envío fue bien)."""
+        return dict(_last_send_error)
+
+    @staticmethod
+    def send_test(to: str) -> bool:
+        """Envía un correo de prueba (para diagnosticar la configuración SMTP)."""
+        return _send(
+            "Prueba de configuración — Biblioteca SENA",
+            [to],
+            "Este es un correo de prueba. Si lo recibes, el SMTP está bien configurado.",
+        )
 
     # ── Registro de cuenta ──
     @staticmethod
