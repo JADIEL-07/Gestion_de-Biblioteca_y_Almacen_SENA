@@ -8,31 +8,22 @@ from ..models.token import RefreshToken, PasswordResetToken
 class TokenService:
     @staticmethod
     def generate_auth_tokens(user, user_agent=None):
-        """Generates access and refresh tokens (JWT) with rotation and revocation."""
-        # Access Token with custom claims
-        access_claims = {
-            "role": user.role.name if user.role else "GUEST", 
-            "type": "access"
-        }
-        access_token = create_access_token(
-            identity=str(user.id), 
-            additional_claims=access_claims
-        )
-        
-        # Refresh Token (JWT)
+        """Generates access and refresh tokens (JWT) with rotation and revocation.
+
+        El access token lleva `sid` = id de la fila RefreshToken (la "sesión").
+        Así el backend puede rechazar un access token cuya sesión fue cerrada
+        (aunque el token aún no haya vencido)."""
+        # Refresh Token (JWT) — se crea primero para tener el id de la sesión.
         refresh_token = create_refresh_token(identity=str(user.id))
         refresh_jti = get_jti(refresh_token)
-        
-        # Hash the JTI for database storage
         jti_hash = bcrypt.hashpw(refresh_jti.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-        
         expires_at = datetime.utcnow() + timedelta(days=7)
-        
+
         new_refresh = RefreshToken(
             user_id=user.id,
             token_hash=jti_hash,
             expires_at=expires_at,
-            user_agent=user_agent
+            user_agent=user_agent,
         )
         db.session.add(new_refresh)
         try:
@@ -47,7 +38,16 @@ class TokenService:
             )
             db.session.add(new_refresh)
             db.session.commit()
-        
+
+        access_token = create_access_token(
+            identity=str(user.id),
+            additional_claims={
+                "role": user.role.name if user.role else "GUEST",
+                "type": "access",
+                "sid": new_refresh.id,
+            },
+        )
+
         return access_token, refresh_token
 
     @staticmethod

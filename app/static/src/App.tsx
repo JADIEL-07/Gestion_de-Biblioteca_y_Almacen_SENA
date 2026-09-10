@@ -31,6 +31,7 @@ import {
 } from 'react-icons/fi';
 
 import { SERVICES_DATA } from './shared/constants';
+import { apiFetch } from './shared/api';
 const senaBg = '/assets/images/sena-library-bg.png';
 import { FloatingParticles } from './components/ui/FloatingParticles';
 import { HeroBackground } from './components/ui/HeroBackground';
@@ -301,6 +302,28 @@ function AppRoutes() {
     setLoggedUser(newUser);
     localStorage.setItem('user', JSON.stringify(newUser));
   };
+
+  // ── Latido de sesión ──────────────────────────────────────────────
+  // Consulta el backend cada 25 s (y al volver a la pestaña). Si la sesión de
+  // este dispositivo fue cerrada desde otro lado, apiFetch recibe 401, no puede
+  // renovar y muestra la pantalla "sesión expirada" (5 s) antes de ir al inicio.
+  useEffect(() => {
+    if (!loggedUser) return;
+    let stopped = false;
+    const ping = () => {
+      if (stopped || document.hidden) return;
+      apiFetch('/api/v1/auth/session-check').catch(() => { /* apiFetch maneja el 401 */ });
+    };
+    const id = window.setInterval(ping, 25000);
+    const onFocus = () => ping();
+    window.addEventListener('focus', onFocus);
+    ping();
+    return () => {
+      stopped = true;
+      window.clearInterval(id);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [loggedUser]);
 
   const rawRole = loggedUser?.role?.name || loggedUser?.rol?.nombre || '';
   const userRole = rawRole.toUpperCase();

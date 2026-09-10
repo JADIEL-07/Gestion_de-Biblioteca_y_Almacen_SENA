@@ -10,18 +10,61 @@
  */
 
 let refreshing: Promise<string | null> | null = null;
+let expiredOverlayShown = false;
+
+/** Pantalla de "sesión expirada" (5 s) antes de mandar al inicio. Se inyecta en
+ *  el DOM directamente para funcionar aunque React quede en mal estado. */
+function showSessionExpiredOverlay(): void {
+  if (expiredOverlayShown) return;
+  expiredOverlayShown = true;
+
+  let secs = 5;
+  const el = document.createElement('div');
+  el.id = 'session-expired-overlay';
+  el.style.cssText =
+    'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;' +
+    'justify-content:center;background:#0b1220;color:#e2e8f0;text-align:center;padding:24px;' +
+    "font-family:Montserrat,system-ui,-apple-system,Segoe UI,Arial,sans-serif;";
+  el.innerHTML =
+    '<div style="max-width:420px">' +
+    '<div style="width:84px;height:84px;margin:0 auto 20px;border-radius:50%;overflow:hidden;' +
+    'box-shadow:0 8px 24px rgba(57,169,0,.28)">' +
+    '<img src="/assets/images/icono-sena.png" alt="SENA" style="width:114%;height:114%;margin:-7%;' +
+    'display:block;object-fit:cover;animation:se-spin 1s linear infinite" /></div>' +
+    '<h2 style="margin:0 0 8px;font-size:1.35rem;color:#39A900">Tu sesión ha expirado</h2>' +
+    '<p style="margin:0;color:#94a3b8;font-size:.95rem">Se cerró la sesión de este dispositivo. ' +
+    'Te llevaremos al inicio en <span id="se-count">' + secs + '</span> segundos…</p>' +
+    '</div><style>@keyframes se-spin{to{transform:rotate(360deg)}}</style>';
+
+  try {
+    document.body.appendChild(el);
+    document.body.style.overflow = 'hidden';
+  } catch {
+    window.location.href = '/';
+    return;
+  }
+
+  const iv = window.setInterval(() => {
+    secs -= 1;
+    const c = document.getElementById('se-count');
+    if (c) c.textContent = String(Math.max(secs, 0));
+    if (secs <= 0) {
+      window.clearInterval(iv);
+      window.location.href = '/';
+    }
+  }, 1000);
+}
 
 function clearSessionAndRedirect() {
   try {
     localStorage.removeItem('token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
+    localStorage.removeItem('force_password_change');
   } catch {
     /* ignore */
   }
-  if (!window.location.pathname.startsWith('/login')) {
-    window.location.href = '/login?expired=1';
-  }
+  showSessionExpiredOverlay();
 }
 
 async function refreshAccessToken(): Promise<string | null> {

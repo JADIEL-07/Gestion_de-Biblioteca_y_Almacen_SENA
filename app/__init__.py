@@ -187,7 +187,8 @@ def create_app():
 
     # ── JWT User Lookup ───────────────────────────────────────────────────────
     from .models.user import User
-    
+    from .models.token import RefreshToken as _RefreshToken
+
     @jwt.user_lookup_loader
     def user_lookup_callback(_jwt_header, jwt_data):
         identity = jwt_data["sub"]
@@ -195,6 +196,28 @@ def create_app():
         if not user:
             print(f"DEBUG AUTH: Usuario con ID {identity} no encontrado o inactivo.")
         return user
+
+    # ── Sesión cerrada desde otro dispositivo ────────────────────────────────
+    # El access token lleva `sid` (id de su fila RefreshToken). Si esa sesión
+    # fue revocada (o borrada), el token queda inválido de inmediato aunque no
+    # haya vencido. Los tokens antiguos sin `sid` se ignoran (se vencen solos).
+    @jwt.token_in_blocklist_loader
+    def _session_revoked(_jwt_header, jwt_payload):
+        sid = jwt_payload.get("sid")
+        if not sid:
+            return False
+        try:
+            rt = _RefreshToken.query.get(sid)
+        except Exception:
+            return False
+        return rt is None or bool(rt.is_revoked)
+
+    @jwt.revoked_token_loader
+    def _revoked_response(_jwt_header, _jwt_payload):
+        return jsonify({
+            "error": "session_revoked",
+            "message": "Tu sesión fue cerrada. Inicia sesión de nuevo.",
+        }), 401
 
     # ── CORS ──────────────────────────────────────────────────────────────────
     CORS(app, resources={r"/api/*": {"origins": app.config["CORS_ORIGINS"]}})

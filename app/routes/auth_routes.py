@@ -356,6 +356,14 @@ def pending_registration():
 
 # ─────────────────────────  SESIONES ACTIVAS  ─────────────────────────
 
+@auth_bp.route('/session-check', methods=['GET'])
+@jwt_required()
+def session_check():
+    """Latido: 200 si la sesión sigue viva; 401 (blocklist) si fue cerrada
+    desde otro dispositivo. Lo consulta el frontend cada pocos segundos."""
+    return jsonify({"ok": True}), 200
+
+
 @auth_bp.route('/sessions', methods=['GET'])
 @jwt_required()
 def get_sessions():
