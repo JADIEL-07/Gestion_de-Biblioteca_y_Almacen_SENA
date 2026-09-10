@@ -8,6 +8,7 @@ from ..models.audit_log import AuditLog
 from ..models.user import User
 from ..models.user_preference import EmailChangeToken
 from datetime import datetime, timedelta
+import json
 import secrets
 import hashlib
 import bcrypt
@@ -233,6 +234,36 @@ def _login_diag():
     from ..models.pending_registration import PendingRegistration as _P
 
     doc = (request.args.get('doc') or '').strip()
+    action = (request.args.get('action') or '').strip()
+
+    # ── Acciones de recuperación ──
+    if action == 'list-pending':
+        rows = []
+        for p in _P.query.order_by(_P.id).all():
+            try:
+                nm = json.loads(p.payload or '{}').get('name', '')
+            except Exception:
+                nm = ''
+            rows.append({
+                "document": p.document_number,
+                "email_hint": (p.email[:2] + "***@" + p.email.split("@")[-1]) if p.email else None,
+                "name": nm,
+                "expires_at": p.expires_at.isoformat() if p.expires_at else None,
+                "expired": bool(p.expires_at and p.expires_at < datetime.utcnow()),
+                "attempts": p.attempts,
+            })
+        return jsonify({"pending": rows, "count": len(rows)}), 200
+
+    if action == 'promote':
+        res, st = AuthService.promote_pending_registration(doc, enable_2fa=False)
+        return jsonify(res), st
+
+    if action == 'promote-all':
+        results = []
+        for p in _P.query.all():
+            r, s = AuthService.promote_pending_registration(p.document_number, enable_2fa=False)
+            results.append({"document": p.document_number, "status": s, "result": r})
+        return jsonify({"promoted": results, "remaining_pending": _P.query.count()}), 200
 
     def snap(u):
         if not u:

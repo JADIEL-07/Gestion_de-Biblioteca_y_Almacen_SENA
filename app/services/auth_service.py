@@ -249,10 +249,12 @@ class AuthService:
 
         # Generar código
         code = _generate_6digit_code()
-        
-        # Eliminar pendientes previos expirados o no
+
+        # Eliminar pendientes previos (expirados o no) ANTES de insertar el nuevo:
+        # `email` es UNIQUE y SQLAlchemy podría emitir el INSERT antes del DELETE.
         if pending:
             db.session.delete(pending)
+            db.session.flush()
 
         new_pending = PendingRegistration(
             email=email.strip().lower(),
@@ -400,6 +402,76 @@ class AuthService:
             "user": AuthService._user_payload(new_user),
             "totp_secret": totp_secret,
             "otpauth_url": otpauth_url
+        }, 200
+
+    @staticmethod
+    def promote_pending_registration(identifier, enable_2fa=False):
+        """[Recuperación] Crea el usuario a partir de un pending atascado (aunque
+        esté expirado), SIN pedir el código. Para rescatar cuentas que quedaron
+        a medias por un fallo antiguo de verify_account."""
+        ident = (identifier or '').strip()
+        if not ident:
+            return {"error": "Falta el documento o correo."}, 400
+
+        pending = (PendingRegistration.query.filter_by(document_number=ident).first()
+                   or PendingRegistration.query.filter_by(email=ident.lower()).first()
+                   or PendingRegistration.query.filter(
+                       db.func.trim(PendingRegistration.document_number) == ident).first())
+        if not pending:
+            return {"error": "No hay un registro pendiente con ese documento/correo."}, 404
+
+        email = (pending.email or '').strip().lower()
+        try:
+            payload = json.loads(pending.payload or '{}')
+        except Exception:
+            return {"error": "El registro pendiente está dañado."}, 400
+
+        doc_id = str(payload.get("id") or pending.document_number or "").strip()
+        if not doc_id or not payload.get("name") or not payload.get("password"):
+            return {"error": "Al registro pendiente le faltan datos."}, 400
+
+        clash = User.query.filter(or_(User.id == doc_id, User.email == email)).first()
+        if clash:
+            PendingRegistration.query.filter_by(id=pending.id).delete()
+            db.session.commit()
+            return {"success": True, "message": f"El usuario {doc_id} ya existía; se limpió el pendiente."}, 200
+
+        role_id = payload.get("role_id")
+        if not role_id or not Role.query.get(role_id):
+            fb = Role.query.filter_by(name='APRENDIZ').first() or Role.query.first()
+            if not fb:
+                return {"error": "No hay roles configurados."}, 500
+            role_id = fb.id
+
+        new_user = User(
+            id=doc_id,
+            document_type=payload.get("document_type", "CC"),
+            name=payload["name"],
+            email=email,
+            phone=payload.get("phone"),
+            password=payload["password"],
+            role_id=role_id,
+            formation_ficha=payload.get("formation_ficha"),
+            is_verified=True, is_active=True, is_deleted=False, is_blocked=False,
+            failed_attempts=0,
+            totp_secret=(pyotp.random_base32() if enable_2fa else None),
+            is_2fa_enabled=bool(enable_2fa),
+        )
+        db.session.add(new_user)
+        db.session.delete(pending)
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"[promote] no se pudo crear {doc_id!r}: {e}")
+            return {"error": f"No se pudo crear el usuario: {e}"}, 500
+
+        AuthService._log_audit(new_user.id, "ACCOUNT_PROMOTED_FROM_PENDING", ip=_client_ip())
+        return {
+            "success": True,
+            "message": f"Usuario {doc_id} creado desde el pendiente. Ya puede iniciar sesión con su contraseña.",
+            "email_hint": email[:2] + "***@" + email.split("@")[-1],
+            "role_id": role_id,
         }, 200
 
     @staticmethod
