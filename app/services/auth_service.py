@@ -294,9 +294,14 @@ class AuthService:
         email = email.strip().lower()
         code = code.strip()
 
-        # Check if already verified
-        user = User.query.filter_by(email=email, is_deleted=False).first()
+        # Check if already verified (is_deleted NULL cuenta como no borrado)
+        user = User.query.filter(
+            User.email == email,
+            or_(User.is_deleted == False, User.is_deleted.is_(None))
+        ).first()
         if user:
+            PendingRegistration.query.filter_by(email=email).delete()
+            db.session.commit()
             return {"success": True, "message": "Tu cuenta ya está verificada. Inicia sesión."}, 200
 
         pending = PendingRegistration.query.filter_by(email=email).first()
@@ -319,28 +324,65 @@ class AuthService:
             db.session.commit()
             return {"error": "Código incorrecto."}, 400
 
-        # Crear el usuario oficial
-        payload = json.loads(pending.payload)
-        
-        # Generar TOTP Secret
+        # ── Crear el usuario oficial (robusto: nunca dejar el registro a medias) ──
+        try:
+            payload = json.loads(pending.payload or '{}')
+        except Exception:
+            db.session.commit()  # conservar el intento incrementado
+            return {"error": "El registro pendiente está dañado. Vuelve a registrarte."}, 400
+
+        doc_id = str(payload.get("id") or "").strip()
+        if not doc_id or not payload.get("name") or not payload.get("password"):
+            db.session.delete(pending)
+            db.session.commit()
+            return {"error": "Faltan datos del registro. Vuelve a registrarte."}, 400
+
+        # ¿Ya hay una fila en users con ese documento o correo? (incluye borradas / is_deleted NULL)
+        clash = User.query.filter(or_(User.id == doc_id, User.email == email)).first()
+        if clash:
+            db.session.delete(pending)
+            db.session.commit()
+            if clash.is_deleted:
+                return {"error": "Ya existía una cuenta con estos datos y fue eliminada. "
+                                 "Contacta al administrador."}, 409
+            return {"success": True, "message": "Tu cuenta ya existía. Inicia sesión."}, 200
+
+        # Asegurar un rol válido (el hardcode viejo podía apuntar a un id inexistente)
+        role_id = payload.get("role_id")
+        if not role_id or not Role.query.get(role_id):
+            fallback = Role.query.filter_by(name='APRENDIZ').first() or Role.query.first()
+            if not fallback:
+                db.session.rollback()
+                return {"error": "No hay roles configurados. Contacta al administrador."}, 500
+            role_id = fallback.id
+
         totp_secret = pyotp.random_base32()
-        
         new_user = User(
-            id=payload["id"],
+            id=doc_id,
             document_type=payload.get("document_type", "CC"),
             name=payload["name"],
             email=email,
             phone=payload.get("phone"),
             password=payload["password"],
-            role_id=payload["role_id"],
+            role_id=role_id,
             formation_ficha=payload.get("formation_ficha"),
             is_verified=True,
+            is_active=True,
+            is_deleted=False,
+            is_blocked=False,
+            failed_attempts=0,
             totp_secret=totp_secret,
-            is_2fa_enabled=True
+            is_2fa_enabled=True,
         )
         db.session.add(new_user)
         db.session.delete(pending)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"[verify_account] no se pudo crear el usuario {doc_id!r}: {e}")
+            return {"error": "No pudimos crear tu cuenta por un problema técnico. "
+                             "Inténtalo de nuevo; si continúa, contacta al administrador."}, 500
 
         AuthService._log_audit(new_user.id, "ACCOUNT_VERIFIED_AND_CREATED", ip=request.remote_addr)
 

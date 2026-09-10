@@ -37,7 +37,7 @@ def register():
         document_number=document_number,
         document_type=document_type,
         phone=phone,
-        role_id=data.get('role_id', 7),
+        role_id=data.get('role_id'),  # None -> register_user asigna APRENDIZ por nombre
         formation_ficha=data.get('formation_ficha')
     )
     return jsonify(result), status
