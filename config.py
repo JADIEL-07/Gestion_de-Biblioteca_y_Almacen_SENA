@@ -23,7 +23,11 @@ class Config:
     MAIL_USE_TLS                   = os.environ.get('MAIL_USE_TLS', 'True') == 'True'
     MAIL_USERNAME                  = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD                  = os.environ.get('MAIL_PASSWORD')
-    MAIL_DEFAULT_SENDER            = os.environ.get('MAIL_DEFAULT_SENDER')
+    # Nombre visible del remitente (lo que ve quien recibe el correo, en vez de
+    # "gestion.sena.b"). La dirección debe seguir siendo la cuenta autenticada en Gmail.
+    MAIL_SENDER_NAME               = os.environ.get('MAIL_SENDER_NAME', 'Gestión de Inventario SENA')
+    _mail_from                     = os.environ.get('MAIL_DEFAULT_SENDER') or os.environ.get('MAIL_USERNAME')
+    MAIL_DEFAULT_SENDER            = (MAIL_SENDER_NAME, _mail_from) if _mail_from else None
 
     # URL pública del sitio: se usa para construir enlaces e imágenes absolutas
     # dentro de los correos (la plantilla de marca carga /assets/images/... del backend).

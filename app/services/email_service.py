@@ -315,7 +315,8 @@ def _send(subject: str, recipients: list, text_body: str, html_body: str = None)
             print(f"DEBUG EMAIL [{subject}] → {recipients}\n{text_body}\n")
             return True
 
-        msg = Message(subject, recipients=recipients)
+        msg = Message(subject, recipients=recipients,
+                      sender=current_app.config.get('MAIL_DEFAULT_SENDER'))
         msg.body = text_body
         if html_body:
             msg.html = html_body
