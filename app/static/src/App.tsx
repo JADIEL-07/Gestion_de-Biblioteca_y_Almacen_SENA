@@ -375,10 +375,7 @@ function AppRoutes() {
               : <LoginForm mode="register" onLoginSuccess={handleLoginSuccess} />
           }
         />
-        <Route
-          path="/aprobar-dispositivo"
-          element={<DeviceApproval onApproved={handleLoginSuccess} />}
-        />
+        <Route path="/aprobar-dispositivo" element={<DeviceApproval />} />
 
         {/* Admin dashboard */}
         <Route

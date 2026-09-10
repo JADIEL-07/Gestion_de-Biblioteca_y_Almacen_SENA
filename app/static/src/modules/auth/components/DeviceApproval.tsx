@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import { FiAlertCircle, FiCheckCircle, FiMonitor, FiMapPin, FiWifi } from 'react-icons/fi';
 import './LoginForm.css';
 import { FloatingParticles } from '../../../components/ui/FloatingParticles';
@@ -13,44 +13,32 @@ interface DeviceInfo {
   ip?: string | null;
 }
 
-interface DeviceApprovalProps {
-  onApproved?: (user: any) => void;
-}
-
-export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) => {
+/**
+ * Vista TERMINAL para el botón "Iniciar sesión" del correo de dispositivo nuevo.
+ * - Autoriza el dispositivo (una vez) y muestra el resultado.
+ * - No tiene botones de navegación ni redirección: es una hoja muerta.
+ * - Como no añade entradas al historial, al pulsar "atrás" el navegador
+ *   embebido de Gmail (Custom Tab) se cierra y vuelve a Gmail.
+ * - El inicio de sesión real ocurre en el dispositivo que lo pidió (por sondeo).
+ */
+export const DeviceApproval: React.FC = () => {
   const [params] = useSearchParams();
-  const navigate = useNavigate();
   const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading');
   const [message, setMessage] = useState('Estamos validando el enlace…');
   const [device, setDevice] = useState<DeviceInfo | null>(null);
-  const [approvedUser, setApprovedUser] = useState<any>(null);
-
-  const goToPanel = () => {
-    if (onApproved && approvedUser) onApproved(approvedUser);
-    else navigate('/', { replace: true });
-  };
 
   useEffect(() => {
     const token = params.get('token');
-    // El token NUNCA debe quedar en el historial. Lo quitamos de la URL de una vez.
+    // Quitar el token de la URL (sin añadir entradas al historial).
     if (token) window.history.replaceState({}, '', '/aprobar-dispositivo');
 
-    const alreadyLoggedIn = () => {
-      try { return !!localStorage.getItem('token'); } catch { return false; }
-    };
-
     if (!token) {
-      // Se llegó aquí sin token (atrás en el navegador, enlace incompleto…).
       setStatus('error');
-      setMessage(alreadyLoggedIn()
-        ? 'Este enlace ya se usó. Ya tienes la sesión iniciada.'
-        : 'El enlace no es válido o ya se usó.');
+      setMessage('El enlace no es válido o ya se usó.');
       return;
     }
 
     let cancelled = false;
-    let redirectTimer: number | undefined;
-
     (async () => {
       try {
         const res = await fetch('/api/v1/auth/approve-device', {
@@ -58,33 +46,17 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ token, device_id: getDeviceId() }),
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (cancelled) return;
 
         if (!res.ok) {
-          // Enlace ya usado / vencido: NO redirigir solo. El usuario decide.
           setStatus('error');
-          setMessage(alreadyLoggedIn()
-            ? 'Este enlace ya se usó. Ya tienes la sesión iniciada en este dispositivo.'
-            : (data.error || 'El enlace ya se usó o venció. Vuelve a iniciar sesión.'));
+          setMessage(data.error || 'El enlace ya se usó o venció. Vuelve a iniciar sesión.');
           return;
         }
 
-        localStorage.setItem('token', data.access_token);
-        if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-        if (data.must_change_password) localStorage.setItem('force_password_change', '1');
-
         setDevice(data.device || null);
-        setApprovedUser(data.user);
         setStatus('ok');
-
-        // Redirección automática tras 8 s (da tiempo a leer la ubicación).
-        redirectTimer = window.setTimeout(() => {
-          if (cancelled) return;
-          if (onApproved) onApproved(data.user);
-          else navigate('/', { replace: true });
-        }, 8000);
       } catch {
         if (!cancelled) {
           setStatus('error');
@@ -93,11 +65,11 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
       }
     })();
 
-    return () => { cancelled = true; if (redirectTimer) window.clearTimeout(redirectTimer); };
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── Éxito: inicio de sesión aprobado, con el dispositivo y la ubicación ───
+  // ─── Éxito: dispositivo autorizado, con detalle ───
   if (status === 'ok') {
     const row = (icon: React.ReactNode, label: string, value: string) => (
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderTop: '1px solid rgba(148,163,184,0.18)' }}>
@@ -138,11 +110,8 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
               {device?.ip ? row(<FiWifi size={18} />, 'IP', device.ip) : null}
             </div>
 
-            <button type="button" className="submit-btn" onClick={goToPanel}>
-              Continuar al panel
-            </button>
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted, #94a3b8)', marginTop: 10 }}>
-              Te llevaremos automáticamente en unos segundos…
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted, #94a3b8)', margin: 0 }}>
+              Ya puedes volver a tu otro dispositivo y continuar. Puedes cerrar esta pestaña.
             </p>
             <div style={{ height: '10px' }} />
           </div>
@@ -178,22 +147,14 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
             </p>
           </div>
 
-          {status === 'error' && (() => {
-            let hasSession = false;
-            try { hasSession = !!localStorage.getItem('token'); } catch { /* ignore */ }
-            return (
-              <>
-                <div className="alert-error fade-in"><FiAlertCircle /> {message}</div>
-                <button
-                  type="button"
-                  className="submit-btn"
-                  onClick={() => { window.location.href = hasSession ? '/' : '/login'; }}
-                >
-                  {hasSession ? 'Ir al inicio' : 'Iniciar sesión'}
-                </button>
-              </>
-            );
-          })()}
+          {status === 'error' && (
+            <>
+              <div className="alert-error fade-in"><FiAlertCircle /> {message}</div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-muted, #94a3b8)', marginTop: 8 }}>
+                Puedes cerrar esta pestaña y volver a intentar el inicio de sesión desde tu dispositivo.
+              </p>
+            </>
+          )}
 
           <div style={{ height: '20px' }} />
         </div>
