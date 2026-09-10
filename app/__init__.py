@@ -281,7 +281,24 @@ def create_app():
         index_path = os.path.join(app.static_folder or '', 'index.html')
         if not os.path.exists(index_path):
             return jsonify({"message": "Not found", "path": request.path}), 404
-        return app.send_static_file('index.html')
+
+        # Servir el HTML SIN caché ni validadores condicionales: así cualquier
+        # ruta del SPA (p. ej. /aprobar-dispositivo) siempre trae la última
+        # versión y referencia los bundles con hash nuevos. Sin ETag/Last-Modified
+        # el navegador no puede responder 304 con un index.html viejo.
+        try:
+            with open(index_path, 'rb') as _fh:
+                html = _fh.read()
+        except OSError:
+            return jsonify({"message": "Not found", "path": request.path}), 404
+
+        resp = app.response_class(html, mimetype='text/html')
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+        resp.headers.pop('ETag', None)
+        resp.headers.pop('Last-Modified', None)
+        return resp
 
     @app.errorhandler(404)
     def handle_404(e):

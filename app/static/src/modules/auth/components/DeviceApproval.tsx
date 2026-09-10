@@ -32,12 +32,16 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
 
   useEffect(() => {
     const token = params.get('token');
+    // Sin token (p. ej. se volvió atrás a esta URL): no dejar la vista colgada.
     if (!token) {
-      setStatus('error');
-      setMessage('El enlace no es válido.');
+      navigate('/login', { replace: true });
       return;
     }
     let cancelled = false;
+    let redirectTimer: number | undefined;
+
+    // Quitar el token de la barra de direcciones cuanto antes (no queda en el historial).
+    window.history.replaceState({}, '', '/aprobar-dispositivo');
 
     (async () => {
       try {
@@ -52,6 +56,11 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
         if (!res.ok) {
           setStatus('error');
           setMessage(data.error || 'No pudimos autorizar el dispositivo.');
+          // Un enlace ya usado / vencido no debe dejar al usuario varado:
+          // lo llevamos al login (si el dispositivo ya quedó de confianza, entrará directo).
+          redirectTimer = window.setTimeout(() => {
+            if (!cancelled) navigate('/login', { replace: true });
+          }, 4000);
           return;
         }
 
@@ -63,10 +72,9 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
         setDevice(data.device || null);
         setApprovedUser(data.user);
         setStatus('ok');
-        window.history.replaceState({}, '', '/aprobar-dispositivo');
 
         // Redirección automática tras 8 s (da tiempo a leer la ubicación).
-        setTimeout(() => {
+        redirectTimer = window.setTimeout(() => {
           if (cancelled) return;
           if (onApproved) onApproved(data.user);
           else navigate('/', { replace: true });
@@ -75,11 +83,14 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
         if (!cancelled) {
           setStatus('error');
           setMessage('No pudimos conectar con el servidor. Inténtalo de nuevo.');
+          redirectTimer = window.setTimeout(() => {
+            if (!cancelled) navigate('/login', { replace: true });
+          }, 4000);
         }
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => { cancelled = true; if (redirectTimer) window.clearTimeout(redirectTimer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
