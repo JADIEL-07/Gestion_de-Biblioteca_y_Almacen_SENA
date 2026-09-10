@@ -24,10 +24,12 @@ class Config:
     MAIL_USERNAME                  = os.environ.get('MAIL_USERNAME')
     MAIL_PASSWORD                  = os.environ.get('MAIL_PASSWORD')
     # Nombre visible del remitente (lo que ve quien recibe el correo, en vez de
-    # "gestion.sena.b"). La dirección debe seguir siendo la cuenta autenticada en Gmail.
-    MAIL_SENDER_NAME               = os.environ.get('MAIL_SENDER_NAME', 'Gestión de Inventario SENA')
+    # "gestion.sena.b"). Se usa SIN tildes a propósito: un nombre con caracteres
+    # no-ASCII obliga a codificarlo (RFC 2047) y algunos servidores SMTP lo
+    # rechazan. La dirección debe seguir siendo la cuenta autenticada en Gmail.
+    MAIL_SENDER_NAME               = os.environ.get('MAIL_SENDER_NAME', 'Gestion de Inventario SENA')
     _mail_from                     = os.environ.get('MAIL_DEFAULT_SENDER') or os.environ.get('MAIL_USERNAME')
-    MAIL_DEFAULT_SENDER            = (MAIL_SENDER_NAME, _mail_from) if _mail_from else None
+    MAIL_DEFAULT_SENDER            = f"{MAIL_SENDER_NAME} <{_mail_from}>" if _mail_from else None
 
     # URL pública del sitio: se usa para construir enlaces e imágenes absolutas
     # dentro de los correos (la plantilla de marca carga /assets/images/... del backend).
