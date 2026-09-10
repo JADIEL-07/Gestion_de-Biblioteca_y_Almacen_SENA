@@ -6,6 +6,7 @@ import { FloatingParticles } from '../../../components/ui/FloatingParticles';
 import { HeroBackground } from '../../../components/ui/HeroBackground';
 import { QRCodeCanvas } from 'qrcode.react';
 import { DashboardBg } from '../../dashboard/components/DashboardBg';
+import { DeviceVerified } from './DeviceVerified';
 import { getDeviceId, hasAcceptedTos, markTosAccepted } from '../../../shared/device';
 
 interface LoginFormProps {
@@ -58,6 +59,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   const [deviceApprovalHint, setDeviceApprovalHint] = useState<string | null>(null);
   const [awaitingDeviceApproval, setAwaitingDeviceApproval] = useState(false);
   const [deviceApprovalPoll, setDeviceApprovalPoll] = useState<string | null>(null);
+  const [deviceVerifiedSplash, setDeviceVerifiedSplash] = useState(false);
 
   // ── T&C en el login: una sola vez por dispositivo ──
   const [needLoginTos] = useState(() => mode === 'login' && !hasAcceptedTos());
@@ -125,7 +127,9 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
       if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token);
       localStorage.setItem('user', JSON.stringify(data.user));
       if (data.must_change_password) localStorage.setItem('force_password_change', '1');
-      if (onLoginSuccess) onLoginSuccess(data.user);
+      // Pantalla puente con el logo girando (~2 s) antes de entrar al panel.
+      setDeviceVerifiedSplash(true);
+      window.setTimeout(() => { if (onLoginSuccess) onLoginSuccess(data.user); }, 2200);
     };
 
     const tick = async () => {
@@ -140,7 +144,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         if (data.status === 'approved' && data.access_token) {
           stopped = true;
           window.clearInterval(id);
-          setSuccessMsg('¡Dispositivo autorizado! Entrando…');
           finishLogin(data);
         } else if (data.status === 'expired' || data.status === 'invalid') {
           stopped = true;
@@ -467,6 +470,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   // ──────────────────────────────────────────────────────────────────
   //  Render
   // ──────────────────────────────────────────────────────────────────
+
+  // ─── Dispositivo verificado: logo SENA girando antes de entrar ──
+  if (deviceVerifiedSplash) {
+    return <DeviceVerified message="Se ha verificado exitosamente el dispositivo. Entrando…" />;
+  }
 
   // ─── Cargando datos del registro (llegada desde el correo) ──────
   if (prefilling) {

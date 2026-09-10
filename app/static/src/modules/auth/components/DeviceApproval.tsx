@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
+import { FiAlertCircle } from 'react-icons/fi';
 import './LoginForm.css';
 import { FloatingParticles } from '../../../components/ui/FloatingParticles';
 import { HeroBackground } from '../../../components/ui/HeroBackground';
 import { DashboardBg } from '../../dashboard/components/DashboardBg';
+import { DeviceVerified } from './DeviceVerified';
 import { getDeviceId } from '../../../shared/device';
 
 interface DeviceApprovalProps {
@@ -48,7 +49,6 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
         if (data.must_change_password) localStorage.setItem('force_password_change', '1');
 
         setStatus('ok');
-        setMessage('Sesión iniciada con éxito.');
         // Quitar el token de la URL / historial
         window.history.replaceState({}, '', '/aprobar-dispositivo');
 
@@ -56,7 +56,7 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
           if (cancelled) return;
           if (onApproved) onApproved(data.user);
           else navigate('/', { replace: true });
-        }, 1800);
+        }, 2200);
       } catch {
         if (!cancelled) {
           setStatus('error');
@@ -68,6 +68,11 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Éxito: pantalla puente con el logo SENA girando (2 s) antes de entrar al panel.
+  if (status === 'ok') {
+    return <DeviceVerified message="Se ha verificado exitosamente el dispositivo. Entrando…" />;
+  }
 
   return (
     <div className="login-wrapper">
@@ -86,24 +91,14 @@ export const DeviceApproval: React.FC<DeviceApprovalProps> = ({ onApproved }) =>
 
           <div className="form-header">
             <h3 className="login-title">
-              {status === 'ok'
-                ? '¡Sesión iniciada con éxito!'
-                : status === 'error'
-                  ? 'No pudimos autorizar'
-                  : 'Autorizando dispositivo…'}
+              {status === 'error' ? 'No pudimos autorizar' : 'Autorizando dispositivo…'}
             </h3>
             <p>
-              {status === 'ok'
-                ? 'Este dispositivo quedó autorizado. Te estamos redirigiendo…'
-                : status === 'error'
-                  ? message
-                  : 'Un momento, estamos validando el enlace de tu correo.'}
+              {status === 'error'
+                ? message
+                : 'Un momento, estamos validando el enlace de tu correo.'}
             </p>
           </div>
-
-          {status === 'ok' && (
-            <div className="alert-success fade-in"><FiCheckCircle /> {message}</div>
-          )}
 
           {status === 'error' && (
             <>

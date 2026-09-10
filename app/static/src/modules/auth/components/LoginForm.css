@@ -635,3 +635,46 @@ input:-webkit-autofill:active {
     gap: 0;
   }
 }
+
+/* ── Splash: "Dispositivo verificado" con el logo SENA girando ── */
+.device-verified-card {
+  align-items: center;
+  text-align: center;
+  gap: 0.85rem;
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}
+
+.device-verified-logo {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: block;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 8px 24px rgba(57, 169, 0, 0.28);
+  animation: sena-spin 1s linear infinite;
+  will-change: transform;
+}
+
+.device-verified-logo img {
+  width: 114%;
+  height: 114%;
+  margin: -7%;
+  display: block;
+  object-fit: cover;
+}
+
+.device-verified-card p {
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+@keyframes sena-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .device-verified-logo { animation-duration: 2.4s; }
+}
