@@ -16,8 +16,10 @@ export const DeviceVerified: React.FC<DeviceVerifiedProps> = ({ message }) => (
     <DashboardBg />
     <div className="login-form-centered">
       <div className="clean-form device-verified-card">
-        <span className="device-verified-logo" aria-hidden="true">
-          <img src="/assets/images/icono-sena.png" alt="" />
+        <span className="device-verified-spinner" aria-hidden="true">
+          <span className="device-verified-logo">
+            <img src="/assets/images/icono-sena.png" alt="" />
+          </span>
         </span>
         <h3 className="login-title">Dispositivo verificado</h3>
         <p>{message || 'Se ha verificado exitosamente el dispositivo. Entrando…'}</p>

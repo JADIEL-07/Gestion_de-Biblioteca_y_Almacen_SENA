@@ -27,10 +27,13 @@ function showSessionExpiredOverlay(): void {
     "font-family:Montserrat,system-ui,-apple-system,Segoe UI,Arial,sans-serif;";
   el.innerHTML =
     '<div style="max-width:420px">' +
-    '<div style="width:84px;height:84px;margin:0 auto 20px;border-radius:50%;overflow:hidden;' +
+    '<div style="position:relative;width:84px;height:84px;margin:0 auto 20px">' +
+    '<div style="position:absolute;inset:-9px;border-radius:50%;border:3px solid rgba(57,169,0,.18);' +
+    'border-top-color:#39A900;animation:se-spin .9s linear infinite"></div>' +
+    '<div style="position:absolute;inset:0;border-radius:50%;overflow:hidden;' +
     'box-shadow:0 8px 24px rgba(57,169,0,.28)">' +
     '<img src="/assets/images/icono-sena.png" alt="SENA" style="width:114%;height:114%;margin:-7%;' +
-    'display:block;object-fit:cover;animation:se-spin 1s linear infinite" /></div>' +
+    'display:block;object-fit:cover" /></div></div>' +
     '<h2 style="margin:0 0 8px;font-size:1.35rem;color:#39A900">Tu sesión ha expirado</h2>' +
     '<p style="margin:0;color:#94a3b8;font-size:.95rem">Se cerró la sesión de este dispositivo. ' +
     'Te llevaremos al inicio en <span id="se-count">' + secs + '</span> segundos…</p>' +
