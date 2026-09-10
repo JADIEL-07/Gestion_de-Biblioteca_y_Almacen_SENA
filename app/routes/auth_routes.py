@@ -220,6 +220,76 @@ def resend_verification():
     return jsonify(result), status
 
 
+# ─────────────  DIAGNÓSTICO DE LOGIN (TEMPORAL — quitar luego)  ─────────────
+@auth_bp.route('/_diag', methods=['GET'])
+def _login_diag():
+    """[TEMPORAL] Dice qué hay realmente en la BD para un documento dado.
+    Uso: /api/v1/auth/_diag?key=sena-diag-2026&doc=NUMERO"""
+    if request.args.get('key') != 'sena-diag-2026':
+        return jsonify({"error": "not found"}), 404
+
+    from sqlalchemy import or_ as _or
+    from ..models.user import User as _U, Role as _R
+    from ..models.pending_registration import PendingRegistration as _P
+
+    doc = (request.args.get('doc') or '').strip()
+
+    def snap(u):
+        if not u:
+            return None
+        hp = u.password or ''
+        role = _R.query.get(u.role_id) if u.role_id is not None else None
+        return {
+            "id_repr": repr(u.id),
+            "email_hint": (u.email[:2] + "***@" + u.email.split("@")[-1]) if u.email else None,
+            "is_deleted": u.is_deleted,
+            "is_active": u.is_active,
+            "is_verified": u.is_verified,
+            "is_blocked": u.is_blocked,
+            "failed_attempts": u.failed_attempts,
+            "role_id": u.role_id,
+            "role_exists": role is not None,
+            "role_name": role.name if role else None,
+            "password_present": bool(hp),
+            "password_looks_bcrypt": hp.startswith(('$2a$', '$2b$', '$2y$')) and len(hp) >= 55,
+            "password_len": len(hp),
+        }
+
+    exact    = _U.query.filter(_U.id == doc).first()
+    trimmed  = _U.query.filter(db.func.trim(_U.id) == doc).first()
+    nospace  = _U.query.filter(db.func.replace(_U.id, ' ', '') == doc.replace(' ', '')).first()
+    lowtrim  = _U.query.filter(db.func.lower(db.func.trim(_U.id)) == doc.lower()).first()
+
+    not_deleted = _or(_U.is_deleted == False, _U.is_deleted.is_(None))  # noqa: E712
+    login_lookup = (_U.query.filter(_U.id == doc, not_deleted).first()
+                    or _U.query.filter(db.func.trim(_U.id) == doc, not_deleted).first()
+                    or _U.query.filter(db.func.replace(_U.id, ' ', '') == doc.replace(' ', ''), not_deleted).first())
+
+    pend = (_P.query.filter_by(document_number=doc).first()
+            or _P.query.filter(db.func.trim(_P.document_number) == doc).first())
+
+    return jsonify({
+        "doc_query": repr(doc),
+        "total_users_in_db": _U.query.count(),
+        "total_pending_in_db": _P.query.count(),
+        "login_lookup_finds_user": snap(login_lookup),
+        "users_match": {
+            "exact": snap(exact),
+            "trimmed": snap(trimmed),
+            "nospace": snap(nospace),
+            "lower_trim": snap(lowtrim),
+        },
+        "pending_registration": ({
+            "found": True,
+            "document_repr": repr(pend.document_number),
+            "email_hint": pend.email[:2] + "***@" + pend.email.split("@")[-1],
+            "expires_at": pend.expires_at.isoformat() if pend.expires_at else None,
+            "expired": bool(pend.expires_at and pend.expires_at < datetime.utcnow()),
+            "attempts": pend.attempts,
+        } if pend else {"found": False}),
+    }), 200
+
+
 @auth_bp.route('/pending-registration', methods=['GET'])
 def pending_registration():
     """Datos de un registro pendiente a partir del token del correo.
