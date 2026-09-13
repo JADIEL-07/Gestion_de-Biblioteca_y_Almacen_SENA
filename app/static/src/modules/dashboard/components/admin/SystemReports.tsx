@@ -182,7 +182,7 @@ export const SystemReports: React.FC = () => {
 
       {/* TABLA */}
       <div className="reports-table-wrapper">
-        <table className="reports-table responsive-table">
+        <table className="reports-table">
           <thead>
             <tr>
               <th>ID</th>
@@ -202,40 +202,40 @@ export const SystemReports: React.FC = () => {
               <tr><td colSpan={8} className="td-center">No hay reportes para los filtros seleccionados.</td></tr>
             ) : filteredReports.map(report => (
               <tr key={report.id}>
-                <td data-label="ID"><span className="id-badge">#{report.id}</span></td>
-                <td data-label="Reportado por">
+                <td><span className="id-badge">#{report.id}</span></td>
+                <td>
                   <div className="user-cell">
                     <FiUser className="cell-icon" />
                     <span>{report.reported_by}</span>
                   </div>
                 </td>
-                <td data-label="Soporte (Asignado)">
+                <td>
                   <div className="user-cell support">
                     <FiHeadphones className="cell-icon" />
                     <span>{report.support_person}</span>
                   </div>
                 </td>
-                <td data-label="Descripción / Asunto">
+                <td>
                   <div className="desc-cell">
                     <strong>{report.subject}</strong>
                     <p>{report.description}</p>
                   </div>
                 </td>
-                <td data-label="Gravedad">
+                <td>
                   <span className={`severity-pill ${getSeverityClass(report.severity)}`}>
                     {report.severity}
                   </span>
                 </td>
-                <td className="date-cell" data-label="Fecha Reporte">
+                <td className="date-cell">
                   <FiClock className="small-icon" />
                   {report.created_at ? new Date(report.created_at).toLocaleDateString() : '—'}
                 </td>
-                <td data-label="Estado">
+                <td>
                   <span className={`status-tag ${(report.status || '').toLowerCase()}`}>
                     {report.status || '—'}
                   </span>
                 </td>
-                <td data-label="Adjuntos">
+                <td>
                   {report.photo ? (
                     <img
                       src={report.photo}

@@ -355,7 +355,7 @@ export const UserManagement: React.FC = () => {
 
       {/* 3. TABLA PRINCIPAL */}
       <div className="users-table-wrapper">
-        <table className="users-table responsive-table">
+        <table className="users-table">
           <thead>
             <tr>
               <th>Usuario</th>
@@ -380,7 +380,7 @@ export const UserManagement: React.FC = () => {
               </tr>
             ) : filteredUsers.map(user => (
               <tr key={user.id}>
-                <td data-label="Usuario">
+                <td>
                   <div className="user-profile-cell">
                     <div className="avatar-mini" style={{ overflow: 'hidden' }}>
                       {user.profile_image ? (
@@ -395,10 +395,10 @@ export const UserManagement: React.FC = () => {
                     </div>
                   </div>
                 </td>
-                <td data-label="Rol">
+                <td>
                   <span className={`role-badge ${user.role.toLowerCase()}`}>{user.role}</span>
                 </td>
-                <td data-label="Estado">
+                <td>
                   {user.is_blocked ? (
                     <span className="status-pill blocked">Bloqueado</span>
                   ) : user.is_active ? (
@@ -407,15 +407,15 @@ export const UserManagement: React.FC = () => {
                     <span className="status-pill inactive">Inactivo</span>
                   )}
                 </td>
-                <td className="user-date-cell" data-label="Último Acceso">
+                <td className="user-date-cell">
                   {user.last_login ? new Date(user.last_login).toLocaleString() : 'Nunca'}
                 </td>
-                <td data-label="Intentos Fallidos">
+                <td>
                   <span className={`attempts-badge ${user.failed_attempts > 0 ? 'warning' : ''}`}>
                     {user.failed_attempts}
                   </span>
                 </td>
-                <td data-label="Acciones">
+                <td>
                   <div className="action-buttons">
                     <button className="btn-icon" onClick={() => handleToggleActive(user.id)} title={user.is_active ? "Desactivar" : "Activar"}>
                       <FiPower style={{ color: user.is_active ? '#ef4444' : '#39A900' }} />

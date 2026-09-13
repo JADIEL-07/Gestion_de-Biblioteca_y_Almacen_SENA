@@ -368,15 +368,15 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
               </div>
             </div>
           ) : (
-            <table className="inventory-table responsive-table">
+            <table className="inventory-table">
               <thead><tr><th>ID</th><th>Nombre</th><th>Tipo</th><th style={{ textAlign: 'right' }}>Acciones</th></tr></thead>
               <tbody>
                 {filteredLocs.map(loc => (
                   <tr key={loc.id}>
-                    <td data-label="ID">{loc.id}</td>
-                    <td data-label="Nombre"><strong>{loc.name}</strong></td>
-                    <td data-label="Tipo"><span className="cat-badge equipo">INTERNO</span></td>
-                    <td style={{ textAlign: 'right' }} data-label="Acciones">
+                    <td>{loc.id}</td>
+                    <td><strong>{loc.name}</strong></td>
+                    <td><span className="cat-badge equipo">INTERNO</span></td>
+                    <td style={{ textAlign: 'right' }}>
                       <div className="actions-cell" style={{ justifyContent: 'flex-end' }}>
                         <button className="btn-action-inv" title="Editar" onClick={() => { setEditLoc(loc); setNameInput(loc.name); setShowAddLoc(true); }}><FiEdit2 /></button>
                         <button className="btn-action-inv danger" title="Eliminar" onClick={() => handleDeleteLoc(loc.id)}><FiTrash2 /></button>
@@ -440,14 +440,14 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
               </div>
             </div>
           ) : (
-            <table className="inventory-table responsive-table">
+            <table className="inventory-table">
               <thead><tr><th>ID</th><th>Nombre de Categoría</th><th style={{ textAlign: 'right' }}>Acciones</th></tr></thead>
               <tbody>
                 {filteredCats.map(cat => (
                   <tr key={cat.id}>
-                    <td data-label="ID">{cat.id}</td>
-                    <td data-label="Nombre de Categoría"><strong>{cat.name}</strong></td>
-                    <td style={{ textAlign: 'right' }} data-label="Acciones">
+                    <td>{cat.id}</td>
+                    <td><strong>{cat.name}</strong></td>
+                    <td style={{ textAlign: 'right' }}>
                       <div className="actions-cell" style={{ justifyContent: 'flex-end' }}>
                         <button className="btn-action-inv" title="Editar" onClick={() => { setEditCat(cat); setNameInput(cat.name); setShowAddCat(true); }}><FiEdit2 /></button>
                         <button className="btn-action-inv danger" title="Eliminar" onClick={() => handleDeleteCat(cat.id)}><FiTrash2 /></button>
@@ -515,7 +515,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
 
       {/* TABLE */}
       <div className="inventory-table-container">
-        <table className="inventory-table responsive-table">
+        <table className="inventory-table">
           <thead><tr>
             <th className="col-id">ID</th>
             <th className="col-code">Código</th>
@@ -534,8 +534,8 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
               <tr><td colSpan={9} style={{ textAlign: 'center', padding: '3rem', color: '#ef4444' }}>⚠️ {error}</td></tr>
             ) : items.length === 0 ? null : items.map(item => (
               <tr key={item.id}>
-                <td className="col-id" data-label="ID">{item.id}</td>
-                <td className="col-code" data-label="Código">
+                <td className="col-id">{item.id}</td>
+                <td className="col-code">
                   <div className="item-profile-cell">
                     <img src={item.image_url || IMAGE_PLACEHOLDER} alt={item.name} className="item-thumb" onError={e => { e.currentTarget.src = IMAGE_PLACEHOLDER; }} />
                     <div className="item-main-info">
@@ -544,18 +544,18 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                     </div>
                   </div>
                 </td>
-                <td data-label="Nombre del Elemento">
+                <td>
                   <div className="item-name-cell">
                     <strong>{item.name}</strong>
                     <small className="mobile-only">{item.category_name} | {item.code}</small>
                   </div>
                 </td>
-                <td className="col-cat" data-label="Categoría"><span className={`cat-badge ${getCatClass(item.category_name)}`}>{item.category_name}</span></td>
-                <td className="col-brand" data-label="Marca / Modelo"><div className="item-main-info"><strong>{item.brand || 'Genérico'}</strong><small>{item.model || 'N/A'}</small></div></td>
-                <td className="col-loc" data-label="Ubicación">{item.location_name}</td>
-                <td className="col-stock" data-label="Stock"><strong>{item.stock}</strong></td>
-                <td data-label="Estado"><span className={`status-pill-inv ${getStatusClass(item.status_name)}`}>{translateStatus(item.status_name)}</span></td>
-                <td style={{ textAlign: 'right' }} data-label="Acciones">
+                <td className="col-cat"><span className={`cat-badge ${getCatClass(item.category_name)}`}>{item.category_name}</span></td>
+                <td className="col-brand"><div className="item-main-info"><strong>{item.brand || 'Genérico'}</strong><small>{item.model || 'N/A'}</small></div></td>
+                <td className="col-loc">{item.location_name}</td>
+                <td className="col-stock"><strong>{item.stock}</strong></td>
+                <td><span className={`status-pill-inv ${getStatusClass(item.status_name)}`}>{translateStatus(item.status_name)}</span></td>
+                <td style={{ textAlign: 'right' }}>
                   <div className="actions-cell" style={{ justifyContent: 'flex-end' }}>
                     <div className="dropdown-wrapper" onClick={e => e.stopPropagation()}>
                       <button className="btn-action-inv" title="Más opciones" onClick={() => setMenuOpenId(menuOpenId === item.id ? null : item.id)}><FiMoreVertical /></button>

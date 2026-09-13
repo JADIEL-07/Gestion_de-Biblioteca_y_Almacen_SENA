@@ -179,7 +179,7 @@ export const AuditLogs: React.FC = () => {
 
       {/* TABLA DE AUDITORÍA */}
       <div className="audit-table-wrapper responsive-table">
-        <table className="audit-table responsive-table">
+        <table className="audit-table">
           <thead>
             <tr>
               <th className="col-id">ID</th>
@@ -208,26 +208,26 @@ export const AuditLogs: React.FC = () => {
             ) : (
               filteredLogs.map(log => (
                 <tr key={log.id}>
-                  <td className="col-id" data-label="ID"><span className="id-badge">#{log.id}</span></td>
-                  <td className="col-date" data-label="Fecha / Hora">
+                  <td className="col-id"><span className="id-badge">#{log.id}</span></td>
+                  <td className="col-date">
                     <div className="date-cell">
                       <strong>{new Date(log.created_at).toLocaleDateString()}</strong>
                       <small>{new Date(log.created_at).toLocaleTimeString()}</small>
                     </div>
                   </td>
-                  <td data-label="Usuario / Rol">
+                  <td>
                     <div className="user-info-cell">
                       <span className="u-name">{log.user || 'SISTEMA'}</span>
                       <span className="u-role">{log.user_role || 'SISTEMA'}</span>
                       <span className="u-id-label">ID: {log.user_id || '—'}</span>
                     </div>
                   </td>
-                  <td data-label="Acción">
+                  <td>
                     <span className={`action-pill ${getActionClass(log.action)}`}>
                       {log.action}
                     </span>
                   </td>
-                  <td className="col-entity" data-label="Entidad / Recurso">
+                  <td className="col-entity">
                     <div className="entity-info-cell">
                       {(!log.entity || log.entity === '—') ? (
                         <span className="entity-main-name">Null</span>
@@ -249,10 +249,10 @@ export const AuditLogs: React.FC = () => {
                       )}
                     </div>
                   </td>
-                  <td className="col-ip" data-label="IP Origen">
+                  <td className="col-ip">
                     <div className="ip-badge"><FiGlobe /> {log.ip}</div>
                   </td>
-                  <td style={{ textAlign: 'center' }} data-label="Detalles">
+                  <td style={{ textAlign: 'center' }}>
                     <button className="btn-detail" onClick={() => setSelectedLog(log)} title="Ver Detalle">
                       <FiEye />
                     </button>

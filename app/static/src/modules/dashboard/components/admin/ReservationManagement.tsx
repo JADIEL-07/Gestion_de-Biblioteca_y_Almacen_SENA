@@ -236,7 +236,7 @@ export const ReservationManagement: React.FC = () => {
           <h3>Historial Reciente</h3>
         </div>
         <div className="res-table-wrapper">
-          <table className="res-table responsive-table">
+          <table className="res-table">
             <thead>
               <tr>
                 <th>ID</th>
@@ -252,18 +252,18 @@ export const ReservationManagement: React.FC = () => {
             <tbody>
               {filteredReservations.map(res => (
                 <tr key={res.id}>
-                  <td data-label="ID"><span className="id-badge">#{res.id}</span></td>
-                  <td data-label="Usuario">{res.user_name}</td>
-                  <td data-label="Rol"><span className="role-badge">{res.user_role}</span></td>
-                  <td data-label="Elemento">{res.item_name}</td>
-                  <td className="date-cell" data-label="F. Reserva">{new Date(res.reservation_date).toLocaleDateString()}</td>
-                  <td className="date-cell" data-label="F. Límite">{new Date(res.expiration_date).toLocaleDateString()}</td>
-                  <td data-label="Estado">
+                  <td><span className="id-badge">#{res.id}</span></td>
+                  <td>{res.user_name}</td>
+                  <td><span className="role-badge">{res.user_role}</span></td>
+                  <td>{res.item_name}</td>
+                  <td className="date-cell">{new Date(res.reservation_date).toLocaleDateString()}</td>
+                  <td className="date-cell">{new Date(res.expiration_date).toLocaleDateString()}</td>
+                  <td>
                     <span className={`status-pill ${res.status.toLowerCase()}`}>
                       {res.status}
                     </span>
                   </td>
-                  <td data-label="Procesado por">{res.admin_name}</td>
+                  <td>{res.admin_name}</td>
                 </tr>
               ))}
             </tbody>
