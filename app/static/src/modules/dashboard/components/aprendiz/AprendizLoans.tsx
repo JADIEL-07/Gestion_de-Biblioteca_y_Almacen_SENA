@@ -265,7 +265,7 @@ export const AprendizLoans: React.FC = () => {
         </div>
       ) : (
         <div className="loans-table-wrapper">
-          <table className="loans-table">
+          <table className="loans-table responsive-table">
             <thead>
               <tr>
                 <th>Elemento</th>
@@ -284,7 +284,7 @@ export const AprendizLoans: React.FC = () => {
                 
                 return (
                   <tr key={`${fi.loan_id}-${fi.item.id}-${index}`}>
-                    <td className="item-col">
+                    <td className="item-col" data-label="Elemento">
                       <div className="item-cell-content">
                         <div className="item-mini-img">
                           {fi.item.image_url ? (
@@ -299,26 +299,26 @@ export const AprendizLoans: React.FC = () => {
                         </div>
                       </div>
                     </td>
-                    <td>{fi.item.code}</td>
-                    <td>
+                    <td data-label="Código">{fi.item.code}</td>
+                    <td data-label="Fecha préstamo">
                       <div className="date-cell">
                         <span className="date-str">{lDate.dateStr}</span>
                         <span className="time-str">{lDate.timeStr}</span>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Fecha límite">
                       <div className="date-cell">
                         <span className="date-str">{dDate.dateStr}</span>
                         <span className="time-str">{dDate.timeStr}</span>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Estado">
                       <div className="status-cell">
                         <span className={`status-text ${conf.type}`}>{conf.text}</span>
                         <span className="status-sub">{conf.sub}</span>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Acciones">
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         <button className="btn-outline">Ver detalle</button>
                         {(fi.status === 'ACTIVE' || fi.status === 'OVERDUE') && (

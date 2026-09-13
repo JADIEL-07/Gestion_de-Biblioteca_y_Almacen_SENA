@@ -225,7 +225,7 @@ export const AprendizHistory: React.FC = () => {
         </div>
       ) : (
         <div className="history-table-wrapper">
-          <table className="history-table">
+          <table className="history-table responsive-table">
             <thead>
               <tr>
                 <th>Elemento</th>
@@ -241,7 +241,7 @@ export const AprendizHistory: React.FC = () => {
                 
                 return (
                   <tr key={`${r.kind}-${r.parentId}-${r.item.id}-${i}`}>
-                    <td className="item-col">
+                    <td className="item-col" data-label="Elemento">
                       <div className="item-cell-content">
                         <div className="item-mini-img">
                           {r.item.image_url ? (
@@ -256,21 +256,21 @@ export const AprendizHistory: React.FC = () => {
                         </div>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Tipo">
                       <span className={`kind-text ${r.kind.toLowerCase()}`}>
                         {r.kind === 'LOAN' ? 'Préstamo' : 'Reserva'}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Fecha">
                       <div className="date-cell">
                         <span className="date-str">{dateObj.dateStr}</span>
                         <span className="time-str">{dateObj.timeStr}</span>
                       </div>
                     </td>
-                    <td>
+                    <td data-label="Estado">
                       <span className={`status-text ${r.statusClass}`}>{r.statusText}</span>
                     </td>
-                    <td>
+                    <td data-label="Detalle">
                       <div className="detail-cell">
                         <span className="detail-main">{r.detailText}</span>
                         <span className="detail-sub">{r.detailSub}</span>

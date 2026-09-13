@@ -223,7 +223,7 @@ export const OutputManagement: React.FC = () => {
       </div>
 
       <div className="output-table-container">
-        <table className="output-table">
+        <table className="output-table responsive-table">
           <thead>
             <tr>
               <th>Elemento</th>
@@ -242,30 +242,30 @@ export const OutputManagement: React.FC = () => {
               <tr><td colSpan={7} style={{ textAlign: 'center', padding: '4rem' }}>No se encontraron registros de salida.</td></tr>
             ) : outputs.map(output => (
               <tr key={output.id}>
-                <td>
+                <td data-label="Elemento">
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <strong style={{ color: '#39a900' }}>{output.item_name}</strong>
                     <small style={{ color: '#64748b' }}>{output.item_code}</small>
                   </div>
                 </td>
-                <td>
+                <td data-label="Tipo">
                   <span className={`type-badge type-${output.type.toLowerCase()}`}>
                     {getTypeLabel(output.type)}
                   </span>
                 </td>
-                <td>
+                <td data-label="Destino / Motivo">
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                     <span>{output.destination || '—'}</span>
                     <small style={{ color: '#64748b' }}>{output.reason_code}</small>
                   </div>
                 </td>
-                <td>
+                <td data-label="Responsable">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <FiUser size={14} />
                     <span>{output.user_name}</span>
                   </div>
                 </td>
-                <td>
+                <td data-label="Fechas">
                   <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.8rem' }}>
                     <span>Salida: {new Date(output.created_at).toLocaleDateString()}</span>
                     {output.estimated_return_date && (
@@ -279,12 +279,12 @@ export const OutputManagement: React.FC = () => {
                     )}
                   </div>
                 </td>
-                <td>
+                <td data-label="Estado">
                   <span className={`status-pill status-${output.status.toLowerCase()}`}>
                     {getStatusLabel(output.status)}
                   </span>
                 </td>
-                <td>
+                <td data-label="Acciones">
                   <div className="actions-cell">
                     {output.status === 'ACTIVE' && output.type !== 'DISPOSAL' && (
                       <button 

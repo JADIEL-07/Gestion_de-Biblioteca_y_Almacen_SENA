@@ -172,7 +172,7 @@ export const LoanManagement: React.FC = () => {
       </div>
 
       <div className="loan-table-wrapper">
-        <table className="loan-table">
+        <table className="loan-table responsive-table">
           <thead>
             <tr>
               <th>ID</th>
@@ -201,8 +201,8 @@ export const LoanManagement: React.FC = () => {
             ) : (
               filteredLoans.map(loan => (
                 <tr key={loan.id}>
-                  <td><span className="id-badge">#{loan.id}</span></td>
-                  <td>
+                  <td data-label="ID"><span className="id-badge">#{loan.id}</span></td>
+                  <td data-label="Responsable">
                     <div className="user-cell">
                       <FiUser className="cell-icon" />
                       <div className="cell-text-stack">
@@ -211,7 +211,7 @@ export const LoanManagement: React.FC = () => {
                       </div>
                     </div>
                   </td>
-                  <td>
+                  <td data-label="Aprendiz (Recibe)">
                     <div className="user-cell">
                       <FiUser className="cell-icon" />
                       <div className="cell-text-stack">
@@ -220,7 +220,7 @@ export const LoanManagement: React.FC = () => {
                       </div>
                     </div>
                   </td>
-                  <td>
+                  <td data-label="Elemento / Categoría">
                     {loan.items.map(item => (
                       <div key={item.id} className="item-cell-content">
                         <FiPackage className="cell-icon" />
@@ -234,19 +234,19 @@ export const LoanManagement: React.FC = () => {
                       </div>
                     ))}
                   </td>
-                  <td className="date-text">{new Date(loan.loan_date).toLocaleDateString()}<br/>{new Date(loan.loan_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                  <td className="date-text">
+                  <td className="date-text" data-label="F. Préstamo">{new Date(loan.loan_date).toLocaleDateString()}<br/>{new Date(loan.loan_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                  <td className="date-text" data-label="Entrega Real">
                     {loan.return_date ? (
                       <>{new Date(loan.return_date).toLocaleDateString()}<br/>{new Date(loan.return_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</>
                     ) : <span style={{opacity: 0.4}}>Pendiente</span>}
                   </td>
-                  <td>7 días</td>
-                  <td>
+                  <td data-label="Plazo">7 días</td>
+                  <td data-label="Estado">
                     <span className={`status-pill ${loan.status.toLowerCase()}`}>
                       {loan.status === 'ACTIVE' ? 'ACTIVO' : loan.status === 'RETURNED' ? 'DEVUELTO' : 'VENCIDO'}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Multa">
                     <span className={`fine-badge ${loan.fine_amount > 0 ? 'has-fine' : ''}`}>
                       {loan.fine_amount > 0 ? `$${loan.fine_amount.toLocaleString()}` : 'No aplica'}
                     </span>

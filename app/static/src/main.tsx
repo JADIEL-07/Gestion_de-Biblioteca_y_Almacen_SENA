@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
+import './shared/responsive-table.css'
 import App from './App.tsx'
 import { AccessibilityWidget } from './components/ui/AccessibilityWidget'
 

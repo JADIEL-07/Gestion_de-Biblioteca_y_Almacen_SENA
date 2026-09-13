@@ -358,7 +358,7 @@ export const MaintenanceManagement: React.FC = () => {
       <div className="at-section" style={{ marginTop: '2.5rem', background: 'var(--admin-bg-card, #0f172a)', padding: '1.5rem', borderRadius: '16px', border: '1px solid var(--admin-border-color, rgba(255,255,255,0.08))' }}>
         <h3 className="at-card-title" style={{ marginBottom: '1.5rem' }}>Historial de Mantenimientos Completados</h3>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+          <table className="responsive-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--admin-border-color, rgba(255,255,255,0.08))', color: 'var(--admin-text-muted, #94a3b8)' }}>
                 <th style={{ padding: '0.75rem 1rem' }}>ID</th>
@@ -374,23 +374,23 @@ export const MaintenanceManagement: React.FC = () => {
                 <tr><td colSpan={6} style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--admin-text-muted)' }}>No hay mantenimientos en el historial.</td></tr>
               ) : allCases.filter(c => c.status === 'COMPLETED' || c.status === 'CANCELLED').map(mCase => (
                 <tr key={mCase.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'var(--admin-text-primary)' }}>
-                  <td style={{ padding: '1rem' }}><span style={{ background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 'bold' }}>#{mCase.id}</span></td>
-                  <td style={{ padding: '1rem' }}>
+                  <td style={{ padding: '1rem' }} data-label="ID"><span style={{ background: 'rgba(255,255,255,0.1)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 'bold' }}>#{mCase.id}</span></td>
+                  <td style={{ padding: '1rem' }} data-label="Equipo">
                     <strong>{mCase.item_name}</strong>
                     <div style={{ color: 'var(--admin-text-muted)', fontSize: '0.75rem', marginTop: '0.25rem' }}>Cód: {mCase.item_code}</div>
                   </td>
-                  <td style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <td style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }} data-label="Soporte (Técnico)">
                     <FiUser /> {mCase.technician_name || 'N/A'}
                   </td>
-                  <td style={{ padding: '1rem' }}>
+                  <td style={{ padding: '1rem' }} data-label="Estado y Solución">
                     <span style={{ color: mCase.status === 'COMPLETED' ? '#22c55e' : '#ef4444', fontWeight: 'bold' }}>
                       {mCase.status === 'COMPLETED' ? 'Completado' : 'Cancelado'}
                     </span>
                   </td>
-                  <td style={{ padding: '1rem' }}>
+                  <td style={{ padding: '1rem' }} data-label="Fecha Reporte">
                     {new Date(mCase.report_date).toLocaleDateString()}
                   </td>
-                  <td style={{ padding: '1rem' }}>
+                  <td style={{ padding: '1rem' }} data-label="Adjunto">
                     {mCase.evidence_photo ? (
                       <img 
                         src={mCase.evidence_photo} 
