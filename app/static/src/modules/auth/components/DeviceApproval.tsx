@@ -130,7 +130,7 @@ export const DeviceApproval: React.FC = () => {
         <div className="clean-form">
           <div className="sena-logo">
             <img
-              src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg"
+              src="/assets/images/icono-sena.png"
               alt="Logo SENA"
               className="sena-logo-img"
             />

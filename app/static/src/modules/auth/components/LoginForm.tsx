@@ -485,7 +485,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         <div className="login-form-centered">
           <div className="clean-form">
             <div className="sena-logo">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Logo SENA" className="sena-logo-img" />
+              <img src="/assets/images/icono-sena.png" alt="Logo SENA" className="sena-logo-img" />
             </div>
             <div className="form-header">
               <h3 className="login-title">Cargando tu registro…</h3>
@@ -507,7 +507,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         <div className="login-form-centered">
           <div className="clean-form">
             <div className="sena-logo">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Logo SENA" className="sena-logo-img" />
+              <img src="/assets/images/icono-sena.png" alt="Logo SENA" className="sena-logo-img" />
             </div>
             <div className="form-header">
               <h3 className="login-title">Autoriza este dispositivo</h3>
@@ -552,7 +552,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         <div className="login-form-centered">
           <div className="clean-form">
             <div className="sena-logo">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Logo SENA" className="sena-logo-img" />
+              <img src="/assets/images/icono-sena.png" alt="Logo SENA" className="sena-logo-img" />
             </div>
             <div className="form-header">
               <h3 className="login-title">Verifica tu correo</h3>
@@ -615,7 +615,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         <div className="login-form-centered">
           <div className="clean-form">
             <div className="sena-logo">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Logo SENA" className="sena-logo-img" />
+              <img src="/assets/images/icono-sena.png" alt="Logo SENA" className="sena-logo-img" />
             </div>
             <div className="form-header">
               <h3 className="login-title">Configura tu Autenticador</h3>
@@ -653,7 +653,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
         <div className="login-form-centered">
           <div className="clean-form">
             <div className="sena-logo">
-              <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="Logo SENA" className="sena-logo-img" />
+              <img src="/assets/images/icono-sena.png" alt="Logo SENA" className="sena-logo-img" />
             </div>
             <div className="form-header">
               <h3 className="login-title">Verificación 2FA</h3>
