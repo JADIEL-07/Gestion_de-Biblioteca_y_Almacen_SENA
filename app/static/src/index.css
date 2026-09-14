@@ -568,8 +568,272 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   transform: scale(1.1);
 }
 
+/* ==========================================================================
+   SECCIÓN CONTACTO / INSTITUCIONAL
+   ========================================================================== */
+html {
+  scroll-behavior: smooth;
+}
 
+.contact-section {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  padding: 2rem 2rem 5rem;
+  scroll-margin-top: 5.5rem; /* Compensa el nav fijo al llegar por el ancla #contact */
+}
 
+.contact-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+}
+
+.contact-heading {
+  text-align: center;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.contact-eyebrow {
+  display: inline-block;
+  color: var(--sena-green);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.contact-heading h2 {
+  font-family: 'Montserrat', sans-serif;
+  font-size: clamp(1.4rem, 4vw, 2rem);
+  font-weight: 800;
+  color: var(--text-main);
+  margin-bottom: 0.75rem;
+}
+
+.contact-heading p {
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.contact-subheading {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-main);
+  text-align: center;
+  margin-bottom: -1.5rem;
+}
+
+/* ── Tarjeta base reutilizable de esta sección (mismo lenguaje visual que
+   .service-card-mini, pero de alineación izquierda para texto largo) ── */
+.info-card {
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 24px;
+  padding: 2rem;
+  text-align: left;
+}
+
+.theme-light .info-card {
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(57, 169, 0, 0.2) !important;
+}
+
+.info-card h3, .info-card h4 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.9rem;
+}
+
+.info-card h3 { font-size: 1.15rem; }
+.info-card h4 { font-size: 1.05rem; }
+
+.info-card p {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.contact-heading-icon {
+  color: var(--sena-green);
+  flex-shrink: 0;
+}
+
+.contact-about-card p {
+  margin: 0;
+}
+
+/* Misión / Visión */
+.mv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.mv-card {
+  text-align: center;
+}
+
+.mv-card .service-icon-wrapper-mini {
+  margin: 0 auto 1.1rem;
+}
+
+.mv-card h4 {
+  justify-content: center;
+}
+
+/* Servicios reales del sistema */
+.contact-services-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.contact-service-card {
+  text-align: center;
+}
+
+.contact-service-card .service-icon-wrapper-mini {
+  margin: 0 auto 1.1rem;
+  width: 54px;
+  height: 54px;
+  font-size: 1.4rem;
+}
+
+.contact-service-card h4 {
+  justify-content: center;
+  font-size: 0.98rem;
+}
+
+.contact-service-card p {
+  font-size: 0.85rem;
+}
+
+/* Información de contacto */
+.contact-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1.5rem;
+}
+
+.contact-info-card {
+  text-align: center;
+}
+
+.contact-info-card .service-icon-wrapper-mini {
+  margin: 0 auto 1.1rem;
+  width: 54px;
+  height: 54px;
+  font-size: 1.4rem;
+}
+
+.contact-info-card h4 {
+  justify-content: center;
+}
+
+.contact-info-card p {
+  margin-bottom: 0.2rem;
+}
+
+.contact-info-link {
+  display: inline-block;
+  margin-top: 0.4rem;
+  color: var(--sena-green);
+  font-weight: 700;
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: transform 0.3s ease, color 0.3s ease;
+}
+
+.contact-info-link:hover {
+  color: var(--sena-green-hover);
+  transform: scale(1.05);
+}
+
+/* Ubicación interna de la sede */
+.contact-location-card ul {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.contact-location-card li {
+  color: var(--text-muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+  padding-left: 1.1rem;
+  position: relative;
+}
+
+.contact-location-card li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55rem;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--sena-green);
+}
+
+.contact-location-card strong {
+  color: var(--text-main);
+}
+
+/* Banner de ayuda — secundario, conecta con el Asistente/Soporte existente */
+.help-banner {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: rgba(57, 169, 0, 0.08);
+  border: 1px solid rgba(57, 169, 0, 0.25);
+  border-radius: 24px;
+  padding: 1.75rem 2rem;
+  flex-wrap: wrap;
+}
+
+.help-banner-icon {
+  font-size: 2rem;
+  color: var(--sena-green);
+  flex-shrink: 0;
+}
+
+.help-banner-text {
+  flex: 1;
+  min-width: 200px;
+}
+
+.help-banner-text h4 {
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-main);
+  margin-bottom: 0.25rem;
+}
+
+.help-banner-text p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.help-banner-btn {
+  white-space: nowrap;
+}
 
 /* ==========================================================================
    FOOTER INSTITUCIONAL
@@ -955,6 +1219,13 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   .divider-sm { display: none; }
   .schedule-row { flex-direction: column; gap: 0.25rem; }
   .divider-ghost { display: none; }
+
+  .contact-section { padding: 1.5rem 1.25rem 3.5rem; }
+  .contact-inner { gap: 2.25rem; }
+  .info-card { padding: 1.5rem; border-radius: 20px; }
+  .contact-subheading { margin-bottom: -0.75rem; }
+  .help-banner { flex-direction: column; text-align: center; padding: 1.5rem; }
+  .help-banner-btn { width: 100%; }
 }
 
 @media (max-width: 480px) {
