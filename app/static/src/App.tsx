@@ -295,9 +295,9 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
 
           <div className="mv-grid">
             <RevealOnScroll delay={120}>
-              <div className="info-card card mv-card">
+              <div className="service-card-mini">
                 <div className="service-icon-wrapper-mini"><FiTarget /></div>
-                <h4>Misión</h4>
+                <h3>Misión</h3>
                 <p>
                   Facilitar el acceso oportuno y organizado al conocimiento y a los recursos físicos del
                   centro de formación, apoyando la labor de aprendices e instructores mediante un control
@@ -306,9 +306,9 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
               </div>
             </RevealOnScroll>
             <RevealOnScroll delay={160}>
-              <div className="info-card card mv-card">
+              <div className="service-card-mini">
                 <div className="service-icon-wrapper-mini"><FiCompass /></div>
-                <h4>Visión</h4>
+                <h3>Visión</h3>
                 <p>
                   Ser un espacio de aprendizaje moderno, accesible y respaldado por tecnología, donde
                   consultar, reservar y hacer seguimiento a los recursos institucionales sea simple,
@@ -324,9 +324,9 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
           <div className="contact-services-grid">
             {CONTACT_SERVICES.map((service, index) => (
               <RevealOnScroll key={service.title} delay={200 + index * 60}>
-                <div className="info-card card contact-service-card">
+                <div className="service-card-mini">
                   <div className="service-icon-wrapper-mini">{service.icon}</div>
-                  <h4>{service.title}</h4>
+                  <h3>{service.title}</h3>
                   <p>{service.description}</p>
                 </div>
               </RevealOnScroll>
@@ -338,9 +338,9 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
           </RevealOnScroll>
           <div className="contact-info-grid">
             <RevealOnScroll delay={200}>
-              <div className="info-card card contact-info-card">
+              <div className="service-card-mini">
                 <div className="service-icon-wrapper-mini"><FiMapPin /></div>
-                <h4>Sede</h4>
+                <h3>Sede</h3>
                 <p>SENA — Sede Vélez, Santander</p>
                 <a
                   href="https://maps.app.goo.gl/1A9ELVhK6hsYwj2TA"
@@ -353,25 +353,25 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
               </div>
             </RevealOnScroll>
             <RevealOnScroll delay={240}>
-              <div className="info-card card contact-info-card">
+              <div className="service-card-mini">
                 <div className="service-icon-wrapper-mini"><FiPhone /></div>
-                <h4>Teléfono</h4>
+                <h3>Teléfono</h3>
                 <p>Línea de atención al ciudadano</p>
                 <a href="tel:018000910270" className="contact-info-link">018000910270</a>
               </div>
             </RevealOnScroll>
             <RevealOnScroll delay={280}>
-              <div className="info-card card contact-info-card">
+              <div className="service-card-mini">
                 <div className="service-icon-wrapper-mini"><FiClock /></div>
-                <h4>Horario</h4>
+                <h3>Horario</h3>
                 <p>Lunes a Viernes: 6:00 AM – 10:00 PM</p>
                 <p>Sábados, domingos y festivos: Cerrado</p>
               </div>
             </RevealOnScroll>
             <RevealOnScroll delay={320}>
-              <div className="info-card card contact-info-card">
+              <div className="service-card-mini">
                 <div className="service-icon-wrapper-mini"><FiMail /></div>
-                <h4>Correo</h4>
+                <h3>Correo</h3>
                 <a href="mailto:gestion.sena.b@gmail.com" className="contact-info-link">
                   gestion.sena.b@gmail.com
                 </a>

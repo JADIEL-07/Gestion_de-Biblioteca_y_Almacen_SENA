@@ -677,81 +677,34 @@ html {
   margin: 0;
 }
 
-/* Misión / Visión */
+/* Misión / Visión, Nuestros servicios e Información de contacto reutilizan
+   tal cual .service-card-mini + .service-icon-wrapper-mini (las mismas
+   tarjetas del hero) — solo se define aquí la grilla contenedora. */
 .mv-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 1.5rem;
 }
 
-.mv-card {
-  text-align: center;
-}
-
-.mv-card .service-icon-wrapper-mini {
-  margin: 0 auto 1.1rem;
-}
-
-.mv-card h4 {
-  justify-content: center;
-}
-
-/* Servicios reales del sistema */
 .contact-services-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1.5rem;
 }
 
-.contact-service-card {
-  text-align: center;
-}
-
-.contact-service-card .service-icon-wrapper-mini {
-  margin: 0 auto 1.1rem;
-  width: 54px;
-  height: 54px;
-  font-size: 1.4rem;
-}
-
-.contact-service-card h4 {
-  justify-content: center;
-  font-size: 0.98rem;
-}
-
-.contact-service-card p {
-  font-size: 0.85rem;
-}
-
-/* Información de contacto */
 .contact-info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1.5rem;
 }
 
-.contact-info-card {
-  text-align: center;
-}
-
-.contact-info-card .service-icon-wrapper-mini {
-  margin: 0 auto 1.1rem;
-  width: 54px;
-  height: 54px;
-  font-size: 1.4rem;
-}
-
-.contact-info-card h4 {
-  justify-content: center;
-}
-
-.contact-info-card p {
-  margin-bottom: 0.2rem;
+.contact-info-grid .service-card-mini p + p {
+  margin-top: 0.3rem;
 }
 
 .contact-info-link {
   display: inline-block;
-  margin-top: 0.4rem;
+  margin-top: 0.6rem;
   color: var(--sena-green);
   font-weight: 700;
   font-size: 0.9rem;
