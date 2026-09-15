@@ -1064,8 +1064,19 @@ INSTRUCCIONES DE RESPUESTA:
     # Si llegamos aquí es porque no había respuesta aprendida o necesitaba datos frescos
     # y Gemini también falló. Solo nos queda el rule-based básico.
 
+    # CATEGORÍA 0: Navegar a una sección conocida (ACCIÓN — sin Gemini)
+    # Va PRIMERO en la cadena a propósito: el destino puede mencionar
+    # cualquier palabra de dominio ("préstamos", "reservas", "sesiones"...)
+    # que de otro modo activaría una categoría genérica más abajo antes de
+    # llegar aquí. Solo dispara con frases explícitas de "llévame/navega/ir
+    # a ..."; _resolve_nav ya sabe responder "no encontré esa sección" si no
+    # reconoce nada razonable, así que no hay riesgo de un enlace inventado.
+    if user and re.search(r'(ll[eé]vame a|navega(r)? a|ir a|[aá]breme)\b', q):
+        destino = re.sub(r'.*?(ll[eé]vame a|navega(r)? a|ir a|[aá]breme)\b', '', q, count=1).strip(' ?!.')
+        return jsonify(_dispatch_assistant_tool('navegar_a', {'destino': destino}, user, user_role))
+
     # CATEGORÍA 1: Saludos, Presentación y Ayuda General
-    if any(k in q for k in ['hola', 'saludos', 'buenos dias', 'buenas tardes', 'buen dia', 'buena tarde', 'que tal', 'como estas', 'quien eres', 'quién eres', 'ayuda', 'asistente', 'sena bot']):
+    elif any(k in q for k in ['hola', 'saludos', 'buenos dias', 'buenas tardes', 'buen dia', 'buena tarde', 'que tal', 'como estas', 'quien eres', 'quién eres', 'ayuda', 'asistente', 'sena bot']):
         fallback_text = f"Puedo ayudarte con reservas, préstamos, horarios, ubicaciones y configuración de la plataforma. ¿Con qué necesitas ayuda?"
 
     # CATEGORÍA 2: Préstamos y deudas (RAG en tiempo real)
@@ -1079,6 +1090,31 @@ INSTRUCCIONES DE RESPUESTA:
             for item in active_loans_list:
                 status_emoji = "⚠️" if item['status'] == 'OVERDUE' else "📦"
                 fallback_text += f"{status_emoji} **{item['name']}** | Entregar antes del **{item['due_date']}**\n"
+
+    # CATEGORÍA 2B: Sesiones activas / dispositivos conectados (ACCIÓN — sin Gemini)
+    # Estas no necesitan "adivinar" ningún parámetro libre (no hay nombre de
+    # elemento que identificar), así que es seguro ejecutarlas también desde
+    # el sistema de reglas, sin depender de que Gemini esté disponible.
+    elif user and any(k in q for k in ['sesion activa', 'sesión activa', 'sesiones activas',
+                                        'mis sesiones', 'mis dispositivos', 'dispositivos conectados',
+                                        'dispositivo conectado', 'donde tengo sesion', 'dónde tengo sesión']):
+        return jsonify(_dispatch_assistant_tool('listar_sesiones_activas', {}, user, user_role))
+
+    # CATEGORÍA 2C: Cerrar sesión / dispositivo (ACCIÓN — sin Gemini, con confirmación)
+    elif user and any(k in q for k in ['cerrar sesion', 'cerrar sesión', 'cierra sesion', 'cierra la sesion',
+                                        'cierra la sesión', 'cierra mi sesion', 'cierra mi sesión',
+                                        'cerrar mi sesion', 'cerrar mi sesión', 'cerrar dispositivo',
+                                        'cerrar todas mis sesiones', 'salir de todos los dispositivos']):
+        objetivo = 'todas' if any(k in q for k in ['todas', 'todos', 'todo']) else 'actual'
+        return jsonify(_dispatch_assistant_tool('cerrar_sesion_dispositivo', {'objetivo': objetivo}, user, user_role))
+
+    # CATEGORÍA 3B: Mis reservas — datos reales (ACCIÓN — sin Gemini)
+    # Distinto de la CATEGORÍA 3 (guía genérica de "cómo reservo"): aquí el
+    # usuario pregunta explícitamente por SUS reservas, así que respondemos
+    # con datos reales en vez de instrucciones.
+    elif user and any(k in q for k in ['mis reservas', 'mi reserva', 'tengo reservas', 'tengo una reserva',
+                                        'reservas activas', 'estado de mi reserva', 'estado de mis reservas']):
+        return jsonify(_dispatch_assistant_tool('listar_mis_reservas', {}, user, user_role))
 
     # CATEGORÍA 3: Reservas y apartados (Límite de 15 min)
     elif any(k in q for k in ['reserva', 'reservar', 'apartar', 'separar', 'agendar', 'guardar', 'rentar']):
