@@ -4,13 +4,19 @@ import re
 import requests
 import string
 import time
-from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from datetime import datetime
+from flask import Blueprint, request, jsonify, current_app
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from ..models.item import Item
 from ..models.loan import Loan
 from ..models.user import User
+from ..models.reservation import Reservation
+from ..models.token import RefreshToken
+from ..models.trusted_device import TrustedDevice
 from ..models.ai_knowledge import AILearnedResponse
 from ..models.assistant_thread import AssistantThread
+from ..services.reservation_queue import enqueue_reservation, on_item_available
 from .. import db
 
 assistant_bp = Blueprint('assistant', __name__)
@@ -18,6 +24,333 @@ assistant_bp = Blueprint('assistant', __name__)
 # Roles que pueden escalar conversaciones al equipo de Soporte desde el asistente.
 # INVITADO no aparece aquí porque no tiene sesión: el frontend le pide iniciar sesión primero.
 ESCALATABLE_ROLES = {'APRENDIZ', 'USUARIO', 'ALMACENISTA', 'BIBLIOTECARIO'}
+
+
+# ─── Acciones automatizadas del asistente (function calling) ─────────────────
+# El asistente puede EJECUTAR cosas por el usuario (reservar, cancelar, cerrar
+# sesiones, navegar), pero las acciones que cambian datos (reservar, cancelar,
+# cerrar sesión) nunca se ejecutan directo desde el texto del modelo: se
+# preparan como "acción pendiente" firmada (itsdangerous) y solo se ejecutan
+# si el usuario la confirma explícitamente en el chat (ver /confirm-action).
+# El token firmado lleva el user_id, así que solo el dueño de la conversación
+# puede confirmarla — igual que cualquier otro endpoint protegido por JWT.
+ACTION_TOKEN_SALT = 'assistant-pending-action'
+ACTION_MAX_AGE = 10 * 60  # 10 minutos
+
+
+def _action_serializer() -> URLSafeTimedSerializer:
+    return URLSafeTimedSerializer(current_app.config['SECRET_KEY'], salt=ACTION_TOKEN_SALT)
+
+
+def _build_assistant_tools():
+    """Declaración de funciones (Gemini function calling). Los nombres y
+    descripciones están en español porque así son las conversaciones reales;
+    el modelo las usa igual de bien en cualquier idioma."""
+    return [{
+        "functionDeclarations": [
+            {
+                "name": "listar_sesiones_activas",
+                "description": (
+                    "Devuelve la lista de sesiones activas (dispositivos con sesión iniciada) "
+                    "del usuario. Úsala cuando pida ver sus sesiones, dispositivos conectados, "
+                    "o desde dónde tiene la cuenta abierta."
+                ),
+                "parameters": {"type": "OBJECT", "properties": {}},
+            },
+            {
+                "name": "listar_mis_prestamos",
+                "description": "Devuelve los préstamos activos del usuario (elementos que tiene prestados ahora mismo).",
+                "parameters": {"type": "OBJECT", "properties": {}},
+            },
+            {
+                "name": "listar_mis_reservas",
+                "description": "Devuelve las reservas activas del usuario (en cola o listas para reclamar).",
+                "parameters": {"type": "OBJECT", "properties": {}},
+            },
+            {
+                "name": "navegar_a",
+                "description": (
+                    "Genera un enlace directo para llevar al usuario a una sección de la "
+                    "plataforma (configuración, sesiones, reservas, préstamos, catálogo, "
+                    "usuarios, inventario, reportes, etc.). Úsala siempre que el usuario pida "
+                    "ir, abrir o navegar a alguna parte, en vez de solo explicarle los clics."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "destino": {"type": "STRING", "description": "A qué sección quiere ir el usuario, en sus propias palabras."},
+                    },
+                    "required": ["destino"],
+                },
+            },
+            {
+                "name": "reservar_elemento",
+                "description": (
+                    "Prepara la reserva de un libro, herramienta o equipo del catálogo para el "
+                    "usuario. NO la ejecuta de inmediato: el sistema le pedirá confirmación "
+                    "antes de crearla de verdad."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "elemento": {"type": "STRING", "description": "Nombre o código del elemento que quiere reservar."},
+                    },
+                    "required": ["elemento"],
+                },
+            },
+            {
+                "name": "cancelar_mi_reserva",
+                "description": (
+                    "Prepara la cancelación de una reserva activa del usuario. NO la ejecuta de "
+                    "inmediato: el sistema le pedirá confirmación antes de cancelarla de verdad."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "elemento": {"type": "STRING", "description": "Nombre del elemento reservado que quiere cancelar."},
+                    },
+                    "required": ["elemento"],
+                },
+            },
+            {
+                "name": "cerrar_sesion_dispositivo",
+                "description": (
+                    "Prepara el cierre de una sesión/dispositivo. Usa 'actual' para el "
+                    "dispositivo desde el que está escribiendo ahora mismo, 'todas' para cerrar "
+                    "todas las sesiones, o una descripción del dispositivo (ej. 'el de Windows'). "
+                    "NO la ejecuta de inmediato: el sistema pedirá confirmación."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "objetivo": {"type": "STRING", "description": "'actual', 'todas', o una descripción del dispositivo a cerrar."},
+                    },
+                    "required": ["objetivo"],
+                },
+            },
+        ],
+    }]
+
+
+# Mapa de navegación por rol: base de ruta + {slug: (etiqueta, [palabras clave])}.
+# Los slugs son exactamente los que cada dashboard ya reconoce en su router
+# interno (activeSection), así que "navegar" es solo construir base+slug.
+ROLE_NAV_SECTIONS = {
+    'ADMIN': ('/admin', {
+        'dashboard': ('Panel principal', ['inicio', 'panel', 'dashboard', 'resumen', 'home']),
+        'config': ('Configuración de seguridad', ['configuracion', 'configuración', 'perfil', 'cuenta', 'seguridad', 'sesion', 'sesión', 'sesiones', 'dispositivo', 'dispositivos', 'contraseña', 'clave']),
+        'users': ('Gestión de usuarios', ['usuario', 'usuarios']),
+        'audit': ('Auditoría', ['auditoria', 'auditoría']),
+        'loans': ('Préstamos', ['prestamo', 'préstamo', 'prestamos', 'préstamos']),
+        'reservations': ('Reservas', ['reserva', 'reservas']),
+        'maintenance': ('Mantenimiento', ['mantenimiento']),
+        'reports': ('Reportes', ['reporte', 'reportes', 'estadistica', 'estadística']),
+        'inventory': ('Inventario', ['inventario', 'catalogo', 'catálogo', 'elementos']),
+        'exits': ('Salidas', ['salida', 'salidas']),
+        'help': ('Asistente', ['asistente', 'ayuda', 'chat']),
+        'solicitudes': ('Solicitudes', ['solicitud', 'solicitudes', 'ticket', 'tickets']),
+        'notifications': ('Notificaciones', ['notificacion', 'notificación', 'notificaciones']),
+    }),
+    'BIBLIOTECARIO': ('/bibliotecario', {
+        'home': ('Inicio', ['inicio', 'panel', 'dashboard', 'resumen', 'home']),
+        'inventory': ('Libros', ['inventario', 'libro', 'libros', 'catalogo', 'catálogo']),
+        'inventory-locations': ('Ubicaciones', ['ubicacion', 'ubicación', 'ubicaciones']),
+        'inventory-categories': ('Categorías', ['categoria', 'categoría', 'categorias']),
+        'loans': ('Préstamos', ['prestamo', 'préstamo', 'prestamos', 'préstamos']),
+        'config': ('Configuración de seguridad', ['configuracion', 'configuración', 'perfil', 'cuenta', 'seguridad', 'sesion', 'sesión', 'sesiones', 'dispositivo', 'dispositivos']),
+        'help': ('Asistente', ['asistente', 'ayuda', 'chat']),
+        'solicitudes': ('Solicitudes', ['solicitud', 'solicitudes', 'chat interno']),
+        'notifications': ('Notificaciones', ['notificacion', 'notificación', 'notificaciones']),
+    }),
+    'ALMACENISTA': ('/almacenista', {
+        'home': ('Inicio', ['inicio', 'panel', 'dashboard', 'resumen', 'home']),
+        'inventory': ('Almacén', ['inventario', 'almacen', 'almacén', 'herramienta', 'herramientas', 'equipo', 'equipos', 'catalogo', 'catálogo']),
+        'inventory-locations': ('Ubicaciones', ['ubicacion', 'ubicación', 'ubicaciones']),
+        'inventory-categories': ('Categorías', ['categoria', 'categoría', 'categorias']),
+        'loans': ('Préstamos', ['prestamo', 'préstamo', 'prestamos', 'préstamos']),
+        'config': ('Configuración de seguridad', ['configuracion', 'configuración', 'perfil', 'cuenta', 'seguridad', 'sesion', 'sesión', 'sesiones', 'dispositivo', 'dispositivos']),
+        'help': ('Asistente', ['asistente', 'ayuda', 'chat']),
+        'solicitudes': ('Solicitudes', ['solicitud', 'solicitudes', 'chat interno']),
+        'notifications': ('Notificaciones', ['notificacion', 'notificación', 'notificaciones']),
+    }),
+    'SOPORTE': ('/soporte', {
+        'dashboard': ('Inicio', ['inicio', 'panel', 'dashboard', 'resumen', 'home']),
+        'config': ('Configuración de seguridad', ['configuracion', 'configuración', 'perfil', 'cuenta', 'seguridad', 'sesion', 'sesión', 'sesiones', 'dispositivo', 'dispositivos']),
+        'mantenimientos': ('Mantenimiento', ['mantenimiento', 'mantenimientos']),
+        'help': ('Asistente', ['asistente', 'ayuda', 'chat']),
+        'reportes': ('Reportes', ['reporte', 'reportes']),
+        'incidencias': ('Incidencias', ['incidencia', 'incidencias']),
+        'historial': ('Historial', ['historial']),
+        'repuestos': ('Repuestos', ['repuesto', 'repuestos']),
+        'solicitudes': ('Solicitudes', ['solicitud', 'solicitudes', 'ticket', 'tickets']),
+        'staff-chat': ('Chat interno', ['chat interno', 'chat con soporte']),
+        'notifications': ('Notificaciones', ['notificacion', 'notificación', 'notificaciones']),
+    }),
+}
+DEFAULT_NAV = ('/dashboard', {
+    'home': ('Inicio', ['inicio', 'panel', 'dashboard', 'resumen', 'home']),
+    'explore': ('Explorar catálogo', ['catalogo', 'catálogo', 'explorar', 'elementos', 'libros', 'herramientas', 'equipos']),
+    'loans': ('Mis préstamos', ['prestamo', 'préstamo', 'prestamos', 'préstamos']),
+    'reservations': ('Mis reservas', ['reserva', 'reservas']),
+    'history': ('Historial', ['historial']),
+    'config': ('Configuración de seguridad', ['configuracion', 'configuración', 'perfil', 'cuenta', 'seguridad', 'sesion', 'sesión', 'sesiones', 'dispositivo', 'dispositivos', 'contraseña', 'clave']),
+    'help': ('Asistente', ['asistente', 'ayuda', 'chat']),
+    'notifications': ('Notificaciones', ['notificacion', 'notificación', 'notificaciones']),
+})
+
+
+def _resolve_nav(role, destino_text):
+    base, sections = ROLE_NAV_SECTIONS.get(role, DEFAULT_NAV)
+    d = (destino_text or '').lower().strip()
+    best, best_score = None, 0
+    for slug, (label, aliases) in sections.items():
+        score = sum(1 for a in aliases if a in d)
+        if score > best_score:
+            best_score, best = score, (slug, label)
+    if not best:
+        return None
+    slug, label = best
+    return {"route": f"{base}/{slug}", "label": label}
+
+
+def _tool_list_sessions(user_id):
+    from ..services.auth_service import _describe_user_agent
+    current_sid = get_jwt().get('sid')
+    now = datetime.utcnow()
+    tokens = (RefreshToken.query
+              .filter_by(user_id=user_id, is_revoked=False)
+              .filter(RefreshToken.expires_at > now)
+              .order_by(RefreshToken.created_at.desc()).all())
+    trusted = {d.device_id: d for d in TrustedDevice.query.filter_by(user_id=user_id).all()}
+    out = []
+    for t in tokens:
+        td = trusted.get(t.device_id) if t.device_id else None
+        out.append({
+            "dispositivo": (td.label if td and td.label else None) or _describe_user_agent(t.user_agent or ''),
+            "ubicacion": (td.last_location if td else None) or "Desconocida",
+            "es_este_dispositivo": bool(current_sid and t.id == current_sid),
+            "iniciada": t.created_at.strftime('%Y-%m-%d %H:%M') if t.created_at else None,
+        })
+    return {"sesiones": out, "total": len(out)}
+
+
+def _tool_list_loans(user):
+    if not user:
+        return {"prestamos": [], "total": 0}
+    loans = Loan.query.filter_by(user_id=str(user.id)).filter(Loan.status.in_(['ACTIVE', 'OVERDUE'])).all()
+    out = []
+    for l in loans:
+        for d in l.details:
+            out.append({
+                "elemento": d.item.name,
+                "codigo": d.item.code,
+                "entregar_antes_de": l.due_date.strftime('%Y-%m-%d %H:%M') if l.due_date else None,
+                "estado": l.status,
+            })
+    return {"prestamos": out, "total": len(out)}
+
+
+def _tool_list_reservations(user_id):
+    res_list = (Reservation.query.filter_by(user_id=str(user_id))
+                .filter(Reservation.status.in_(['QUEUED', 'READY']))
+                .order_by(Reservation.reservation_date.desc()).all())
+    out = []
+    for r in res_list:
+        item = Item.query.get(r.item_id)
+        out.append({
+            "elemento": item.name if item else "Eliminado",
+            "estado": "En cola" if r.status == 'QUEUED' else "Lista para reclamar",
+            "expira": r.expiration_date.strftime('%Y-%m-%d %H:%M') if r.expiration_date else None,
+        })
+    return {"reservas": out, "total": len(out)}
+
+
+def _tool_propose_reserve(user_id, elemento_text):
+    q = (elemento_text or '').strip()
+    if not q:
+        return {"error": "Necesito el nombre del elemento que quieres reservar."}
+    matches = Item.query.filter(db.or_(Item.name.ilike(f"%{q}%"), Item.code.ilike(f"%{q}%"))).limit(6).all()
+    if not matches:
+        return {"error": f"No encontré ningún elemento del catálogo que coincida con \"{q}\"."}
+    if len(matches) > 1:
+        nombres = ", ".join(m.name for m in matches[:5])
+        return {"error": f"Encontré varios elementos que coinciden con \"{q}\": {nombres}. ¿Cuál exactamente?"}
+    item = matches[0]
+    action = {"action": "crear_reserva", "user_id": str(user_id), "params": {"item_id": item.id, "item_name": item.name}}
+    token = _action_serializer().dumps(action)
+    return {
+        "pending_confirmation": True,
+        "resumen": f'Reservar "{item.name}" (código {item.code})',
+        "token": token,
+    }
+
+
+def _tool_propose_cancel(user_id, elemento_text):
+    q = (elemento_text or '').strip()
+    res_list = (Reservation.query.filter_by(user_id=str(user_id))
+                .filter(Reservation.status.in_(['QUEUED', 'READY'])).all())
+    if not res_list:
+        return {"error": "No tienes ninguna reserva activa para cancelar."}
+    pairs = [(r, Item.query.get(r.item_id)) for r in res_list]
+    if q:
+        pairs = [(r, it) for r, it in pairs if it and q.lower() in it.name.lower()]
+    if not pairs:
+        return {"error": f"No encontré ninguna reserva activa tuya que coincida con \"{q}\"."}
+    if len(pairs) > 1:
+        nombres = ", ".join((it.name if it else "?") for _, it in pairs[:5])
+        return {"error": f"Tienes varias reservas activas que coinciden: {nombres}. ¿Cuál exactamente?"}
+    r, item = pairs[0]
+    item_name = item.name if item else "el elemento"
+    action = {"action": "cancelar_reserva", "user_id": str(user_id), "params": {"reservation_id": r.id, "item_name": item_name}}
+    token = _action_serializer().dumps(action)
+    return {
+        "pending_confirmation": True,
+        "resumen": f'Cancelar la reserva de "{item_name}"',
+        "token": token,
+    }
+
+
+def _tool_propose_close_session(user_id, objetivo_text):
+    from ..services.auth_service import _describe_user_agent
+    obj = (objetivo_text or '').strip().lower()
+    current_sid = get_jwt().get('sid')
+    now = datetime.utcnow()
+    tokens_q = (RefreshToken.query.filter_by(user_id=user_id, is_revoked=False)
+                .filter(RefreshToken.expires_at > now).all())
+    trusted = {d.device_id: d for d in TrustedDevice.query.filter_by(user_id=user_id).all()}
+
+    def label_of(t):
+        td = trusted.get(t.device_id) if t.device_id else None
+        return (td.label if td and td.label else None) or _describe_user_agent(t.user_agent or '')
+
+    if not tokens_q:
+        return {"error": "No tienes sesiones activas."}
+
+    if obj in ('actual', 'este', 'esta', 'este dispositivo', 'esta sesion', 'esta sesión', ''):
+        current = next((t for t in tokens_q if current_sid and t.id == current_sid), None)
+        if not current:
+            return {"error": "No pude identificar cuál es tu sesión actual."}
+        action = {"action": "cerrar_sesion", "user_id": str(user_id), "params": {"mode": "current", "session_id": current.id}}
+        token = _action_serializer().dumps(action)
+        return {"pending_confirmation": True, "resumen": "Cerrar la sesión de ESTE dispositivo (se cerrará tu sesión aquí mismo)", "token": token}
+
+    if obj in ('todas', 'todos', 'todos los dispositivos', 'todas las sesiones', 'todo'):
+        action = {"action": "cerrar_sesion", "user_id": str(user_id), "params": {"mode": "all"}}
+        token = _action_serializer().dumps(action)
+        return {"pending_confirmation": True, "resumen": f"Cerrar TODAS tus sesiones ({len(tokens_q)} dispositivo(s))", "token": token}
+
+    matched = [t for t in tokens_q if obj in label_of(t).lower()]
+    if not matched:
+        listado = "; ".join(label_of(t) for t in tokens_q)
+        return {"error": f"No encontré ningún dispositivo que coincida con \"{objetivo_text}\". Tus sesiones activas son: {listado}."}
+    if len(matched) > 1:
+        return {"error": f"Hay más de un dispositivo que coincide con \"{objetivo_text}\". Sé más específico."}
+    t = matched[0]
+    is_current = bool(current_sid and t.id == current_sid)
+    action = {"action": "cerrar_sesion", "user_id": str(user_id), "params": {"mode": "current" if is_current else "one", "session_id": t.id}}
+    token = _action_serializer().dumps(action)
+    resumen = f'Cerrar la sesión de "{label_of(t)}"' + (" (¡es la sesión de ESTE dispositivo!)" if is_current else "")
+    return {"pending_confirmation": True, "resumen": resumen, "token": token}
 
 
 def get_query_keywords(text):
@@ -116,6 +449,77 @@ def assistant_display_name(user, first_name_only=False):
             or email.startswith('demo@')):
         return 'usuario'
     return raw.split()[0] if first_name_only else raw
+
+
+def _dispatch_assistant_tool(fn_name, fn_args, user, user_role):
+    """Ejecuta la función que Gemini decidió llamar y arma la respuesta que
+    recibe el frontend. Las de solo lectura y 'navegar_a' se resuelven y
+    redactan aquí mismo (determinístico, sin otra vuelta al modelo); las que
+    cambian datos devuelven type=confirm_action con un token firmado — nunca
+    se ejecutan en este paso."""
+    user_id = str(user.id)
+
+    if fn_name == 'listar_sesiones_activas':
+        data = _tool_list_sessions(user_id)
+        if not data['sesiones']:
+            text = "No encontré ninguna sesión activa (esto no debería pasar mientras hablas conmigo, pero por si acaso)."
+        else:
+            lineas = []
+            for s in data['sesiones']:
+                marca = " — este dispositivo" if s['es_este_dispositivo'] else ""
+                lineas.append(f"- **{s['dispositivo']}**{marca} · {s['ubicacion']} · desde {s['iniciada'] or '—'}")
+            text = f"Tienes **{data['total']}** sesión(es) activa(s):\n\n" + "\n".join(lineas)
+        return {"text": text, "type": "text", "source": "tool:listar_sesiones_activas"}
+
+    if fn_name == 'listar_mis_prestamos':
+        data = _tool_list_loans(user)
+        if not data['prestamos']:
+            text = "No tienes ningún préstamo activo en este momento."
+        else:
+            lineas = [f"- **{p['elemento']}** (código {p['codigo']}) · entregar antes de {p['entregar_antes_de'] or '—'} · {p['estado']}" for p in data['prestamos']]
+            text = f"Tienes **{data['total']}** préstamo(s) activo(s):\n\n" + "\n".join(lineas)
+        return {"text": text, "type": "text", "metadata": data['prestamos'] or None, "source": "tool:listar_mis_prestamos"}
+
+    if fn_name == 'listar_mis_reservas':
+        data = _tool_list_reservations(user_id)
+        if not data['reservas']:
+            text = "No tienes ninguna reserva activa en este momento."
+        else:
+            lineas = [f"- **{r['elemento']}** · {r['estado']}" + (f" · expira {r['expira']}" if r['expira'] else "") for r in data['reservas']]
+            text = f"Tienes **{data['total']}** reserva(s) activa(s):\n\n" + "\n".join(lineas)
+        return {"text": text, "type": "text", "source": "tool:listar_mis_reservas"}
+
+    if fn_name == 'navegar_a':
+        nav = _resolve_nav(user_role, fn_args.get('destino', ''))
+        if not nav:
+            text = f"No encontré una sección que coincida con \"{fn_args.get('destino', '')}\". Dime con otras palabras a dónde quieres ir."
+            return {"text": text, "type": "text", "source": "tool:navegar_a"}
+        text = f"Claro, aquí tienes el acceso directo a **{nav['label']}**:"
+        return {"text": text, "type": "navigate", "route": nav['route'], "label": nav['label'], "source": "tool:navegar_a"}
+
+    if fn_name == 'reservar_elemento':
+        result = _tool_propose_reserve(user_id, fn_args.get('elemento', ''))
+        if result.get('error'):
+            return {"text": result['error'], "type": "text", "source": "tool:reservar_elemento"}
+        text = f"{result['resumen']}. ¿Confirmas?"
+        return {"text": text, "type": "confirm_action", "token": result['token'], "action_summary": result['resumen'], "source": "tool:reservar_elemento"}
+
+    if fn_name == 'cancelar_mi_reserva':
+        result = _tool_propose_cancel(user_id, fn_args.get('elemento', ''))
+        if result.get('error'):
+            return {"text": result['error'], "type": "text", "source": "tool:cancelar_mi_reserva"}
+        text = f"{result['resumen']}. ¿Confirmas?"
+        return {"text": text, "type": "confirm_action", "token": result['token'], "action_summary": result['resumen'], "source": "tool:cancelar_mi_reserva"}
+
+    if fn_name == 'cerrar_sesion_dispositivo':
+        result = _tool_propose_close_session(user_id, fn_args.get('objetivo', ''))
+        if result.get('error'):
+            return {"text": result['error'], "type": "text", "source": "tool:cerrar_sesion_dispositivo"}
+        text = f"{result['resumen']}. ¿Confirmas?"
+        return {"text": text, "type": "confirm_action", "token": result['token'], "action_summary": result['resumen'], "source": "tool:cerrar_sesion_dispositivo"}
+
+    return {"text": "No reconocí esa acción. ¿Puedes reformularlo?", "type": "text", "source": "tool:unknown"}
+
 
 @assistant_bp.route('/chat', methods=['POST'])
 @jwt_required(optional=True)
@@ -363,6 +767,7 @@ INSTRUCCIONES DE RESPUESTA:
 7. Si el usuario pregunta por sus préstamos, revisa la sección de préstamos arriba.
 8. Mantén tus respuestas concisas pero completas. No inventes elementos del catálogo.
 9. Si la consulta es completamente fuera del sistema SENA (matemáticas, vida personal, otros temas), termina tu respuesta con la línea exacta: [ESCALAR_SOPORTE]
+10. ACCIONES: si tienes funciones disponibles (listar_sesiones_activas, listar_mis_prestamos, listar_mis_reservas, navegar_a, reservar_elemento, cancelar_mi_reserva, cerrar_sesion_dispositivo), y el usuario pide EXPLÍCITAMENTE hacer o ver algo que una de ellas resuelve ("dame mis sesiones", "resérvame X", "cancela mi reserva de X", "llévame a configuración", "cierra esta sesión"), LLAMA a la función correspondiente en vez de solo explicar los pasos por texto. Si falta un dato para llamarla (por ejemplo qué elemento reservar), pregúntalo primero. Nunca inventes que ya ejecutaste una acción: solo las funciones de reservar/cancelar/cerrar sesión pueden hacerlo, y el sistema le pedirá confirmación al usuario antes de aplicarlas.
 """
 
     # Si es una conversación nueva (historial vacío), pedir que genere título
@@ -523,6 +928,11 @@ INSTRUCCIONES DE RESPUESTA:
             "system_instruction": {"parts": [{"text": system_instruction}]},
             "contents": contents
         }
+        # Las acciones automatizadas (reservar, cancelar, sesiones, navegar) solo se
+        # ofrecen a usuarios con sesión iniciada — un invitado no tiene datos propios
+        # que listar ni permiso para reservar/cancelar/cerrar sesiones.
+        if user:
+            payload["tools"] = _build_assistant_tools()
         headers = {"Content-Type": "application/json"}
 
         last_error = None
@@ -533,7 +943,21 @@ INSTRUCCIONES DE RESPUESTA:
 
                 if response.status_code == 200:
                     res_data = response.json()
-                    bot_text = res_data['candidates'][0]['content']['parts'][0]['text']
+                    part0 = res_data['candidates'][0]['content']['parts'][0]
+
+                    # ── El modelo decidió llamar a una función en vez de responder texto ──
+                    function_call = part0.get('functionCall')
+                    if function_call and user:
+                        fn_name = function_call.get('name')
+                        fn_args = function_call.get('args') or {}
+                        print(f"[GEMINI TOOL] {fn_name}({fn_args})")
+                        tool_json = _dispatch_assistant_tool(fn_name, fn_args, user, user_role)
+                        if cache_key:
+                            # Las acciones nunca se cachean: dependen del estado en vivo.
+                            cache_store.pop(cache_key, None)
+                        return jsonify(tool_json)
+
+                    bot_text = part0.get('text', '')
                     print(f"[GEMINI OK] modelo={model}")
 
                     title = None
@@ -816,6 +1240,90 @@ def get_greeting():
         "text": f"¡Hola **{user_name}**! 👋 Soy SENA Bot, tu asistente virtual. ¿En qué puedo ayudarte hoy?",
         "source": "default-greeting",
     })
+
+
+# ─── Confirmación de acciones automatizadas del asistente ────────────────────
+
+@assistant_bp.route('/confirm-action', methods=['POST'])
+@jwt_required()
+def confirm_action():
+    """Ejecuta (o descarta) una acción que el asistente propuso — reservar,
+    cancelar una reserva, o cerrar una sesión. El token viene firmado por
+    _action_serializer() con el user_id incluido, así que aunque alguien
+    manipulara el token desde el navegador, solo se ejecuta si coincide con
+    el usuario del JWT actual (nunca se confía en un user_id que mande el
+    cliente sin firmar)."""
+    data = request.get_json() or {}
+    token = data.get('token')
+    confirm = bool(data.get('confirm'))
+    if not token:
+        return jsonify({"error": "Falta el token de la acción."}), 400
+
+    try:
+        payload = _action_serializer().loads(token, max_age=ACTION_MAX_AGE)
+    except SignatureExpired:
+        return jsonify({"text": "Esa confirmación ya expiró. Pídemelo de nuevo."}), 200
+    except BadSignature:
+        return jsonify({"error": "Confirmación inválida."}), 400
+
+    current_user_id = str(get_jwt_identity())
+    if str(payload.get('user_id')) != current_user_id:
+        return jsonify({"error": "Esta confirmación no te pertenece."}), 403
+
+    if not confirm:
+        return jsonify({"text": "Listo, no hice ningún cambio."}), 200
+
+    action = payload.get('action')
+    params = payload.get('params') or {}
+
+    try:
+        if action == 'crear_reserva':
+            res, err = enqueue_reservation(user_id=current_user_id, item_id=params.get('item_id'))
+            if err:
+                return jsonify({"text": f"No pude completar la reserva: {err}"}), 200
+            estado = "lista para reclamar en los próximos 15 minutos" if res.status == 'READY' else "en cola de espera"
+            return jsonify({"text": f"✅ Reserva creada para \"{params.get('item_name', 'el elemento')}\": queda {estado}."}), 200
+
+        if action == 'cancelar_reserva':
+            rid = params.get('reservation_id')
+            res = Reservation.query.filter_by(id=rid, user_id=current_user_id).first()
+            if not res:
+                return jsonify({"text": "Esa reserva ya no existe."}), 200
+            if res.status not in ('QUEUED', 'READY'):
+                return jsonify({"text": "Esa reserva ya no se puede cancelar (cambió de estado)."}), 200
+            was_ready = res.status == 'READY'
+            res.status = 'CANCELLED'
+            db.session.commit()
+            if was_ready:
+                on_item_available(res.item_id)
+                db.session.commit()
+            return jsonify({"text": f"✅ Cancelé tu reserva de \"{params.get('item_name', 'el elemento')}\"."}), 200
+
+        if action == 'cerrar_sesion':
+            mode = params.get('mode')
+            if mode == 'all':
+                RefreshToken.query.filter_by(user_id=current_user_id, is_revoked=False).update({"is_revoked": True})
+                TrustedDevice.query.filter_by(user_id=current_user_id).delete()
+                db.session.commit()
+                return jsonify({"text": "✅ Cerré todas tus sesiones y olvidé todos los dispositivos.", "session_ended": True}), 200
+
+            sid = params.get('session_id')
+            tok = RefreshToken.query.filter_by(id=sid, user_id=current_user_id).first()
+            if not tok:
+                return jsonify({"text": "Esa sesión ya no existe."}), 200
+            tok.is_revoked = True
+            if tok.device_id:
+                TrustedDevice.query.filter_by(user_id=current_user_id, device_id=tok.device_id).delete()
+            db.session.commit()
+            ended_current = (mode == 'current')
+            msg = "✅ Listo, cerré esta sesión." if ended_current else "✅ Cerré la sesión de ese dispositivo."
+            return jsonify({"text": msg, "session_ended": ended_current}), 200
+
+        return jsonify({"error": "Acción desconocida."}), 400
+    except Exception as e:
+        db.session.rollback()
+        print(f"[assistant confirm-action] error ejecutando '{action}': {e}")
+        return jsonify({"error": "Ocurrió un error ejecutando la acción."}), 500
 
 
 # ─── Threads del Asistente Personal (persistencia por usuario) ───────────────

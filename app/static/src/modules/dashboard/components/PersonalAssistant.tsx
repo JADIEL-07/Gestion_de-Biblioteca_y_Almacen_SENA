@@ -6,6 +6,7 @@ import {
   FiImage, FiMic, FiCamera, FiX, FiHeadphones
 } from 'react-icons/fi';
 import { AnimatedRobotIcon } from '../../../components/ui/AnimatedRobotIcon';
+import { clearSessionAndRedirect } from '../../../shared/api';
 import './PersonalAssistant.css';
 
 const renderTextWithAppleEmojis = (text: string): any => {
@@ -58,7 +59,7 @@ interface Message {
   sender: 'user' | 'bot';
   text: string;
   timestamp: string;
-  type?: 'text' | 'loans' | 'help' | 'rules';
+  type?: 'text' | 'loans' | 'help' | 'rules' | 'navigate' | 'confirm_action';
   metadata?: any;
   media?: { data: string, mimeType: string, type: 'image' | 'audio', preview: string };
   suggestSupport?: boolean;
@@ -66,6 +67,11 @@ interface Message {
   escalated?: { ticketId: number };
   isFromSupport?: boolean;  // Mensaje enviado por un humano de Soporte (no IA)
   supportName?: string;     // Nombre del agente de soporte
+  // Acciones automatizadas (navegar / reservar / cancelar / cerrar sesión)
+  route?: string;           // type === 'navigate': a dónde llevar al usuario
+  label?: string;           // type === 'navigate': etiqueta del botón
+  actionToken?: string;     // type === 'confirm_action': token firmado a confirmar
+  actionResolved?: 'confirmed' | 'cancelled';
 }
 
 interface ChatThread {
@@ -84,6 +90,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [inputText, setInputText] = useState('');
   const [escalating, setEscalating] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
   const [activeTicket, setActiveTicket] = useState<{id: number, subject: string, assigned_name: string} | null>(null);
   const [seenSupportMsgIds, setSeenSupportMsgIds] = useState<Set<number>>(new Set());
 
@@ -509,6 +516,9 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
           metadata: data.metadata,
           suggestSupport: !!data.suggest_support && canEscalate && !isGuest,
           userQueryRef: text,
+          route: data.route,
+          label: data.label,
+          actionToken: data.token,
         };
 
         const finalMessages = [...updatedMessages, newBotMsg];
@@ -611,6 +621,57 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       alert(err.message || 'No se pudo crear la solicitud.');
     } finally {
       setEscalating(null);
+    }
+  };
+
+  // Confirma (o descarta) una acción propuesta por el asistente (reservar,
+  // cancelar una reserva, cerrar una sesión). El backend valida el token
+  // firmado contra el usuario del JWT actual antes de ejecutar nada.
+  const handleConfirmAction = async (msgId: string, actionToken: string, confirm: boolean) => {
+    setActionBusy(msgId);
+    try {
+      const authToken = getToken();
+      const res = await fetch('/api/v1/assistant/confirm-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ token: actionToken, confirm }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      const replyMsg: Message = {
+        id: Date.now().toString(),
+        sender: 'bot',
+        text: data.text || data.error || 'No pude procesar la confirmación.',
+        timestamp: new Date().toISOString(),
+        type: 'text',
+      };
+
+      const updatedThreads = threads.map((t) => {
+        if (t.id !== activeThreadId) return t;
+        return {
+          ...t,
+          messages: [
+            ...t.messages.map((m) =>
+              m.id === msgId ? { ...m, actionResolved: (confirm ? 'confirmed' : 'cancelled') as 'confirmed' | 'cancelled' } : m
+            ),
+            replyMsg,
+          ],
+          updatedAt: new Date().toISOString(),
+        };
+      });
+      setThreads(updatedThreads);
+      const changedThread = updatedThreads.find((t) => t.id === activeThreadId);
+      if (changedThread) saveThreadsToStorage(updatedThreads, changedThread);
+
+      // Si la acción confirmada cerró la sesión de ESTE dispositivo, sacar de
+      // inmediato — igual que al cerrarla desde Configuración → Sesiones activas.
+      if (data.session_ended) {
+        clearSessionAndRedirect();
+      }
+    } catch (err) {
+      console.error('Error confirmando acción del asistente:', err);
+    } finally {
+      setActionBusy(null);
     }
   };
 
@@ -738,6 +799,43 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
                   {msg.escalated && (
                     <div className="support-escalation-done">
                       <FiCheckCircle size={14} /> Solicitud #{msg.escalated.ticketId} creada. El equipo de Soporte te responderá aquí pronto.
+                    </div>
+                  )}
+
+                  {/* NAVEGACIÓN: enlace directo a una sección de la plataforma */}
+                  {msg.type === 'navigate' && msg.route && (
+                    <div className="assistant-action-box">
+                      <button
+                        className="assistant-action-btn"
+                        onClick={() => navigate(msg.route!)}
+                      >
+                        Ir a {msg.label || 'la sección'}
+                      </button>
+                    </div>
+                  )}
+
+                  {/* CONFIRMACIÓN: reservar / cancelar / cerrar sesión — nunca se ejecuta sin este paso */}
+                  {msg.type === 'confirm_action' && msg.actionToken && !msg.actionResolved && (
+                    <div className="assistant-action-box">
+                      <button
+                        className="assistant-action-btn"
+                        onClick={() => handleConfirmAction(msg.id, msg.actionToken!, true)}
+                        disabled={actionBusy === msg.id}
+                      >
+                        {actionBusy === msg.id ? 'Procesando...' : 'Sí, confirmar'}
+                      </button>
+                      <button
+                        className="assistant-action-btn secondary"
+                        onClick={() => handleConfirmAction(msg.id, msg.actionToken!, false)}
+                        disabled={actionBusy === msg.id}
+                      >
+                        No, cancelar
+                      </button>
+                    </div>
+                  )}
+                  {msg.type === 'confirm_action' && msg.actionResolved && (
+                    <div className="support-escalation-done">
+                      <FiCheckCircle size={14} /> {msg.actionResolved === 'confirmed' ? 'Confirmado.' : 'Descartado, sin cambios.'}
                     </div>
                   )}
 
