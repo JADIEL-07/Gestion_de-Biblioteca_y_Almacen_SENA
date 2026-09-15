@@ -48,6 +48,13 @@ def _apply_runtime_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret VARCHAR(32)",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_2fa_enabled BOOLEAN DEFAULT FALSE",
+        # Ampliación de la IA que aprende: rol de origen, caducidad, retroalimentación y fuente.
+        "ALTER TABLE ai_learned_responses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP",
+        "ALTER TABLE ai_learned_responses ADD COLUMN IF NOT EXISTS role VARCHAR(50)",
+        "ALTER TABLE ai_learned_responses ADD COLUMN IF NOT EXISTS positive_feedback INTEGER DEFAULT 0",
+        "ALTER TABLE ai_learned_responses ADD COLUMN IF NOT EXISTS negative_feedback INTEGER DEFAULT 0",
+        "ALTER TABLE ai_learned_responses ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'gemini'",
+        "UPDATE ai_learned_responses SET updated_at = created_at WHERE updated_at IS NULL",
     ]
     for stmt in column_migrations:
         try:

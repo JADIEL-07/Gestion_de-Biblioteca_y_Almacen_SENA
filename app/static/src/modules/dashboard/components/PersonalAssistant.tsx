@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   FiSend, FiCpu, FiBookOpen, FiTool,
   FiClock, FiAlertCircle, FiTrash2, FiInfo, FiCheckCircle, FiPlus, FiMessageSquare,
-  FiImage, FiMic, FiCamera, FiX, FiHeadphones
+  FiImage, FiMic, FiCamera, FiX, FiHeadphones, FiThumbsUp, FiThumbsDown
 } from 'react-icons/fi';
 import { AnimatedRobotIcon } from '../../../components/ui/AnimatedRobotIcon';
 import { clearSessionAndRedirect } from '../../../shared/api';
@@ -72,6 +72,10 @@ interface Message {
   label?: string;           // type === 'navigate': etiqueta del botón
   actionToken?: string;     // type === 'confirm_action': token firmado a confirmar
   actionResolved?: 'confirmed' | 'cancelled';
+  // Retroalimentación sobre respuestas de la IA que aprende
+  source?: string;          // 'own-ai' = vino de una respuesta ya aprendida
+  learnedId?: number;
+  feedbackGiven?: 'up' | 'down';
 }
 
 interface ChatThread {
@@ -519,6 +523,8 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
           route: data.route,
           label: data.label,
           actionToken: data.token,
+          source: data.source,
+          learnedId: data.learned_id,
         };
 
         const finalMessages = [...updatedMessages, newBotMsg];
@@ -672,6 +678,35 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       console.error('Error confirmando acción del asistente:', err);
     } finally {
       setActionBusy(null);
+    }
+  };
+
+  // 👍/👎 sobre una respuesta que vino de la IA que aprende. Solo actualiza el
+  // estado local del mensaje (para deshabilitar los botones) — el backend ya
+  // decide si autoeliminar la entrada cuando se acumulan negativos.
+  const handleLearnedFeedback = async (msgId: string, learnedId: number, useful: boolean) => {
+    const updatedThreads = threads.map((t) => {
+      if (t.id !== activeThreadId) return t;
+      return {
+        ...t,
+        messages: t.messages.map((m) =>
+          m.id === msgId ? { ...m, feedbackGiven: (useful ? 'up' : 'down') as 'up' | 'down' } : m
+        ),
+      };
+    });
+    setThreads(updatedThreads);
+    const changedThread = updatedThreads.find((t) => t.id === activeThreadId);
+    if (changedThread) saveThreadsToStorage(updatedThreads, changedThread);
+
+    try {
+      const authToken = getToken();
+      await fetch('/api/v1/assistant/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ learned_id: learnedId, useful }),
+      });
+    } catch (err) {
+      console.error('Error enviando feedback:', err);
     }
   };
 
@@ -837,6 +872,25 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
                     <div className="support-escalation-done">
                       <FiCheckCircle size={14} /> {msg.actionResolved === 'confirmed' ? 'Confirmado.' : 'Descartado, sin cambios.'}
                     </div>
+                  )}
+
+                  {/* RETROALIMENTACIÓN: solo en respuestas servidas por la IA que aprende */}
+                  {msg.sender === 'bot' && msg.source === 'own-ai' && msg.learnedId && (
+                    msg.feedbackGiven ? (
+                      <div className="learned-feedback-done">
+                        {msg.feedbackGiven === 'up' ? '¡Gracias por confirmar que sirvió!' : 'Gracias, lo tendré en cuenta.'}
+                      </div>
+                    ) : (
+                      <div className="learned-feedback-box">
+                        <span>¿Te sirvió esta respuesta?</span>
+                        <button className="learned-feedback-btn" onClick={() => handleLearnedFeedback(msg.id, msg.learnedId!, true)} title="Sí me sirvió">
+                          <FiThumbsUp size={14} />
+                        </button>
+                        <button className="learned-feedback-btn" onClick={() => handleLearnedFeedback(msg.id, msg.learnedId!, false)} title="No me sirvió">
+                          <FiThumbsDown size={14} />
+                        </button>
+                      </div>
+                    )
                   )}
 
                   {/* CUSTOM COMPONENT: LOANS LIST */}

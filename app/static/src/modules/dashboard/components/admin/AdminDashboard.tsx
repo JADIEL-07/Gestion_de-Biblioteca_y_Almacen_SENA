@@ -12,6 +12,7 @@ import { MaintenanceManagement } from './MaintenanceManagement';
 import { SystemReports } from './SystemReports';
 import { InventoryManagement } from './InventoryManagement';
 import { OutputManagement } from './OutputManagement';
+import { AIKnowledgeManagement } from './AIKnowledgeManagement';
 import { ProfileOverlay } from './ProfileOverlay';
 import { NotificationBell } from '../../../../shared/NotificationBell';
 import './AdminDashboard.css';
@@ -89,6 +90,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     exits: 'Control de Salidas Controladas',
     config: 'Configuración del Sistema',
     help: 'Asistente Personal',
+    'ai-knowledge': 'Conocimiento del Asistente',
     notifications: 'Centro de Notificaciones',
   };
 
@@ -175,6 +177,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             {activeSection === 'inventory-categories' && <InventoryManagement activeTab="categories" />}
             {activeSection === 'exits' && <OutputManagement />}
             {activeSection === 'help' && <PersonalAssistant user={user} />}
+            {activeSection === 'ai-knowledge' && <AIKnowledgeManagement />}
             {activeSection === 'solicitudes' && <SoporteSolicitudes user={user} />}
             {activeSection === 'notifications' && <NotificationsPage />}
             {!sectionTitle[activeSection] && (

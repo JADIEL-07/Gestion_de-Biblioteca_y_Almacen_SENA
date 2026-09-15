@@ -1190,6 +1190,42 @@
   box-shadow: none;
 }
 
+/* Retroalimentación (👍/👎) sobre respuestas de la IA que aprende */
+.learned-feedback-box {
+  margin-top: 0.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.learned-feedback-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-muted, #94a3b8);
+  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.learned-feedback-btn:hover {
+  border-color: var(--sena-green, #39A900);
+  color: var(--sena-green, #39A900);
+}
+
+.learned-feedback-done {
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  color: var(--text-muted, #94a3b8);
+  font-style: italic;
+}
+
 
 /* ── SOPORTE ACTIVO ── */
 .support-active-banner {

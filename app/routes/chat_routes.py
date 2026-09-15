@@ -173,7 +173,60 @@ def close_ticket(ticket_id):
     ticket.status = 'CLOSED'
     ticket.closed_at = datetime.utcnow()
     db.session.commit()
+
+    # Aprender de la resolución: si Soporte dejó un último mensaje sustancial,
+    # se guarda como respuesta para la próxima vez que alguien pregunte algo
+    # parecido a lo que originó este ticket — así la IA deja de fallar con
+    # preguntas que un humano ya tuvo que resolver.
+    try:
+        _learn_from_ticket_resolution(ticket)
+    except Exception as e:
+        print(f"[close_ticket] no se pudo aprender de la resolución: {e}")
+
     return jsonify({'message': 'Ticket cerrado correctamente.', 'status': ticket.status}), 200
+
+
+def _learn_from_ticket_resolution(ticket):
+    from ..models.ai_knowledge import AILearnedResponse
+    from .assistant_routes import get_query_keywords, classify_greeting
+
+    if not ticket.assigned_to:
+        return
+
+    last_support_msg = (TicketMessage.query
+                         .filter_by(ticket_id=ticket.id, sender_id=ticket.assigned_to)
+                         .order_by(TicketMessage.created_at.desc()).first())
+    if not last_support_msg or len((last_support_msg.body or '').strip()) < 15:
+        return  # Soporte no dejó una respuesta sustancial que valga la pena aprender
+
+    first_msg = (TicketMessage.query.filter_by(ticket_id=ticket.id)
+                 .order_by(TicketMessage.created_at.asc()).first())
+    original_question = (first_msg.body if first_msg else ticket.subject) or ticket.subject
+    if not original_question or classify_greeting(original_question) is not None:
+        return
+
+    kws = get_query_keywords(original_question)
+    if len(kws) <= 5:
+        return
+
+    asker = User.query.get(ticket.user_id)
+    asker_role = (asker.role.name or '').upper().strip() if asker and asker.role else None
+
+    existing = AILearnedResponse.query.filter_by(query_keywords=kws, role=asker_role).first()
+    if existing:
+        existing.response_text = last_support_msg.body
+        existing.updated_at = datetime.utcnow()
+        existing.source = 'soporte'
+    else:
+        db.session.add(AILearnedResponse(
+            query_text=original_question[:500],
+            query_keywords=kws,
+            response_text=last_support_msg.body,
+            role=asker_role,
+            source='soporte',
+        ))
+    db.session.commit()
+    print(f"[IA-PROPIA] Aprendida resolución de Soporte del ticket #{ticket.id}")
 
 
 @chat_bp.route('/tickets/mine', methods=['GET'])

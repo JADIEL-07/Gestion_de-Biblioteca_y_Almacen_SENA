@@ -1,0 +1,296 @@
+.aiknow-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.fade-in {
+  animation: aiknowFadeIn 0.35s ease-out;
+}
+
+@keyframes aiknowFadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Encabezado ── */
+.aiknow-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.aiknow-header-icon {
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--sena-green);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+  box-shadow: 0 4px 15px rgba(57, 169, 0, 0.3);
+}
+
+.aiknow-header h1 {
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--admin-text-primary);
+  margin-bottom: 0.2rem;
+}
+
+.aiknow-header p {
+  color: var(--admin-text-muted);
+  font-size: 0.9rem;
+}
+
+/* ── Estadísticas ── */
+.aiknow-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.aiknow-stat-card {
+  background: var(--admin-bg-card);
+  border: 1px solid var(--admin-border-color);
+  border-radius: 16px;
+  padding: 1.1rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  transition: border-color 0.3s ease;
+}
+
+.aiknow-stat-card:hover {
+  border-color: var(--sena-green);
+}
+
+.aiknow-stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--admin-text-primary);
+}
+
+.aiknow-stat-value.warn { color: #f59e0b; }
+.aiknow-stat-value.ok { color: var(--sena-green); font-size: 1.15rem; }
+
+.aiknow-stat-label {
+  font-size: 0.78rem;
+  color: var(--admin-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ── Tabs ── */
+.aiknow-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--admin-border-color);
+}
+
+.aiknow-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--admin-text-muted);
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.aiknow-tab:hover {
+  color: var(--admin-text-primary);
+}
+
+.aiknow-tab.active {
+  color: var(--sena-green);
+  border-bottom-color: var(--sena-green);
+}
+
+.aiknow-tab-badge {
+  background: #ef4444;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+}
+
+/* ── Barra de herramientas ── */
+.aiknow-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.aiknow-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--admin-bg-card);
+  border: 1px solid var(--admin-border-color);
+  border-radius: 12px;
+  padding: 0.6rem 1rem;
+  flex: 1;
+  min-width: 220px;
+  color: var(--admin-text-muted);
+}
+
+.aiknow-search input {
+  border: none;
+  background: transparent;
+  outline: none;
+  color: var(--admin-text-primary);
+  width: 100%;
+  font-size: 0.9rem;
+}
+
+/* ── Tabla ── */
+.aiknow-table-wrapper {
+  background: var(--admin-bg-card);
+  border: 1px solid var(--admin-border-color);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.aiknow-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.aiknow-table thead tr {
+  background: rgba(var(--admin-bg-card-rgb), 0.6);
+  border-bottom: 1px solid var(--admin-border-color);
+}
+
+.aiknow-table th {
+  text-align: left;
+  padding: 0.85rem 1rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--admin-text-muted);
+}
+
+.aiknow-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--admin-border-color);
+  color: var(--admin-text-primary);
+  font-size: 0.86rem;
+  vertical-align: top;
+}
+
+.aiknow-table tbody tr:last-child td { border-bottom: none; }
+.aiknow-table tbody tr:hover { background: rgba(57, 169, 0, 0.04); }
+.aiknow-table tbody tr.is-expired { background: rgba(245, 158, 11, 0.06); }
+
+.aiknow-clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 320px;
+}
+
+.aiknow-empty {
+  text-align: center !important;
+  padding: 2.5rem 1rem !important;
+  color: var(--admin-text-muted);
+}
+
+.aiknow-role-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(57, 169, 0, 0.12);
+  color: var(--sena-green);
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.aiknow-role-badge.generic {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--admin-text-muted);
+}
+
+.aiknow-source-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--admin-text-muted);
+}
+
+.aiknow-source-badge.gemini { background: rgba(57, 169, 0, 0.12); color: var(--sena-green); }
+.aiknow-source-badge.manual { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+.aiknow-source-badge.soporte { background: rgba(168, 85, 247, 0.12); color: #a855f7; }
+
+.fb-pos { color: var(--sena-green); font-size: 0.8rem; margin-right: 0.4rem; }
+.fb-neg { color: #ef4444; font-size: 0.8rem; }
+
+.aiknow-expired-tag {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #f59e0b;
+  font-size: 0.72rem;
+  margin-top: 0.25rem;
+  font-weight: 700;
+}
+
+.aiknow-row-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+/* ── Formulario del modal ── */
+.aiknow-field {
+  margin-bottom: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.aiknow-field-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--admin-text-muted);
+}
+
+.aiknow-modal textarea.clean-input {
+  resize: vertical;
+  min-height: 44px;
+  width: 100%;
+}
+
+.alert-error {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #ef4444;
+  padding: 0.7rem 1rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .aiknow-header { flex-direction: column; align-items: flex-start; }
+  .aiknow-clamp { max-width: none; }
+}

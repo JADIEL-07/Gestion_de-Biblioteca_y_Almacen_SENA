@@ -4,7 +4,7 @@ import re
 import requests
 import string
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
@@ -14,7 +14,7 @@ from ..models.user import User
 from ..models.reservation import Reservation
 from ..models.token import RefreshToken
 from ..models.trusted_device import TrustedDevice
-from ..models.ai_knowledge import AILearnedResponse
+from ..models.ai_knowledge import AILearnedResponse, AIUnansweredQuery
 from ..models.assistant_thread import AssistantThread
 from ..services.reservation_queue import enqueue_reservation, on_item_available
 from .. import db
@@ -36,6 +36,11 @@ ESCALATABLE_ROLES = {'APRENDIZ', 'USUARIO', 'ALMACENISTA', 'BIBLIOTECARIO'}
 # puede confirmarla — igual que cualquier otro endpoint protegido por JWT.
 ACTION_TOKEN_SALT = 'assistant-pending-action'
 ACTION_MAX_AGE = 10 * 60  # 10 minutos
+
+# ─── Ajustes de la IA que aprende (AILearnedResponse) ────────────────────────
+LEARNED_RESPONSE_TTL_DAYS = 45     # después de esto, se considera vencida y no se sirve
+MIN_MATCH_CONFIDENCE = 0.45        # similitud mínima (Jaccard) entre palabras clave para servirla
+NEGATIVE_FEEDBACK_AUTODELETE_MARGIN = 3  # si (negativos - positivos) llega a esto, se autoelimina
 
 
 def _action_serializer() -> URLSafeTimedSerializer:
@@ -150,6 +155,7 @@ ROLE_NAV_SECTIONS = {
         'help': ('Asistente', ['asistente', 'ayuda', 'chat']),
         'solicitudes': ('Solicitudes', ['solicitud', 'solicitudes', 'ticket', 'tickets']),
         'notifications': ('Notificaciones', ['notificacion', 'notificación', 'notificaciones']),
+        'ai-knowledge': ('Conocimiento del Asistente', ['conocimiento', 'ia', 'inteligencia artificial', 'aprendizaje del bot', 'panel de ia']),
     }),
     'BIBLIOTECARIO': ('/bibliotecario', {
         'home': ('Inicio', ['inicio', 'panel', 'dashboard', 'resumen', 'home']),
@@ -884,19 +890,48 @@ INSTRUCCIONES DE RESPUESTA:
             user_kws = get_query_keywords(user_query)
             if len(user_kws) > 5:
                 words = user_kws.split()
+                query_word_set = set(words)
                 if words:
                     search_filter = AILearnedResponse.query_keywords.ilike(f"%{words[0]}%")
                     for w in words[1:]:
                         search_filter = db.and_(search_filter, AILearnedResponse.query_keywords.ilike(f"%{w}%"))
-                    learned = AILearnedResponse.query.filter(search_filter).order_by(AILearnedResponse.use_count.desc()).first()
-                    if learned:
+
+                    # Solo respuestas VIGENTES (no vencidas) y de un ROL compatible
+                    # (el mismo rol de quien la originó, o sin rol = genérica para
+                    # cualquiera). Esto evita que, por ejemplo, un Aprendiz reciba
+                    # una guía que en realidad era para un Administrador.
+                    cutoff = datetime.utcnow() - timedelta(days=LEARNED_RESPONSE_TTL_DAYS)
+                    search_filter = db.and_(
+                        search_filter,
+                        db.or_(AILearnedResponse.role == user_role, AILearnedResponse.role.is_(None)),
+                        db.or_(AILearnedResponse.updated_at >= cutoff, AILearnedResponse.updated_at.is_(None)),
+                    )
+
+                    candidates = (AILearnedResponse.query.filter(search_filter)
+                                  .order_by(AILearnedResponse.use_count.desc()).limit(5).all())
+
+                    # Umbral de confianza: entre los candidatos que ya cumplen el
+                    # AND de palabras, se elige el más parecido de verdad (Jaccard
+                    # entre las palabras de la pregunta y las de la entrada
+                    # guardada), no solo "el primero que matcheó todo".
+                    learned, best_score = None, 0.0
+                    for c in candidates:
+                        stored_words = set((c.query_keywords or '').split())
+                        if not stored_words:
+                            continue
+                        overlap = len(query_word_set & stored_words) / len(query_word_set | stored_words)
+                        if overlap > best_score:
+                            best_score, learned = overlap, c
+
+                    if learned and best_score >= MIN_MATCH_CONFIDENCE:
                         learned.use_count += 1
                         db.session.commit()
-                        print(f"[IA-PROPIA] Respuesta servida desde BD (uso #{learned.use_count})")
+                        print(f"[IA-PROPIA] Respuesta servida desde BD (uso #{learned.use_count}, confianza {best_score:.2f})")
                         return jsonify({
                             "text": learned.response_text,
                             "type": "text",
                             "source": "own-ai",
+                            "learned_id": learned.id,
                         })
         except Exception as e:
             print(f"[IA-PROPIA] Error buscando en BD: {e}")
@@ -1015,15 +1050,22 @@ INSTRUCCIONES DE RESPUESTA:
                             and len(bot_text) > 15
                             and len(kws) > 5
                         ):
-                            existing = AILearnedResponse.query.filter_by(query_keywords=kws).first()
+                            # Se busca por las mismas palabras clave Y el mismo rol:
+                            # así, si dos roles distintos llegan a generar exactamente
+                            # las mismas keywords, cada uno mantiene su propia entrada
+                            # en vez de pisar la del otro.
+                            existing = AILearnedResponse.query.filter_by(query_keywords=kws, role=user_role).first()
                             if existing:
                                 existing.response_text = bot_text
                                 existing.use_count += 1
+                                existing.updated_at = datetime.utcnow()
                             else:
                                 db.session.add(AILearnedResponse(
                                     query_text=user_query,
                                     query_keywords=kws,
-                                    response_text=bot_text
+                                    response_text=bot_text,
+                                    role=user_role,
+                                    source='gemini',
                                 ))
                             db.session.commit()
                     except Exception as db_e:
@@ -1256,6 +1298,19 @@ INSTRUCCIONES DE RESPUESTA:
     else:
         fallback_text = "No tengo una respuesta precisa para esa consulta. ¿Quieres reformularla o prefieres que te contacte con el equipo de Soporte?"
         suggest_support = can_escalate
+        # Quedó un hueco de contenido: ni las reglas ni la IA que aprende supieron
+        # responder. Se registra para que un Admin lo revise y, si quiere, enseñe
+        # la respuesta a mano desde el panel de conocimiento del asistente.
+        try:
+            db.session.add(AIUnansweredQuery(
+                query_text=user_query[:500],
+                role=user_role,
+                user_id=str(user.id) if user else None,
+            ))
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"[IA-PROPIA] Error registrando pregunta sin respuesta: {e}")
 
     return jsonify({
         "text": fallback_text,
@@ -1372,6 +1427,221 @@ def confirm_action():
         db.session.rollback()
         print(f"[assistant confirm-action] error ejecutando '{action}': {e}")
         return jsonify({"error": "Ocurrió un error ejecutando la acción."}), 500
+
+
+def _require_admin():
+    """Devuelve (user, None) si quien llama es Admin, o (None, response) si no."""
+    uid = get_jwt_identity()
+    u = User.query.get(uid) if uid else None
+    if not u or not u.role or (u.role.name or '').upper() != 'ADMIN':
+        return None, (jsonify({"error": "Solo un administrador puede acceder a esto."}), 403)
+    return u, None
+
+
+# ─── Retroalimentación sobre respuestas de la IA que aprende ─────────────────
+
+@assistant_bp.route('/feedback', methods=['POST'])
+@jwt_required()
+def learned_feedback():
+    """👍/👎 sobre una respuesta servida por la IA que aprende. Si se acumulan
+    demasiados negativos frente a los positivos, la entrada se autoelimina —
+    así el bot deja de repetir una respuesta que la gente marca como inútil,
+    sin que un Admin tenga que estar revisándolas manualmente."""
+    data = request.get_json() or {}
+    learned_id = data.get('learned_id')
+    useful = bool(data.get('useful'))
+    if not learned_id:
+        return jsonify({"error": "Falta learned_id."}), 400
+
+    learned = AILearnedResponse.query.get(learned_id)
+    if not learned:
+        return jsonify({"error": "Esa respuesta ya no existe."}), 404
+
+    if useful:
+        learned.positive_feedback = (learned.positive_feedback or 0) + 1
+        db.session.commit()
+        return jsonify({"ok": True}), 200
+
+    learned.negative_feedback = (learned.negative_feedback or 0) + 1
+    if learned.negative_feedback - (learned.positive_feedback or 0) >= NEGATIVE_FEEDBACK_AUTODELETE_MARGIN:
+        db.session.delete(learned)
+        db.session.commit()
+        print(f"[IA-PROPIA] Entrada #{learned_id} autoeliminada por retroalimentación negativa.")
+        return jsonify({"ok": True, "deleted": True}), 200
+
+    db.session.commit()
+    return jsonify({"ok": True}), 200
+
+
+# ─── Panel de conocimiento del asistente (solo Admin) ────────────────────────
+
+@assistant_bp.route('/learned', methods=['GET'])
+@jwt_required()
+def list_learned_responses():
+    """Lista paginada de todo lo que la IA ha aprendido, con búsqueda opcional."""
+    admin, err = _require_admin()
+    if err:
+        return err
+
+    search = (request.args.get('search') or '').strip()
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = min(100, max(1, int(request.args.get('per_page', 25))))
+
+    query = AILearnedResponse.query
+    if search:
+        like = f"%{search}%"
+        query = query.filter(db.or_(
+            AILearnedResponse.query_text.ilike(like),
+            AILearnedResponse.response_text.ilike(like),
+            AILearnedResponse.query_keywords.ilike(like),
+        ))
+
+    total = query.count()
+    items = (query.order_by(AILearnedResponse.updated_at.desc().nullslast())
+             .offset((page - 1) * per_page).limit(per_page).all())
+
+    cutoff = datetime.utcnow() - timedelta(days=LEARNED_RESPONSE_TTL_DAYS)
+    return jsonify({
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "items": [{
+            "id": i.id,
+            "query_text": i.query_text,
+            "query_keywords": i.query_keywords,
+            "response_text": i.response_text,
+            "role": i.role,
+            "source": i.source,
+            "use_count": i.use_count or 0,
+            "positive_feedback": i.positive_feedback or 0,
+            "negative_feedback": i.negative_feedback or 0,
+            "created_at": i.created_at.isoformat() if i.created_at else None,
+            "updated_at": i.updated_at.isoformat() if i.updated_at else None,
+            "expired": bool(i.updated_at and i.updated_at < cutoff),
+        } for i in items],
+    }), 200
+
+
+@assistant_bp.route('/learned', methods=['POST'])
+@jwt_required()
+def create_learned_response():
+    """Enseñar una respuesta a mano (sin esperar a que Gemini la conteste primero)."""
+    admin, err = _require_admin()
+    if err:
+        return err
+
+    data = request.get_json() or {}
+    query_text = (data.get('query_text') or '').strip()
+    response_text = (data.get('response_text') or '').strip()
+    role = (data.get('role') or '').strip().upper() or None
+    if not query_text or not response_text:
+        return jsonify({"error": "query_text y response_text son obligatorios."}), 400
+
+    kws = get_query_keywords(query_text)
+    if len(kws) <= 5:
+        return jsonify({"error": "La pregunta es demasiado corta/genérica para indexarla de forma confiable."}), 400
+
+    entry = AILearnedResponse(
+        query_text=query_text,
+        query_keywords=kws,
+        response_text=response_text,
+        role=role,
+        source='manual',
+    )
+    db.session.add(entry)
+    db.session.commit()
+    return jsonify({"id": entry.id}), 201
+
+
+@assistant_bp.route('/learned/<int:entry_id>', methods=['PUT'])
+@jwt_required()
+def update_learned_response(entry_id):
+    admin, err = _require_admin()
+    if err:
+        return err
+
+    entry = AILearnedResponse.query.get(entry_id)
+    if not entry:
+        return jsonify({"error": "No encontrada."}), 404
+
+    data = request.get_json() or {}
+    if 'response_text' in data:
+        entry.response_text = (data.get('response_text') or '').strip()
+    if 'query_text' in data and data.get('query_text', '').strip():
+        entry.query_text = data['query_text'].strip()
+        entry.query_keywords = get_query_keywords(entry.query_text)
+    if 'role' in data:
+        entry.role = (data.get('role') or '').strip().upper() or None
+    entry.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({"ok": True}), 200
+
+
+@assistant_bp.route('/learned/<int:entry_id>', methods=['DELETE'])
+@jwt_required()
+def delete_learned_response(entry_id):
+    admin, err = _require_admin()
+    if err:
+        return err
+
+    entry = AILearnedResponse.query.get(entry_id)
+    if not entry:
+        return jsonify({"error": "No encontrada."}), 404
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({"ok": True}), 200
+
+
+@assistant_bp.route('/unanswered', methods=['GET'])
+@jwt_required()
+def list_unanswered_queries():
+    """Preguntas que ni las reglas ni la IA que aprende supieron responder —
+    huecos de contenido para que un Admin revise y, si quiere, enseñe."""
+    admin, err = _require_admin()
+    if err:
+        return err
+
+    only_pending = (request.args.get('pending', 'true').lower() == 'true')
+    query = AIUnansweredQuery.query
+    if only_pending:
+        query = query.filter_by(resolved=False)
+    items = query.order_by(AIUnansweredQuery.created_at.desc()).limit(200).all()
+
+    return jsonify([{
+        "id": i.id,
+        "query_text": i.query_text,
+        "role": i.role,
+        "created_at": i.created_at.isoformat() if i.created_at else None,
+        "resolved": i.resolved,
+    } for i in items]), 200
+
+
+@assistant_bp.route('/unanswered/<int:entry_id>', methods=['PUT'])
+@jwt_required()
+def resolve_unanswered_query(entry_id):
+    admin, err = _require_admin()
+    if err:
+        return err
+    entry = AIUnansweredQuery.query.get(entry_id)
+    if not entry:
+        return jsonify({"error": "No encontrada."}), 404
+    entry.resolved = True
+    db.session.commit()
+    return jsonify({"ok": True}), 200
+
+
+@assistant_bp.route('/unanswered/<int:entry_id>', methods=['DELETE'])
+@jwt_required()
+def delete_unanswered_query(entry_id):
+    admin, err = _require_admin()
+    if err:
+        return err
+    entry = AIUnansweredQuery.query.get(entry_id)
+    if not entry:
+        return jsonify({"error": "No encontrada."}), 404
+    db.session.delete(entry)
+    db.session.commit()
+    return jsonify({"ok": True}), 200
 
 
 # ─── Threads del Asistente Personal (persistencia por usuario) ───────────────
