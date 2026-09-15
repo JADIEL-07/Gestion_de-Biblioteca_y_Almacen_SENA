@@ -1470,6 +1470,18 @@ td .status-badge {
   gap: 4px;
 }
 
+/* Ídem dentro de las tarjetas de "Préstamos/Reservas recientes" del inicio:
+   .activity-item-card no tiene position:relative, así que el badge (pensado
+   para ir en la esquina de una miniatura de catálogo) escapaba y terminaba
+   flotando en la esquina superior izquierda de toda la página. */
+.activity-item-card .status-badge {
+  position: static;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 /* Préstamos */
 .status-badge.active   { background: rgba(57, 169, 0, 0.15);   color: var(--sena-green); }
 .status-badge.returned { background: rgba(51, 65, 85, 0.15);   color: var(--text-muted); }
