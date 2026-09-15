@@ -588,7 +588,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
               <div className="inv-view-left">
                 <img src={viewItem.image_url || IMAGE_PLACEHOLDER} alt={viewItem.name} className="inv-view-img" onError={e => { e.currentTarget.src = IMAGE_PLACEHOLDER; }} />
                 <div className="qr-container">
-                  <QRCodeSVG value={buildQRData(viewItem)} size={160} bgColor="transparent" fgColor="#39a900" level="M" />
+                  <QRCodeSVG value={buildQRData(viewItem)} size={120} bgColor="transparent" fgColor="#39a900" level="M" />
                   <small>Escanear para ver info</small>
                 </div>
               </div>

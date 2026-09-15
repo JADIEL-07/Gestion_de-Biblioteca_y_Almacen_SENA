@@ -87,6 +87,13 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   transition: all 0.3s ease;
 }
 
+/* El banner de "viendo como" (Admin probando otro rol) es fijo arriba de
+   todo — sin esto, esta barra se quedaba pegada a top:0 y quedaba tapada
+   debajo de él si se navegaba al Inicio mientras tanto. */
+body.has-impersonation-banner .main-nav {
+  top: var(--impersonation-banner-height, 0px);
+}
+
 .nav-logo {
   display: flex;
   align-items: center;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FiEye, FiLogOut, FiChevronDown } from 'react-icons/fi';
 import { isImpersonating, getImpersonationInfo, exitImpersonation, switchToRole } from '../../shared/impersonation';
 import './ImpersonationBanner.css';
@@ -19,11 +19,32 @@ const ROLE_LABELS: Record<string, string> = {
 export const ImpersonationBanner: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [switching, setSwitching] = useState(false);
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const active = isImpersonating();
+  const info = active ? getImpersonationInfo() : null;
 
-  if (!isImpersonating()) return null;
+  // La barra superior de cada dashboard (fija/sticky en top:0) no sabe que
+  // este banner existe y quedaba tapada debajo de él. Se mide su altura real
+  // (cambia según el rol/ancho de pantalla) y se le avisa al resto de la app
+  // vía una variable CSS + una clase en <body>, para que la barra baje justo
+  // lo necesario y nunca se solapen.
+  useEffect(() => {
+    if (!active || !info) {
+      document.body.classList.remove('has-impersonation-banner');
+      document.body.style.removeProperty('--impersonation-banner-height');
+      return;
+    }
+    const applyOffset = () => {
+      const h = bannerRef.current?.offsetHeight || 0;
+      document.body.style.setProperty('--impersonation-banner-height', `${h}px`);
+    };
+    document.body.classList.add('has-impersonation-banner');
+    applyOffset();
+    window.addEventListener('resize', applyOffset);
+    return () => window.removeEventListener('resize', applyOffset);
+  }, [active, info, open]);
 
-  const info = getImpersonationInfo();
-  if (!info) return null;
+  if (!active || !info) return null;
 
   const handleSwitch = async (role: string) => {
     if (role === info.role || switching) return;
@@ -38,7 +59,7 @@ export const ImpersonationBanner: React.FC = () => {
   };
 
   return (
-    <div className="impersonation-banner">
+    <div className="impersonation-banner" ref={bannerRef}>
       <div className="impersonation-banner-info">
         <FiEye />
         <span>

@@ -366,6 +366,12 @@
     max-width: 400px;
 }
 
+/* Ver Detalle del Elemento: se abría igual de grande que el formulario
+   completo de creación/edición, aunque solo muestra datos de solo lectura. */
+.inv-modal.inv-modal-view {
+    max-width: 560px;
+}
+
 @keyframes modalScale {
     from { opacity: 0; transform: scale(0.9) translateY(20px); }
     to { opacity: 1; transform: scale(1) translateY(0); }
@@ -609,35 +615,35 @@
 /* QR Modal */
 .inv-view-body {
     display: grid;
-    grid-template-columns: 220px 1fr;
-    gap: 2.5rem;
-    padding: 2.5rem;
+    grid-template-columns: 160px 1fr;
+    gap: 1.5rem;
+    padding: 1.5rem;
 }
 
 .inv-view-img {
-    width: 220px;
-    height: 220px;
+    width: 160px;
+    height: 160px;
     object-fit: cover;
-    border-radius: 20px;
+    border-radius: 16px;
     border: 1px solid var(--admin-border-color);
-    margin-bottom: 1.5rem;
+    margin-bottom: 1rem;
 }
 
 .qr-container {
     background: white;
-    padding: 1.5rem;
-    border-radius: 20px;
+    padding: 1rem;
+    border-radius: 16px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
 }
 
-.qr-container small { color: #1e293b; font-weight: 700; text-transform: uppercase; font-size: 0.65rem; }
+.qr-container small { color: #1e293b; font-weight: 700; text-transform: uppercase; font-size: 0.6rem; }
 
 .detail-table { width: 100%; border-collapse: collapse; }
-.detail-table td { padding: 0.8rem 0; border-bottom: 1px solid var(--admin-border-color); font-size: 0.95rem; }
-.detail-table td:first-child { color: var(--admin-text-muted); font-weight: 600; width: 150px; }
+.detail-table td { padding: 0.55rem 0; border-bottom: 1px solid var(--admin-border-color); font-size: 0.85rem; }
+.detail-table td:first-child { color: var(--admin-text-muted); font-weight: 600; width: 120px; }
 
 /* Responsividad — scroll horizontal, sin ocultar columnas */
 @media (max-width: 1024px) {

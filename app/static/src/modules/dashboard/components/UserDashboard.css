@@ -81,6 +81,14 @@
   top: 0;
   z-index: 50;
   box-shadow: var(--shadow-sm);
+  transition: top 0.2s ease;
+}
+
+/* El banner de "viendo como" (Admin probando otro rol) es fijo arriba de
+   todo — sin esto, esta barra se quedaba pegada a top:0 y quedaba tapada
+   debajo de él. */
+body.has-impersonation-banner .dashboard-topnav {
+  top: var(--impersonation-banner-height, 0px);
 }
 
 /* Eliminamos el botón toggle del topnav */
