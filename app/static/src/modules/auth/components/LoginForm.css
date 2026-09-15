@@ -72,10 +72,11 @@
 .clean-form {
   width: 100%;
   max-width: 440px;
-  background: var(--glass-bg, rgba(15, 23, 42, 0.85));
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border: 1px solid rgba(57, 169, 0, 0.2);
+  /* Misma tonalidad que las tarjetas del inicio (.service-card-mini / .info-card) */
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   padding: 2.8rem;
   border-radius: 32px;
   box-shadow: 0 50px 100px -20px rgba(0, 0, 0, 0.5);
@@ -96,7 +97,9 @@
 }
 
 .theme-light .clean-form {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(57, 169, 0, 0.2);
   box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.1);
 }
