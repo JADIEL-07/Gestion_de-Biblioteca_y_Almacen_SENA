@@ -332,6 +332,7 @@ function AppRoutes() {
   const isAlmacenista = userRole === 'ALMACENISTA';
   const isSoporte = userRole === 'SOPORTE TÉCNICO' || userRole === 'SOPORTE TECNICO' || userRole === 'SOPORTE_TECNICO' || userRole === 'SOPORTE';
   const isStaff = isBibliotecario || isAlmacenista || isSoporte;
+  const roleHome = isAdmin ? '/admin' : isBibliotecario ? '/bibliotecario' : isAlmacenista ? '/almacenista' : isSoporte ? '/soporte' : '/dashboard';
 
   // ── Si el usuario tiene contraseña temporal, bloquear toda la app hasta que la cambie
   const mustChangePassword = loggedUser && (loggedUser.must_change_password === true
@@ -352,7 +353,14 @@ function AppRoutes() {
     <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw', background: 'var(--bg-main, #f0f2f5)' }}><div className="loading-spinner" style={{ border: '4px solid rgba(0,0,0,0.1)', borderLeftColor: '#39A900', borderRadius: '50%', width: '50px', height: '50px', animation: 'spin 1s linear infinite' }}></div><style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style></div>}>
       <Routes>
         {/* Public pages */}
-        <Route path="/" element={<Landing loggedUser={loggedUser} onLogout={handleLogout} />} />
+        <Route
+          path="/"
+          element={
+            loggedUser
+              ? <Navigate to={roleHome} replace />
+              : <Landing loggedUser={loggedUser} onLogout={handleLogout} />
+          }
+        />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/contacto" element={<Contact />} />
@@ -364,7 +372,7 @@ function AppRoutes() {
           path="/login"
           element={
             loggedUser
-              ? <Navigate to={isAdmin ? '/admin' : isBibliotecario ? '/bibliotecario' : isAlmacenista ? '/almacenista' : isSoporte ? '/soporte' : '/dashboard'} replace />
+              ? <Navigate to={roleHome} replace />
               : <LoginForm mode="login" onLoginSuccess={handleLoginSuccess} />
           }
         />
@@ -372,7 +380,7 @@ function AppRoutes() {
           path="/register"
           element={
             loggedUser
-              ? <Navigate to={isAdmin ? '/admin' : isBibliotecario ? '/bibliotecario' : isAlmacenista ? '/almacenista' : isSoporte ? '/soporte' : '/dashboard'} replace />
+              ? <Navigate to={roleHome} replace />
               : <LoginForm mode="register" onLoginSuccess={handleLoginSuccess} />
           }
         />
