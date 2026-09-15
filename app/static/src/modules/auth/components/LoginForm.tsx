@@ -721,11 +721,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
       <div className="login-form-centered">
         <div className={`clean-form ${isRegister ? 'register-mode' : ''}`}>
           <div className="sena-logo">
-            <img
-              src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg"
-              alt="Logo SENA"
-              className="sena-logo-img"
-            />
+            <img src="/assets/images/icono-sena.png" alt="Logo SENA" className="sena-logo-img" />
           </div>
 
           <div className="form-header">
