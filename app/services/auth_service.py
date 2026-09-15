@@ -767,6 +767,7 @@ class AuthService:
                         user_id=str(user.id), device_id=device_id,
                         label=_describe_user_agent(_ua), last_ip=_client_ip(),
                     ))
+                device_trusted = True
                 db.session.add(Notification(
                     user_id=str(user.id),
                     type='NEW_LOGIN',
@@ -781,8 +782,11 @@ class AuthService:
                 print(f"[device-approval] aviso registrando el fallback: {_fe}")
             # continúa al flujo normal (2FA / éxito)
 
-        # 2FA check
-        if user.is_2fa_enabled and user.totp_secret:
+        # 2FA check — se omite si ya es un dispositivo de confianza (ya completó
+        # 2FA u obtuvo permiso de este mismo dispositivo antes). Volver a pedir
+        # el código en cada inicio de sesión desde el MISMO navegador no aporta
+        # seguridad extra y es justo la fricción que este chequeo evita.
+        if user.is_2fa_enabled and user.totp_secret and not device_trusted:
             # En lugar de loguearlo inmediatamente, devolvemos un token temporal
             temp_token = create_access_token(
                 identity=str(user.id),
