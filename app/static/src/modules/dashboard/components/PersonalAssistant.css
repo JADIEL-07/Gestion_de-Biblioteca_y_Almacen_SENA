@@ -85,6 +85,12 @@
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Dentro del overlay del invitado, el botón "✕" para cerrarlo es fijo y
+   flotante encima de todo — sin este espacio, se monta sobre este botón. */
+.assistant-overlay .clear-chat-btn {
+  margin-right: 3.25rem;
+}
+
 .clear-chat-btn:hover {
   border-color: #ef4444;
   color: #ef4444;

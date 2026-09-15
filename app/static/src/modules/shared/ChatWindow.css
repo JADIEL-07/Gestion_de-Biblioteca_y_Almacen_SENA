@@ -181,6 +181,24 @@
   white-space: pre-wrap;
 }
 
+.chat-msg-image {
+  display: block;
+  max-width: 220px;
+  max-height: 220px;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  margin-bottom: 0.4rem;
+  cursor: zoom-in;
+  object-fit: cover;
+}
+
+.chat-msg-audio {
+  display: block;
+  max-width: 220px;
+  margin-bottom: 0.4rem;
+}
+
 .chat-msg-time {
   font-size: 0.65rem;
   margin-top: 0.3rem;

@@ -16,6 +16,11 @@ class TicketMessage(Base):
     body = db.Column(db.Text, nullable=False)
     is_read = db.Column(db.Boolean, default=False)
 
+    # Imagen o audio adjunto (igual que en el asistente: se guarda la data URL
+    # completa, 'data:image/...;base64,...'). NULL si el mensaje es solo texto.
+    media_url = db.Column(db.Text, nullable=True)
+    media_type = db.Column(db.String(20), nullable=True)  # 'image' | 'audio'
+
     sender = db.relationship('User', foreign_keys=[sender_id], lazy='joined')
     ticket = db.relationship('Ticket', backref=db.backref('messages', lazy='dynamic', cascade='all, delete-orphan'))
 

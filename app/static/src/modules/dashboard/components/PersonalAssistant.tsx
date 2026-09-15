@@ -234,6 +234,9 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
               type: 'text',
               isFromSupport: true,
               supportName: sm.sender_name || activeTicket.assigned_name,
+              media: sm.media_url
+                ? { data: sm.media_url, mimeType: '', type: (sm.media_type || 'image') as 'image' | 'audio', preview: sm.media_url }
+                : undefined,
             }));
           if (toAdd.length === 0) return t;
           return { ...t, messages: [...t.messages, ...toAdd], updatedAt: new Date().toISOString() };
@@ -498,7 +501,12 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
         await fetch(`/api/v1/chat/tickets/${activeTicket.id}/messages`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ body: text }),
+          // El adjunto (foto/audio) se manda igual que al asistente — antes se
+          // perdía aquí y Soporte nunca llegaba a verlo.
+          body: JSON.stringify({
+            body: text,
+            ...(sentMedia ? { media: { preview: sentMedia.preview, mimeType: sentMedia.mimeType, type: sentMedia.type } } : {}),
+          }),
         });
       } catch (err) {
         console.warn('Error enviando mensaje al soporte:', err);
@@ -769,9 +777,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
             <p>Información en tiempo real &amp; soporte autónomo</p>
           </div>
         </div>
-        <button className="clear-chat-btn" onClick={clearChat} title="Restablecer chat actual">
-          <FiTrash2 size={16} /> <span>Restablecer Chat</span>
-        </button>
+        {roleNameUpper === 'USUARIO' && (
+          <button className="clear-chat-btn" onClick={clearChat} title="Restablecer chat actual">
+            <FiTrash2 size={16} /> <span>Restablecer Chat</span>
+          </button>
+        )}
       </div>
 
       <div className="assistant-main-container">

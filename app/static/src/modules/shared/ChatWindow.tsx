@@ -11,6 +11,8 @@ export interface ChatMessage {
   is_mine: boolean;
   is_read: boolean;
   created_at: string;
+  media_url?: string | null;
+  media_type?: 'image' | 'audio' | null;
 }
 
 interface ChatWindowProps {
@@ -198,7 +200,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 {!m.is_mine && (
                   <span className="chat-msg-sender">{m.sender_name}</span>
                 )}
-                <p className="chat-msg-body">{m.body}</p>
+                {m.media_url && (
+                  m.media_type === 'audio' ? (
+                    <audio src={m.media_url} controls className="chat-msg-audio" />
+                  ) : (
+                    <a href={m.media_url} target="_blank" rel="noopener noreferrer">
+                      <img src={m.media_url} alt="Adjunto" className="chat-msg-image" />
+                    </a>
+                  )
+                )}
+                {m.body && <p className="chat-msg-body">{m.body}</p>}
                 <span className="chat-msg-time">{formatTime(m.created_at)}</span>
               </div>
             </div>

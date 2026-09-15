@@ -59,6 +59,10 @@ def _apply_runtime_migrations():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_owner_id VARCHAR(50)",
         # Apodo personal (vista propia, no cambia el nombre registrado).
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(100)",
+        # Adjuntos (imagen/audio) en el chat de tickets Aprendiz <-> Soporte —
+        # antes se descartaban silenciosamente, nunca llegaban a Soporte.
+        "ALTER TABLE ticket_messages ADD COLUMN IF NOT EXISTS media_url TEXT",
+        "ALTER TABLE ticket_messages ADD COLUMN IF NOT EXISTS media_type VARCHAR(20)",
     ]
     for stmt in column_migrations:
         try:

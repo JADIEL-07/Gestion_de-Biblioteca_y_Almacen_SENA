@@ -44,6 +44,8 @@ def _serialize_message(msg, current_user_id):
         'is_mine': msg.sender_id == current_user_id,
         'is_read': msg.is_read,
         'created_at': msg.created_at.isoformat() if msg.created_at else None,
+        'media_url': _full_media_url(getattr(msg, 'media_url', None)),
+        'media_type': getattr(msg, 'media_type', None),
     }
 
 
@@ -142,12 +144,30 @@ def post_ticket_message(ticket_id):
 
     data = request.get_json() or {}
     body = (data.get('body') or '').strip()
-    if not body:
+
+    # Adjunto opcional: se acepta el mismo formato que ya arma el asistente
+    # ({data, mimeType, type, preview}) o directamente {media_url, media_type}.
+    media = data.get('media') or {}
+    media_url = data.get('media_url') or media.get('preview') or media.get('data')
+    media_type = data.get('media_type') or media.get('type')
+    if media_url and media_type not in ('image', 'audio'):
+        media_type = 'image'
+    if media_url and isinstance(media_url, str) and not media_url.startswith('data:'):
+        # Si llega solo el base64 (campo 'data'), reconstruir la data URL.
+        mime = media.get('mimeType') or 'image/jpeg'
+        media_url = f"data:{mime};base64,{media_url}"
+
+    if not body and not media_url:
         return jsonify({'error': 'El mensaje no puede estar vacío.'}), 400
     if len(body) > 4000:
         return jsonify({'error': 'El mensaje excede el largo permitido (4000 caracteres).'}), 400
+    if media_url and len(media_url) > 8_000_000:
+        return jsonify({'error': 'El archivo adjunto es demasiado grande.'}), 400
 
-    msg = TicketMessage(ticket_id=ticket_id, sender_id=user.id, body=body)
+    msg = TicketMessage(
+        ticket_id=ticket_id, sender_id=user.id, body=body,
+        media_url=media_url or None, media_type=media_type if media_url else None,
+    )
     db.session.add(msg)
     db.session.commit()
 
