@@ -863,7 +863,19 @@ INSTRUCCIONES DE RESPUESTA:
                     'cuanto debo', 'cuánto debo', 'tengo prestamo', 'tengo préstamo',
                     'stock', 'disponible', 'disponibilidad', 'cuantos hay', 'cuántos hay',
                     'tengo multa', 'tengo sancion', 'tengo sanción']
-    needs_fresh_data = any(t in q_lower for t in RAG_TRIGGERS)
+    # Frases que piden EJECUTAR una acción (reservar, cancelar, cerrar sesión,
+    # navegar, ver mis sesiones/reservas). Estas SIEMPRE deben llegar a Gemini
+    # en vivo — la IA propia solo devuelve texto aprendido y jamás podría
+    # invocar una función real, así que si dejáramos pasar una de estas frases
+    # por el atajo de abajo, el usuario nunca llegaría a ver el botón de
+    # confirmación (se quedaría con una respuesta de texto genérica aprendida).
+    ACTION_TRIGGERS = ['reserva', 'reservar', 'resérvame', 'reservame',
+                       'cancela', 'cancelar', 'cancélame', 'cancelame',
+                       'cerrar sesion', 'cerrar sesión', 'cierra sesion', 'cierra sesión',
+                       'mis sesiones', 'sesiones activas', 'dispositivos conectados',
+                       'llevame', 'llévame', 'navega', 'navegar', 'ir a', 'abre',
+                       'abreme', 'ábreme']
+    needs_fresh_data = any(t in q_lower for t in RAG_TRIGGERS) or any(t in q_lower for t in ACTION_TRIGGERS)
     has_conversation_history = len([m for m in history if m.get("role") == "user"]) > 0
 
     if not media and not needs_fresh_data and not has_conversation_history:
