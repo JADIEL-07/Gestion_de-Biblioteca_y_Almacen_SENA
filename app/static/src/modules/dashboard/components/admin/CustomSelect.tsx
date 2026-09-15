@@ -63,8 +63,9 @@ export const CustomSelect: React.FC<CustomSelectProps> = ({
                   onChange(option.id);
                   setIsOpen(false);
                 }}
+                title={option.name}
               >
-                {option.name}
+                <span className="custom-select-option-text">{option.name}</span>
                 {String(option.id) === String(value) && <div className="selected-dot" />}
               </div>
             ))

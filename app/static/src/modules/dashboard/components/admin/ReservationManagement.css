@@ -230,6 +230,31 @@
   font-weight: 700;
 }
 
+/* Nombre propio (no ".date-cell" a secas): ese nombre genérico también lo
+   usan SystemReports.css y AuditLogs.css con layouts en conflicto (flex fila
+   / flex columna), y al empaquetarse juntos en el mismo bundle uno pisaba al
+   otro — las fechas de esta tabla terminaban corridas de columna. */
+.res-date-cell {
+  white-space: nowrap;
+  color: var(--admin-text-secondary);
+}
+
+.status-pill {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.status-pill.queued { background: rgba(148, 163, 184, 0.15); color: var(--admin-text-secondary); }
+.status-pill.ready { background: rgba(var(--sena-green-rgb), 0.1); color: var(--sena-green); }
+.status-pill.claimed { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.status-pill.cancelled { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+.status-pill.expired { background: rgba(249, 115, 22, 0.1); color: #f97316; }
+
 .btn-action-view {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--admin-border-color);

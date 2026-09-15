@@ -256,8 +256,8 @@ export const ReservationManagement: React.FC = () => {
                   <td>{res.user_name}</td>
                   <td><span className="role-badge">{res.user_role}</span></td>
                   <td>{res.item_name}</td>
-                  <td className="date-cell">{new Date(res.reservation_date).toLocaleDateString()}</td>
-                  <td className="date-cell">{new Date(res.expiration_date).toLocaleDateString()}</td>
+                  <td className="res-date-cell">{new Date(res.reservation_date).toLocaleDateString()}</td>
+                  <td className="res-date-cell">{new Date(res.expiration_date).toLocaleDateString()}</td>
                   <td>
                     <span className={`status-pill ${res.status.toLowerCase()}`}>
                       {res.status}

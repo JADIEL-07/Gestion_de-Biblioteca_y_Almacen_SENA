@@ -81,3 +81,18 @@ export const DUMMY_CATALOG = [
     imagen: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=400&q=80'
   }
 ];
+
+// Nombre legible de cada rol — se usa en filtros y menús para no mostrar el
+// nombre crudo de la BD (ej. "SOPORTE_TECNICO"), que además de verse feo
+// puede desbordar contenedores angostos como los desplegables de filtro.
+export const ROLE_LABELS: Record<string, string> = {
+  ADMIN: 'Administrador',
+  BIBLIOTECARIO: 'Bibliotecario',
+  ALMACENISTA: 'Almacenista',
+  SOPORTE_TECNICO: 'Soporte Técnico',
+  APRENDIZ: 'Aprendiz',
+  EMPRESA: 'Empresa',
+  USUARIO: 'Usuario',
+};
+
+export const roleLabel = (role: string): string => ROLE_LABELS[role] || role;

@@ -7,6 +7,7 @@ import {
 import { QRCodeCanvas } from 'qrcode.react';
 import { CustomSelect } from './CustomSelect';
 import { confirmDialog } from '../../../../components/ui/ConfirmDialog';
+import { roleLabel } from '../../../../shared/constants';
 import './UserManagement.css';
 
 interface UserStats {
@@ -333,8 +334,8 @@ export const UserManagement: React.FC = () => {
           />
         </div>
         <div className="filter-group-pro">
-          <CustomSelect 
-            options={[{ id: 'ALL', name: 'Todos los Roles' }, ...(roles || []).map(r => ({ id: r, name: r }))]}
+          <CustomSelect
+            options={[{ id: 'ALL', name: 'Todos los Roles' }, ...(roles || []).map(r => ({ id: r, name: roleLabel(r) }))]}
             value={filterRole}
             onChange={setFilterRole}
             icon={<FiShield />}
@@ -481,8 +482,8 @@ export const UserManagement: React.FC = () => {
                   <div className="role-change-panel" style={{ width: '100%', animation: 'fadeIn 0.3s ease' }}>
                     <label style={{ fontSize: '0.8rem', color: 'var(--admin-text-muted)', marginBottom: '0.5rem', display: 'block' }}>Seleccionar Nuevo Rol:</label>
                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <CustomSelect 
-                        options={(roles || []).map(r => ({ id: r, name: r }))}
+                      <CustomSelect
+                        options={(roles || []).map(r => ({ id: r, name: roleLabel(r) }))}
                         value={newRole}
                         onChange={setNewRole}
                       />
@@ -609,9 +610,9 @@ export const UserManagement: React.FC = () => {
 
                 <div className="form-row">
                   <div className="form-group">
-                    <CustomSelect 
+                    <CustomSelect
                       label="Rol de Sistema"
-                      options={(roles || []).map(r => ({ id: r, name: r }))}
+                      options={(roles || []).map(r => ({ id: r, name: roleLabel(r) }))}
                       value={newUser.role}
                       onChange={val => setNewUser({...newUser, role: val})}
                     />

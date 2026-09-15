@@ -226,7 +226,7 @@ export const SystemReports: React.FC = () => {
                     {report.severity}
                   </span>
                 </td>
-                <td className="date-cell">
+                <td className="reports-date-cell">
                   <FiClock className="small-icon" />
                   {report.created_at ? new Date(report.created_at).toLocaleDateString() : '—'}
                 </td>

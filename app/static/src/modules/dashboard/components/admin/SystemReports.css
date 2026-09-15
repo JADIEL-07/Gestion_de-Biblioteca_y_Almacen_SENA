@@ -164,10 +164,14 @@
 .status-tag.open { color: #3b82f6; background: rgba(59, 130, 246, 0.1); }
 .status-tag.closed { color: var(--sena-green); background: rgba(var(--sena-green-rgb), 0.1); }
 
-.date-cell {
+/* Nombre propio (no ".date-cell" a secas): ese nombre genérico también lo
+   usan ReservationManagement.css y AuditLogs.css con layouts distintos, y al
+   empaquetarse juntos en el mismo bundle uno terminaba pisando al otro. */
+.reports-date-cell {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  white-space: nowrap;
   color: var(--admin-text-muted);
   font-size: 0.85rem;
 }

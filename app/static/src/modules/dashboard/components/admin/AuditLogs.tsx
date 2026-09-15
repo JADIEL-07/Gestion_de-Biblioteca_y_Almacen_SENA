@@ -210,7 +210,7 @@ export const AuditLogs: React.FC = () => {
                 <tr key={log.id}>
                   <td className="col-id"><span className="id-badge">#{log.id}</span></td>
                   <td className="col-date">
-                    <div className="date-cell">
+                    <div className="audit-date-cell">
                       <strong>{new Date(log.created_at).toLocaleDateString()}</strong>
                       <small>{new Date(log.created_at).toLocaleTimeString()}</small>
                     </div>

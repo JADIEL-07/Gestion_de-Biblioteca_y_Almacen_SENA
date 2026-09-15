@@ -276,9 +276,12 @@
   font-family: 'JetBrains Mono', monospace;
 }
 
-.date-cell { display: flex; flex-direction: column; }
-.date-cell strong { font-size: 0.9rem; }
-.date-cell small { font-size: 0.75rem; color: var(--admin-text-muted); }
+/* Nombre propio (no ".date-cell" a secas): ese nombre genérico también lo
+   usan ReservationManagement.css y SystemReports.css con layouts distintos,
+   y al empaquetarse juntos en el mismo bundle uno terminaba pisando al otro. */
+.audit-date-cell { display: flex; flex-direction: column; }
+.audit-date-cell strong { font-size: 0.9rem; }
+.audit-date-cell small { font-size: 0.75rem; color: var(--admin-text-muted); }
 
 .ip-badge { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--admin-text-muted); }
 
