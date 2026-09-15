@@ -9,6 +9,15 @@ import { AnimatedRobotIcon } from '../../../components/ui/AnimatedRobotIcon';
 import { clearSessionAndRedirect } from '../../../shared/api';
 import './PersonalAssistant.css';
 
+// Algunos emoji del bloque 2600–27BF (símbolos/dingbats) solo tienen glifo a
+// color en el set de Apple bajo el nombre "<hex>-fe0f" (con el selector de
+// variación de emoji); sin el sufijo, ese archivo no existe. Se listan a mano
+// los que usa esta app en vez de intentar detectar el U+FE0F en el texto (que
+// además el propio split() ya separa del emoji base).
+const APPLE_EMOJI_FE0F_SUFFIX = new Set([
+  '1f399', '1f5c4', '1f6e1', '2197', '2600', '2696', '2699', '269b', '26a0', '2709', '270d',
+]);
+
 const renderTextWithAppleEmojis = (text: string): any => {
   const emojiRegex = /([\u{1f300}-\u{1f5ff}\u{1f900}-\u{1f9ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{2600}-\u{26ff}\u{2700}-\u{27bf}\u{1f1e6}-\u{1f1ff}\u{1f191}-\u{1f251}\u{1f004}\u{1f0cf}\u{1f170}-\u{1f171}\u{1f17e}-\u{1f17f}\u{1f18e}\u{3030}\u{2b50}\u{2b55}\u{2934}-\u{2935}\u{2b05}-\u{2b07}\u{2194}-\u{2199}\u{21a9}-\u{21aa}\u{3297}\u{3299}])/gu;
   const singleEmojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f900}-\u{1f9ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{2600}-\u{26ff}\u{2700}-\u{27bf}\u{1f1e6}-\u{1f1ff}\u{1f191}-\u{1f251}\u{1f004}\u{1f0cf}\u{1f170}-\u{1f171}\u{1f17e}-\u{1f17f}\u{1f18e}\u{3030}\u{2b50}\u{2b55}\u{2934}-\u{2935}\u{2b05}-\u{2b07}\u{2194}-\u{2199}\u{21a9}-\u{21aa}\u{3297}\u{3299}]/u;
@@ -21,13 +30,17 @@ const renderTextWithAppleEmojis = (text: string): any => {
         const cp = char.codePointAt(0);
         if (cp) codePoints.push(cp.toString(16));
       }
-      const hex = codePoints.filter(cp => cp !== 'fe0f').join('-');
-      const cdnUrl = `https://cdnjs.cloudflare.com/ajax/libs/emoji-datasource-apple/14.0.0/img/apple/64/${hex}.png`;
+      const baseHex = codePoints.filter(cp => cp !== 'fe0f').join('-');
+      const fileName = APPLE_EMOJI_FE0F_SUFFIX.has(baseHex) ? `${baseHex}-fe0f` : baseHex;
+      // Emoji con estilo iOS servidos desde el propio dominio (antes se
+      // pedían a un CDN externo, que puede quedar bloqueado por la red de
+      // la institución — con esto siempre cargan).
+      const imgUrl = `/assets/emoji/${fileName}.png`;
       return (
-        <img 
-          key={index} 
-          src={cdnUrl} 
-          alt={part} 
+        <img
+          key={index}
+          src={imgUrl}
+          alt={part}
           className="apple-emoji"
           onError={(e) => {
             (e.target as HTMLElement).style.display = 'none';
@@ -801,7 +814,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
             {messages.length === 0 ? (
               <div className="assistant-empty-state">
                 <AnimatedRobotIcon className="empty-state-icon" size="56px" />
-                <h2>{emptyStateTitle}</h2>
+                <h2>{renderTextWithAppleEmojis(emptyStateTitle)}</h2>
                 <p>Pregúntame sobre préstamos, reservas, horarios, el catálogo o tu cuenta.</p>
               </div>
             ) : messages.map((msg) => (
