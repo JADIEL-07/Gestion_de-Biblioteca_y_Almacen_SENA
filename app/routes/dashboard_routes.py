@@ -12,6 +12,15 @@ from ..extensions import db
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
+# El widget "Actividad reciente" del inicio del Admin es un vistazo rápido,
+# no el registro de auditoría completo (ese sigue disponible sin filtrar en
+# Auditoría, con buscador y filtros). Aquí solo se muestran movimientos de
+# almacén — el resto (logins, 2FA, cambios de contraseña, edición de perfil,
+# gestión de usuarios, etc.) desplazaba lo importante por su volumen.
+IMPORTANT_ACTIVITY_ACTIONS = (
+    'SALIDA_CREATED', 'SALIDA_RETURNED', 'SALIDA_CLOSED',
+)
+
 
 def _full_media_url(path):
     """Normaliza rutas de media a una ruta RELATIVA ('/uploads/...').
@@ -85,8 +94,11 @@ def get_dashboard_stats():
                 })
         cat_data = sorted(cat_data, key=lambda x: x['val'], reverse=True)[:5]
 
-        # 4. Actividad Reciente (AuditLog)
-        recent_logs = AuditLog.query.order_by(desc(AuditLog.created_at)).limit(10).all()
+        # 4. Actividad Reciente (AuditLog) — solo lo importante, ver constante arriba.
+        recent_logs = (AuditLog.query
+                       .filter(AuditLog.action.in_(IMPORTANT_ACTIVITY_ACTIONS))
+                       .order_by(desc(AuditLog.created_at))
+                       .limit(10).all())
         activity = []
         for log in recent_logs:
             activity.append({
