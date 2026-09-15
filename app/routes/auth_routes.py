@@ -476,6 +476,20 @@ def revoke_all_sessions():
     return jsonify({"success": True, "message": "Todas las sesiones cerradas y dispositivos olvidados."}), 200
 
 
+# ─────────────────────────  MODO "VER COMO" (solo Admin)  ─────────────────
+
+@auth_bp.route('/impersonate', methods=['POST'])
+@jwt_required()
+def impersonate():
+    """Da al Admin autenticado un login real a una cuenta de prueba del rol
+    pedido, para navegar el sistema como ese rol (y poder probar cosas como
+    contactar Soporte de verdad). Ver AuthService.impersonate_as."""
+    admin_id = get_jwt_identity()
+    data = request.get_json() or {}
+    result, status = AuthService.impersonate_as(admin_id, data.get('role', ''))
+    return jsonify(result), status
+
+
 # ─────────────────────────  HISTORIAL DE ACCESOS  ─────────────────────
 
 @auth_bp.route('/access-history', methods=['GET'])

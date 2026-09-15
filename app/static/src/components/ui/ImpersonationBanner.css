@@ -1,0 +1,119 @@
+.impersonation-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2147483000; /* por debajo solo del overlay de "sesión expirada" */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.55rem 1.25rem;
+  background: #78350f;
+  border-bottom: 2px solid #f59e0b;
+  color: #fef3c7;
+  font-size: 0.85rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.impersonation-banner-info {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.impersonation-banner-info svg {
+  color: #f59e0b;
+  flex-shrink: 0;
+}
+
+.impersonation-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.impersonation-switch {
+  position: relative;
+}
+
+.impersonation-switch-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: 1px solid rgba(254, 243, 199, 0.4);
+  color: #fef3c7;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.impersonation-switch-btn:hover:not(:disabled) {
+  background: rgba(254, 243, 199, 0.12);
+}
+
+.impersonation-switch-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.impersonation-switch-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  padding: 0.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 160px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+  z-index: 1;
+}
+
+.impersonation-switch-menu button {
+  background: transparent;
+  border: none;
+  color: #f8fafc;
+  text-align: left;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.impersonation-switch-menu button:hover {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.impersonation-exit-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: #f59e0b;
+  border: none;
+  color: #1e293b;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.impersonation-exit-btn:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 640px) {
+  .impersonation-banner { justify-content: center; text-align: center; }
+  .impersonation-banner-info span { font-size: 0.78rem; }
+}

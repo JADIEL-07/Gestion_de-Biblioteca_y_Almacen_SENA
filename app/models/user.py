@@ -26,7 +26,12 @@ class User(Base):
     totp_secret = db.Column(db.String(32), nullable=True)
     is_2fa_enabled = db.Column(db.Boolean, default=False)
 
-    
+    # Si no es NULL, esta cuenta es una cuenta "sombra" de prueba creada
+    # automáticamente para que el Admin indicado pueda navegar el sistema
+    # como ese rol (ver /auth/impersonate). Nunca se usa para login normal
+    # y se excluye de los listados/estadísticas de usuarios reales.
+    shadow_owner_id = db.Column(db.String(50), db.ForeignKey('users.id'), nullable=True, index=True)
+
     # FKs
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'), nullable=False)
     formation_ficha = db.Column(db.String(50), nullable=True) # Sin validación de FK

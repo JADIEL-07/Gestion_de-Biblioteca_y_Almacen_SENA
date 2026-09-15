@@ -143,7 +143,9 @@ def delete_user(id):
 @jwt_required()
 def get_users():
     search = request.args.get('search', '')
-    query = User.query.filter_by(is_deleted=False)
+    # Las cuentas "sombra" (creadas por un Admin para navegar como otro rol)
+    # nunca deben aparecer como usuarios reales.
+    query = User.query.filter_by(is_deleted=False).filter(User.shadow_owner_id.is_(None))
     
     if search:
         search_filter = f"%{search}%"
@@ -180,13 +182,15 @@ def get_users():
 @user_bp.route('/stats', methods=['GET'])
 @jwt_required()
 def get_user_stats():
-    total = User.query.filter_by(is_deleted=False).count()
-    active = User.query.filter_by(is_deleted=False, is_active=True).count()
-    inactive = User.query.filter_by(is_deleted=False, is_active=False).count()
-    blocked = User.query.filter_by(is_deleted=False, is_blocked=True).count()
-    
+    not_shadow = User.shadow_owner_id.is_(None)
+    total = User.query.filter_by(is_deleted=False).filter(not_shadow).count()
+    active = User.query.filter_by(is_deleted=False, is_active=True).filter(not_shadow).count()
+    inactive = User.query.filter_by(is_deleted=False, is_active=False).filter(not_shadow).count()
+    blocked = User.query.filter_by(is_deleted=False, is_blocked=True).filter(not_shadow).count()
+
     # Por rol
-    roles_count = db.session.query(Role.name, func.count(User.id)).join(User).group_by(Role.id).all()
+    roles_count = (db.session.query(Role.name, func.count(User.id))
+                   .join(User).filter(not_shadow).group_by(Role.id).all())
     by_role = {r[0]: r[1] for r in roles_count}
     
     return jsonify({

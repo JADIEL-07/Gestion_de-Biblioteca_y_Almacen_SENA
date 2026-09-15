@@ -55,6 +55,8 @@ def _apply_runtime_migrations():
         "ALTER TABLE ai_learned_responses ADD COLUMN IF NOT EXISTS negative_feedback INTEGER DEFAULT 0",
         "ALTER TABLE ai_learned_responses ADD COLUMN IF NOT EXISTS source VARCHAR(20) DEFAULT 'gemini'",
         "UPDATE ai_learned_responses SET updated_at = created_at WHERE updated_at IS NULL",
+        # Cuentas "sombra" para que un Admin pueda navegar el sistema como otro rol.
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_owner_id VARCHAR(50)",
     ]
     for stmt in column_migrations:
         try:

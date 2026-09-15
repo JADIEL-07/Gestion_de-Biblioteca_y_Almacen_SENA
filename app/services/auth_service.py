@@ -649,6 +649,13 @@ class AuthService:
             print(f"[login] documento no registrado: {document!r}")
             return {"error": "Usuario no registrado."}, 401
 
+        # Las cuentas "sombra" (creadas por impersonate_as para que un Admin
+        # navegue como otro rol) NUNCA inician sesión por el login normal —
+        # solo se entra a ellas vía /auth/impersonate, ya autenticado como Admin.
+        if user.shadow_owner_id is not None:
+            AuthService._log_audit(user.id, "LOGIN_BLOCKED_SHADOW_ACCOUNT", ip=_client_ip())
+            return {"error": "Usuario no registrado."}, 401
+
         # is_active NULL (default del modelo es True) -> se trata como activa.
         if user.is_active is False:
             AuthService._log_audit(user.id, "LOGIN_INACTIVE", ip=_client_ip())
@@ -1405,6 +1412,68 @@ class AuthService:
             return f"{masked}@{domain}"
         except Exception:
             return email
+
+    # Roles a los que un Admin puede "verse como". Nunca incluye ADMIN (no
+    # tiene sentido) ni roles que no tengan un dashboard propio.
+    IMPERSONATABLE_ROLES = {'APRENDIZ', 'BIBLIOTECARIO', 'ALMACENISTA', 'SOPORTE_TECNICO'}
+
+    @staticmethod
+    def impersonate_as(admin_id, target_role_name):
+        """[Solo Admin] Da un login real a una cuenta "sombra" de prueba del
+        rol pedido, creándola la primera vez que se use. La sombra queda
+        ligada al Admin (shadow_owner_id) para dejarla siempre identificable
+        y excluida de los listados/estadísticas de usuarios reales — nunca
+        se puede iniciar sesión en ella por el login normal.
+        """
+        role_name = (target_role_name or '').strip().upper()
+        if role_name not in AuthService.IMPERSONATABLE_ROLES:
+            return {"error": "Ese rol no está disponible para esta función."}, 400
+
+        admin = User.query.get(str(admin_id))
+        if not admin or not admin.role or admin.role.name != 'ADMIN':
+            return {"error": "Solo un administrador puede usar esta función."}, 403
+        if admin.shadow_owner_id is not None:
+            # Defensa extra: una cuenta sombra nunca debería poder llegar aquí
+            # (su rol jamás es ADMIN), pero lo bloqueamos explícitamente igual.
+            return {"error": "No puedes cambiar de rol mientras navegas como otro rol."}, 403
+
+        role = Role.query.filter_by(name=role_name).first()
+        if not role:
+            return {"error": f"El rol {role_name} no existe en el sistema."}, 500
+
+        shadow_id = f"SOMBRA-{admin.id}-{role_name}"[:50]
+        shadow = User.query.get(shadow_id)
+        if not shadow:
+            random_password = bcrypt.hashpw(secrets.token_hex(32).encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            shadow = User(
+                id=shadow_id,
+                document_type='PRUEBA',
+                name=f"[PRUEBA] {role_name.replace('_', ' ').title()} de {admin.name}",
+                email=f"sombra.{role_name.lower()}.{admin.id}@sombra.interno",
+                password=random_password,
+                role_id=role.id,
+                is_active=True,
+                is_verified=True,
+                is_deleted=False,
+                shadow_owner_id=admin.id,
+            )
+            db.session.add(shadow)
+            db.session.commit()
+
+        access, refresh = TokenService.generate_auth_tokens(
+            shadow, AuthService._get_user_agent(),
+            extra_claims={"impersonated_by": admin.id, "impersonation": True},
+        )
+
+        AuthService._log_audit(admin.id, f"IMPERSONATE_START:{role_name}", _client_ip())
+
+        return {
+            "success": True,
+            "access_token": access,
+            "refresh_token": refresh,
+            "user": AuthService._user_payload(shadow),
+            "impersonation": {"admin_id": admin.id, "admin_name": admin.name, "role": role_name},
+        }, 200
 
     @staticmethod
     def _user_payload(user):

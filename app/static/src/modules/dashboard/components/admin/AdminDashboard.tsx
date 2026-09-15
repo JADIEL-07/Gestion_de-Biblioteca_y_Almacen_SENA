@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { FiMail, FiHelpCircle, FiMenu, FiX } from 'react-icons/fi';
+import { FiMail, FiHelpCircle, FiMenu, FiX, FiEye, FiUser, FiBookOpen, FiPackage, FiHeadphones, FiAlertCircle } from 'react-icons/fi';
+import { switchToRole } from '../../../../shared/impersonation';
 import { AdminSidebar } from './AdminSidebar';
 import { AdminHome } from './AdminHome';
 import { UserConfig } from '../UserConfig';
@@ -46,6 +47,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [showRoleSwitcher, setShowRoleSwitcher] = useState(false);
+  const [switchingRole, setSwitchingRole] = useState<string | null>(null);
+  const [switchError, setSwitchError] = useState('');
+  const roleSwitcherRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>(
     (localStorage.getItem('dashboard-theme') as 'dark' | 'light') ?? 'dark'
   );
@@ -58,6 +63,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     window.addEventListener('storage', syncTheme);
     return () => window.removeEventListener('storage', syncTheme);
   }, []);
+
+  // Cerrar el panel de "Ver como" al hacer clic fuera de él.
+  useEffect(() => {
+    if (!showRoleSwitcher) return;
+    const onClickOutside = (e: MouseEvent) => {
+      if (roleSwitcherRef.current && !roleSwitcherRef.current.contains(e.target as Node)) {
+        setShowRoleSwitcher(false);
+      }
+    };
+    document.addEventListener('mousedown', onClickOutside);
+    return () => document.removeEventListener('mousedown', onClickOutside);
+  }, [showRoleSwitcher]);
+
+  const IMPERSONATE_ROLES = [
+    { role: 'APRENDIZ', label: 'Aprendiz', icon: <FiUser /> },
+    { role: 'BIBLIOTECARIO', label: 'Bibliotecario', icon: <FiBookOpen /> },
+    { role: 'ALMACENISTA', label: 'Almacenista', icon: <FiPackage /> },
+    { role: 'SOPORTE_TECNICO', label: 'Soporte Técnico', icon: <FiHeadphones /> },
+  ];
+
+  const handleSwitchRole = async (role: string) => {
+    setSwitchingRole(role);
+    setSwitchError('');
+    const result = await switchToRole(role, user.name || user.nombre || 'Admin');
+    if (!result.ok) {
+      setSwitchError(result.error || 'No se pudo cambiar de vista.');
+      setSwitchingRole(null);
+    }
+    // Si tuvo éxito, switchToRole ya hizo la redirección — no hace falta nada más aquí.
+  };
 
   const handleNavigate = (section: string) => {
     if (section === 'profile') {
@@ -129,14 +164,51 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
           <NotificationBell onNavigate={handleNavigate} />
 
-          <div className="topnav-user">
-            <div className="avatar-circle" style={{ background: 'var(--sena-green)', overflow: 'hidden' }}>
+          <div className="topnav-user" ref={roleSwitcherRef} style={{ position: 'relative' }}>
+            <div
+              className="avatar-circle"
+              style={{ background: 'var(--sena-green)', overflow: 'hidden', cursor: 'pointer' }}
+              onClick={() => setShowRoleSwitcher(v => !v)}
+              title="Ver como otro rol"
+            >
               {user.profile_image ? (
                 <img src={user.profile_image} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
                 initials
               )}
             </div>
+
+            {showRoleSwitcher && (
+              <div className="user-dropdown crystal-dark">
+                <div className="dropdown-profile">
+                  <div className="dropdown-avatar">{initials}</div>
+                  <div className="dropdown-user-info">
+                    <span className="dropdown-name">{user.name || user.nombre}</span>
+                    <span className="dropdown-role">Administrador</span>
+                  </div>
+                </div>
+                <div className="dropdown-divider" />
+                <div style={{ padding: '0 0.85rem 0.4rem', fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <FiEye size={14} /> Ver como:
+                </div>
+                {IMPERSONATE_ROLES.map(({ role, label, icon }) => (
+                  <button
+                    key={role}
+                    className="dropdown-item"
+                    disabled={!!switchingRole}
+                    onClick={() => handleSwitchRole(role)}
+                  >
+                    <span className="dropdown-item-icon">{icon}</span>
+                    {switchingRole === role ? `Entrando como ${label}...` : label}
+                  </button>
+                ))}
+                {switchError && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#ef4444', fontSize: '0.78rem', padding: '0.5rem 0.85rem' }}>
+                    <FiAlertCircle size={14} /> {switchError}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </nav>

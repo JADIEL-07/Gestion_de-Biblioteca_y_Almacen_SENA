@@ -7,7 +7,7 @@ from ..models.token import RefreshToken, PasswordResetToken
 
 class TokenService:
     @staticmethod
-    def generate_auth_tokens(user, user_agent=None, device_id=None):
+    def generate_auth_tokens(user, user_agent=None, device_id=None, extra_claims=None):
         """Generates access and refresh tokens (JWT) with rotation and revocation.
 
         El access token lleva `sid` = id de la fila RefreshToken (la "sesión").
@@ -41,13 +41,17 @@ class TokenService:
             db.session.add(new_refresh)
             db.session.commit()
 
+        claims = {
+            "role": user.role.name if user.role else "GUEST",
+            "type": "access",
+            "sid": new_refresh.id,
+        }
+        if extra_claims:
+            claims.update(extra_claims)
+
         access_token = create_access_token(
             identity=str(user.id),
-            additional_claims={
-                "role": user.role.name if user.role else "GUEST",
-                "type": "access",
-                "sid": new_refresh.id,
-            },
+            additional_claims=claims,
         )
 
         return access_token, refresh_token
