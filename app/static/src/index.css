@@ -79,10 +79,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   /* Por encima de .assistant-overlay (9999): la barra debe seguir visible y
      usable cuando el asistente del invitado está abierto. */
   z-index: 10000;
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  /* Misma tonalidad que las tarjetas del inicio (.service-card-mini / .info-card) */
+  background: rgba(15, 23, 42, 0.88);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
   transition: all 0.3s ease;
 }
 
@@ -1412,11 +1413,11 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 /* OVERRIDES DE TEXTO PARA MODO CLARO (LANDING) */
 .theme-light .main-nav {
-  background: rgba(255, 255, 255, 0.65) !important;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(255, 255, 255, 0.88) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(57, 169, 0, 0.2) !important;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 
 .theme-light .nav-logo,
