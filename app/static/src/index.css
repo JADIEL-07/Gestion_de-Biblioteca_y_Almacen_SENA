@@ -569,55 +569,16 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* ==========================================================================
-   SECCIÓN CONTACTO / INSTITUCIONAL
+   PÁGINA DE CONTACTO / INSTITUCIONAL (vista aparte, ver Contact.tsx —
+   reutiliza el mismo layout de página que Terms.css: .terms-wrapper,
+   .terms-container, .terms-glass-card, .terms-header, .terms-content)
    ========================================================================== */
-html {
-  scroll-behavior: smooth;
-}
-
-.contact-section {
-  position: relative;
-  z-index: 10;
-  width: 100%;
-  padding: 2rem 2rem 5rem;
-  scroll-margin-top: 5.5rem; /* Compensa el nav fijo al llegar por el ancla #contact */
-}
-
 .contact-inner {
   max-width: 1100px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 3rem;
-}
-
-.contact-heading {
-  text-align: center;
-  max-width: 700px;
-  margin: 0 auto;
-}
-
-.contact-eyebrow {
-  display: inline-block;
-  color: var(--sena-green);
-  font-weight: 700;
-  font-size: 0.8rem;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin-bottom: 0.75rem;
-}
-
-.contact-heading h2 {
-  font-family: 'Montserrat', sans-serif;
-  font-size: clamp(1.4rem, 4vw, 2rem);
-  font-weight: 800;
-  color: var(--text-main);
-  margin-bottom: 0.75rem;
-}
-
-.contact-heading p {
-  color: var(--text-muted);
-  font-size: 1rem;
 }
 
 .contact-subheading {
@@ -1173,7 +1134,6 @@ html {
   .schedule-row { flex-direction: column; gap: 0.25rem; }
   .divider-ghost { display: none; }
 
-  .contact-section { padding: 1.5rem 1.25rem 3.5rem; }
   .contact-inner { gap: 2.25rem; }
   .info-card { padding: 1.5rem; border-radius: 20px; }
   .contact-subheading { margin-bottom: -0.75rem; }

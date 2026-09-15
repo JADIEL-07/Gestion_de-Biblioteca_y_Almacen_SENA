@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 const LoginForm = React.lazy(() => import('./modules/auth/components/LoginForm').then(m => ({ default: m.LoginForm })));
 const Terms = React.lazy(() => import('./modules/legal/components/Terms').then(m => ({ default: m.Terms })));
 const Privacy = React.lazy(() => import('./modules/legal/components/Privacy').then(m => ({ default: m.Privacy })));
+const Contact = React.lazy(() => import('./modules/legal/components/Contact').then(m => ({ default: m.Contact })));
 const ForgotPassword = React.lazy(() => import('./modules/auth/components/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
 const ResetPassword = React.lazy(() => import('./modules/auth/components/ResetPassword').then(m => ({ default: m.ResetPassword })));
 const ForcePasswordChange = React.lazy(() => import('./modules/auth/components/ForcePasswordChange').then(m => ({ default: m.ForcePasswordChange })));
@@ -24,20 +25,9 @@ import {
   FiHome,
   FiMail,
   FiUser,
-  FiHelpCircle,
   FiUserPlus,
   FiMenu,
   FiX,
-  FiUsers,
-  FiTarget,
-  FiCompass,
-  FiSearch,
-  FiBookOpen,
-  FiCalendar,
-  FiTool,
-  FiMapPin,
-  FiPhone,
-  FiClock,
 } from 'react-icons/fi';
 
 import { SERVICES_DATA } from './shared/constants';
@@ -92,36 +82,6 @@ function RevealOnScroll({ children, delay = 0 }: { children: React.ReactNode; de
 // ── Landing Page ──────────────────────────────────────────────────────────────
 const PersonalAssistant = React.lazy(() => import('./modules/dashboard/components/PersonalAssistant').then(m => ({ default: m.PersonalAssistant })));
 
-// Servicios reales que el sistema ofrece al usuario (acciones, no categorías del
-// catálogo — esas ya se muestran en la grilla del hero, así que no se repiten aquí).
-const CONTACT_SERVICES = [
-  {
-    icon: <FiSearch />,
-    title: 'Consulta de catálogo',
-    description: 'Explora libros, equipos, herramientas e insumos disponibles en tiempo real.'
-  },
-  {
-    icon: <FiBookOpen />,
-    title: 'Préstamos',
-    description: 'Solicita y gestiona el préstamo de los recursos que necesitas para tu formación.'
-  },
-  {
-    icon: <FiCalendar />,
-    title: 'Reservas',
-    description: 'Aparta con anticipación el elemento que necesitas y retíralo dentro del tiempo límite.'
-  },
-  {
-    icon: <FiClock />,
-    title: 'Historial',
-    description: 'Consulta el estado y el historial completo de tus préstamos y reservas.'
-  },
-  {
-    icon: <FiTool />,
-    title: 'Reporte de incidencias',
-    description: 'Informa daños o novedades y haz seguimiento junto al equipo de soporte técnico.'
-  },
-];
-
 function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => void }) {
   const navigate = useNavigate();
   const [showAssistant, setShowAssistant] = useState(false);
@@ -130,16 +90,6 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
   const [theme, setTheme] = useState<'dark' | 'light'>(
     (localStorage.getItem('dashboard-theme') as 'dark' | 'light') ?? 'dark'
   );
-
-  // Si se llega directo con /#contact (enlace externo o recarga), el navegador
-  // no puede desplazarse al ancla porque el nodo aún no existe en el primer
-  // pintado (SPA). Lo hacemos manualmente una vez montado.
-  useEffect(() => {
-    if (window.location.hash === '#contact') {
-      const el = document.getElementById('contact');
-      el?.scrollIntoView({ behavior: 'auto', block: 'start' });
-    }
-  }, []);
 
   useEffect(() => {
     // Sincronizar el tema inicial según las clases de document.body
@@ -192,7 +142,7 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
           <a href="#" onClick={(e) => { e.preventDefault(); navigate('/'); setMobileNavOpen(false); }}>
             <FiHome className="nav-icon" /> INICIO
           </a>
-          <a href="#contact" onClick={() => setMobileNavOpen(false)}>
+          <a href="#" onClick={(e) => { e.preventDefault(); navigate('/contacto'); setMobileNavOpen(false); }}>
             <FiMail className="nav-icon" /> CONTACTO
           </a>
           <a href="#" onClick={(e) => { e.preventDefault(); setMobileNavOpen(false); setShowAssistant(true); }}>
@@ -268,140 +218,6 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
             </button>
           </div>
         </RevealOnScroll>
-      </section>
-
-      <section id="contact" className="contact-section">
-        <div className="contact-inner">
-          <RevealOnScroll>
-            <div className="contact-heading">
-              <span className="contact-eyebrow">Biblioteca SENA</span>
-              <h2>Conócenos y comunícate con nosotros</h2>
-              <p>Un espacio de conocimiento, recursos y acompañamiento para toda la comunidad del Centro de Formación.</p>
-            </div>
-          </RevealOnScroll>
-
-          <RevealOnScroll delay={80}>
-            <div className="info-card card contact-about-card">
-              <h3><FiUsers className="contact-heading-icon" /> ¿Quiénes somos?</h3>
-              <p>
-                La Biblioteca y Almacén del SENA es el punto de encuentro entre aprendices, instructores y
-                funcionarios con el material bibliográfico, los equipos y las herramientas que necesitan
-                para su formación. Ponemos a disposición de la comunidad educativa un sistema organizado,
-                trazable y accesible que acompaña cada etapa del proceso de aprendizaje dentro del centro
-                de formación.
-              </p>
-            </div>
-          </RevealOnScroll>
-
-          <div className="mv-grid">
-            <RevealOnScroll delay={120}>
-              <div className="service-card-mini">
-                <div className="service-icon-wrapper-mini"><FiTarget /></div>
-                <h3>Misión</h3>
-                <p>
-                  Facilitar el acceso oportuno y organizado al conocimiento y a los recursos físicos del
-                  centro de formación, apoyando la labor de aprendices e instructores mediante un control
-                  claro, trazable y disponible en todo momento.
-                </p>
-              </div>
-            </RevealOnScroll>
-            <RevealOnScroll delay={160}>
-              <div className="service-card-mini">
-                <div className="service-icon-wrapper-mini"><FiCompass /></div>
-                <h3>Visión</h3>
-                <p>
-                  Ser un espacio de aprendizaje moderno, accesible y respaldado por tecnología, donde
-                  consultar, reservar y hacer seguimiento a los recursos institucionales sea simple,
-                  rápido y confiable para toda la comunidad SENA.
-                </p>
-              </div>
-            </RevealOnScroll>
-          </div>
-
-          <RevealOnScroll delay={180}>
-            <h3 className="contact-subheading">Nuestros servicios</h3>
-          </RevealOnScroll>
-          <div className="contact-services-grid">
-            {CONTACT_SERVICES.map((service, index) => (
-              <RevealOnScroll key={service.title} delay={200 + index * 60}>
-                <div className="service-card-mini">
-                  <div className="service-icon-wrapper-mini">{service.icon}</div>
-                  <h3>{service.title}</h3>
-                  <p>{service.description}</p>
-                </div>
-              </RevealOnScroll>
-            ))}
-          </div>
-
-          <RevealOnScroll delay={180}>
-            <h3 className="contact-subheading">Información de contacto</h3>
-          </RevealOnScroll>
-          <div className="contact-info-grid">
-            <RevealOnScroll delay={200}>
-              <div className="service-card-mini">
-                <div className="service-icon-wrapper-mini"><FiMapPin /></div>
-                <h3>Sede</h3>
-                <p>SENA — Sede Vélez, Santander</p>
-                <a
-                  href="https://maps.app.goo.gl/1A9ELVhK6hsYwj2TA"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="contact-info-link"
-                >
-                  Ver en Google Maps
-                </a>
-              </div>
-            </RevealOnScroll>
-            <RevealOnScroll delay={240}>
-              <div className="service-card-mini">
-                <div className="service-icon-wrapper-mini"><FiPhone /></div>
-                <h3>Teléfono</h3>
-                <p>Línea de atención al ciudadano</p>
-                <a href="tel:018000910270" className="contact-info-link">018000910270</a>
-              </div>
-            </RevealOnScroll>
-            <RevealOnScroll delay={280}>
-              <div className="service-card-mini">
-                <div className="service-icon-wrapper-mini"><FiClock /></div>
-                <h3>Horario</h3>
-                <p>Lunes a Viernes: 6:00 AM – 10:00 PM</p>
-                <p>Sábados, domingos y festivos: Cerrado</p>
-              </div>
-            </RevealOnScroll>
-            <RevealOnScroll delay={320}>
-              <div className="service-card-mini">
-                <div className="service-icon-wrapper-mini"><FiMail /></div>
-                <h3>Correo</h3>
-                <a href="mailto:gestion.sena.b@gmail.com" className="contact-info-link">
-                  gestion.sena.b@gmail.com
-                </a>
-              </div>
-            </RevealOnScroll>
-          </div>
-
-          <RevealOnScroll delay={200}>
-            <div className="info-card card contact-location-card">
-              <h4><FiMapPin className="contact-heading-icon" /> Ubicación dentro de la sede</h4>
-              <ul>
-                <li><strong>Biblioteca:</strong> Bloque Principal, primer piso, junto al área administrativa.</li>
-                <li><strong>Almacén de equipos:</strong> al fondo del pasillo técnico, junto a los talleres de electricidad y automatización.</li>
-              </ul>
-            </div>
-          </RevealOnScroll>
-
-          <RevealOnScroll delay={240}>
-            <div className="help-banner">
-              <FiHelpCircle className="help-banner-icon" />
-              <div className="help-banner-text">
-                <h4>¿Tienes alguna pregunta o inconveniente?</h4>
-                <p>Nuestro equipo está disponible para ayudarte.</p>
-              </div>
-              <button className="btn help-banner-btn" onClick={() => setShowAssistant(true)}>
-                Contactar soporte
-              </button>
-            </div>
-          </RevealOnScroll>
-        </div>
       </section>
 
       <footer className="main-footer">
@@ -539,6 +355,7 @@ function AppRoutes() {
         <Route path="/" element={<Landing loggedUser={loggedUser} onLogout={handleLogout} />} />
         <Route path="/terms" element={<Terms />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/contacto" element={<Contact />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
 
