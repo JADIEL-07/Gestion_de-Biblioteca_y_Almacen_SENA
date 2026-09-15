@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 
 // Lazy loaded modules (Code Splitting)
 const LoginForm = React.lazy(() => import('./modules/auth/components/LoginForm').then(m => ({ default: m.LoginForm })));
@@ -21,21 +21,14 @@ import {
   FaInstagram,
   FaYoutube
 } from 'react-icons/fa';
-import {
-  FiHome,
-  FiMail,
-  FiUser,
-  FiUserPlus,
-  FiMenu,
-  FiX,
-} from 'react-icons/fi';
+import { FiX } from 'react-icons/fi';
 
 import { SERVICES_DATA } from './shared/constants';
 import { apiFetch } from './shared/api';
 const senaBg = '/assets/images/sena-library-bg.png';
 import { FloatingParticles } from './components/ui/FloatingParticles';
 import { HeroBackground } from './components/ui/HeroBackground';
-import { AnimatedRobotIcon } from './components/ui/AnimatedRobotIcon';
+import { SiteNav } from './components/ui/SiteNav';
 import { ImpersonationBanner } from './components/ui/ImpersonationBanner';
 
 // Helper component for reveal on scroll animations
@@ -85,12 +78,23 @@ const PersonalAssistant = React.lazy(() => import('./modules/dashboard/component
 
 function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => void }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showAssistant, setShowAssistant] = useState(false);
   const [menuOpenLanding, setMenuOpenLanding] = useState(false);
-  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'light'>(
     (localStorage.getItem('dashboard-theme') as 'dark' | 'light') ?? 'dark'
   );
+
+  // Si se navegó aquí desde el nav de otra página (Contacto, Términos...)
+  // pidiendo abrir el asistente, lo abrimos y limpiamos ese estado para que
+  // no se reabra solo con un back/forward del navegador.
+  useEffect(() => {
+    if ((location.state as any)?.openAssistant) {
+      setShowAssistant(true);
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
 
   useEffect(() => {
     // Sincronizar el tema inicial según las clases de document.body
@@ -120,55 +124,18 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
     };
   }, []);
 
+  const handleStartNow = () => {
+    if (loggedUser) {
+      const role = (loggedUser.role?.name || loggedUser.rol?.nombre || '').toUpperCase();
+      navigate(role === 'ADMIN' ? '/admin' : role === 'BIBLIOTECARIO' ? '/bibliotecario' : role === 'ALMACENISTA' ? '/almacenista' : role === 'SOPORTE TÉCNICO' || role === 'SOPORTE TECNICO' || role === 'SOPORTE_TECNICO' || role === 'SOPORTE' ? '/soporte' : '/dashboard');
+    } else {
+      navigate('/dashboard/guest');
+    }
+  };
+
   return (
     <div className={`home-wrapper ${theme === 'light' ? 'theme-light' : 'theme-dark'}`}>
-      <nav className="main-nav">
-        <div className="nav-logo">
-          <div className="mini-logo-box">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg" alt="SENA Logo" />
-          </div>
-          <span>BIBLIOTECA & ALMACÉN SENA</span>
-        </div>
-
-        <button
-          className={`nav-hamburger ${mobileNavOpen ? 'open' : ''}`}
-          onClick={() => setMobileNavOpen(!mobileNavOpen)}
-          aria-label={mobileNavOpen ? 'Cerrar menú' : 'Abrir menú'}
-          aria-expanded={mobileNavOpen}
-        >
-          {mobileNavOpen ? <FiX size={22} /> : <FiMenu size={22} />}
-        </button>
-
-        <div className={`nav-links ${mobileNavOpen ? 'mobile-open' : ''}`}>
-          <a href="#" onClick={(e) => { e.preventDefault(); navigate('/'); setMobileNavOpen(false); }}>
-            <FiHome className="nav-icon" /> INICIO
-          </a>
-          <a href="#" onClick={(e) => { e.preventDefault(); navigate('/contacto'); setMobileNavOpen(false); }}>
-            <FiMail className="nav-icon" /> CONTACTO
-          </a>
-          <a href="#" onClick={(e) => { e.preventDefault(); setMobileNavOpen(false); setShowAssistant(true); }}>
-            <AnimatedRobotIcon className="nav-icon" /> ASISTENTE PERSONAL
-          </a>
-
-          {loggedUser ? (
-            <div className="nav-avatar" style={{ overflow: 'hidden' }}>
-              {loggedUser.profile_image
-                ? <img src={loggedUser.profile_image} alt="Perfil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                : (loggedUser.name || loggedUser.nombre || '').split(' ').map((n: any) => n[0]).slice(0, 2).join('').toUpperCase()
-              }
-            </div>
-          ) : (
-            <>
-              <a href="#" className="nav-link-login" onClick={(e) => { e.preventDefault(); navigate('/login'); setMobileNavOpen(false); }}>
-                <FiUser className="nav-icon" /> INICIAR SESIÓN
-              </a>
-              <a href="#" className="btn-create-account" onClick={(e) => { e.preventDefault(); navigate('/register'); setMobileNavOpen(false); }}>
-                <FiUserPlus className="nav-icon" /> CREAR CUENTA
-              </a>
-            </>
-          )}
-        </div>
-      </nav>
+      <SiteNav active={showAssistant ? 'asistente' : undefined} onAssistantClick={() => setShowAssistant(true)} />
 
       <section className="hero-section">
         <HeroBackground variant="hero" alt="Fondo Biblioteca & Almacén SENA">
@@ -204,19 +171,6 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
               y{' '}
               <a href="#" onClick={(e) => { e.preventDefault(); navigate('/privacy'); }}>politica de privacidad</a>
             </p>
-            <button
-              className="btn cta-home-btn"
-              onClick={() => {
-                if (loggedUser) {
-                  const role = (loggedUser.role?.name || loggedUser.rol?.nombre || '').toUpperCase();
-                  navigate(role === 'ADMIN' ? '/admin' : role === 'BIBLIOTECARIO' ? '/bibliotecario' : role === 'ALMACENISTA' ? '/almacenista' : role === 'SOPORTE TÉCNICO' || role === 'SOPORTE TECNICO' || role === 'SOPORTE_TECNICO' || role === 'SOPORTE' ? '/soporte' : '/dashboard');
-                } else {
-                  navigate('/dashboard/guest');
-                }
-              }}
-            >
-              COMIENZA AHORA
-            </button>
           </div>
         </RevealOnScroll>
       </section>
@@ -254,6 +208,11 @@ function Landing({ loggedUser, onLogout }: { loggedUser: any; onLogout: () => vo
           </div>
         </div>
       </footer>
+
+      {/* Flotante y fijo abajo: visible aunque se vaya bajando por la página. */}
+      <button className="floating-start-now-btn" onClick={handleStartNow}>
+        COMIENZA AHORA
+      </button>
 
       {showAssistant && (
         <div className="assistant-overlay">

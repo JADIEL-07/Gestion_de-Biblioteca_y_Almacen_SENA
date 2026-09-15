@@ -2,14 +2,17 @@ import { FiArrowLeft, FiShield } from 'react-icons/fi';
 import './Terms.css';
 import { FloatingParticles } from '../../../components/ui/FloatingParticles';
 import { HeroBackground } from '../../../components/ui/HeroBackground';
+import { SiteNav } from '../../../components/ui/SiteNav';
 
 export const Terms = () => {
   return (
     <div className="terms-wrapper">
+      {/* Sin `active`: aquí se pidió mantener la barra pero sin indicar ubicación. */}
+      <SiteNav />
       <HeroBackground variant="panel" alt="Biblioteca SENA" />
       <FloatingParticles />
-      
-      <div className="terms-container">
+
+      <div className="terms-container has-floating-back">
         <div className="terms-glass-card">
           <header className="terms-header">
             <div className="terms-icon-box">
@@ -127,13 +130,13 @@ export const Terms = () => {
             </div>
           </div>
 
-          <footer className="terms-footer">
-            <button className="btn-back-home" onClick={() => window.history.back()}>
-              <FiArrowLeft /> REGRESAR AL INICIO
-            </button>
-          </footer>
         </div>
       </div>
+
+      {/* Flotante y fijo abajo: visible aunque se vaya bajando por el documento. */}
+      <button className="floating-back-home-btn" onClick={() => window.history.back()}>
+        <FiArrowLeft /> Volver al inicio
+      </button>
     </div>
   );
 };

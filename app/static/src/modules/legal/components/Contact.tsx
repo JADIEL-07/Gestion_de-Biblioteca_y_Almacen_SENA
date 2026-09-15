@@ -6,6 +6,7 @@ import {
 import './Terms.css';
 import { FloatingParticles } from '../../../components/ui/FloatingParticles';
 import { HeroBackground } from '../../../components/ui/HeroBackground';
+import { SiteNav } from '../../../components/ui/SiteNav';
 
 const PersonalAssistant = React.lazy(() =>
   import('../../dashboard/components/PersonalAssistant').then(m => ({ default: m.PersonalAssistant }))
@@ -46,6 +47,7 @@ export const Contact = () => {
 
   return (
     <div className="terms-wrapper">
+      <SiteNav active={showAssistant ? 'asistente' : 'contacto'} onAssistantClick={() => setShowAssistant(true)} />
       <HeroBackground variant="panel" alt="Biblioteca SENA" />
       <FloatingParticles />
 

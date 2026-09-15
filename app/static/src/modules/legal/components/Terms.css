@@ -39,6 +39,50 @@
   margin: 0 auto;
 }
 
+/* Solo Términos y Privacidad tienen el botón flotante — deja espacio extra
+   abajo para que el final del documento no quede tapado por él. */
+.terms-container.has-floating-back {
+  padding-bottom: 5rem;
+}
+
+/* Botón "Volver al inicio" flotante y fijo — Términos y Privacidad. Se
+   pidió expresamente que esto NO aplique a Contacto. */
+.floating-back-home-btn {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--sena-green);
+  color: white;
+  border: none;
+  padding: 0.85rem 1.7rem;
+  border-radius: 50px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+.floating-back-home-btn:hover {
+  background: var(--sena-green-hover, #2e8800);
+  transform: translateX(-50%) translateY(-3px);
+  box-shadow: 0 14px 30px rgba(57, 169, 0, 0.45);
+}
+
+@media (max-width: 640px) {
+  .floating-back-home-btn {
+    bottom: 1rem;
+    padding: 0.75rem 1.3rem;
+    font-size: 0.85rem;
+  }
+}
+
 .terms-glass-card {
   /* Misma tonalidad que las tarjetas del inicio (.service-card-mini / .info-card) */
   background: rgba(15, 23, 42, 0.88);

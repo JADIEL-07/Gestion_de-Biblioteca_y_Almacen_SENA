@@ -76,7 +76,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  z-index: 1000;
+  /* Por encima de .assistant-overlay (9999): la barra debe seguir visible y
+     usable cuando el asistente del invitado está abierto. */
+  z-index: 10000;
   background: rgba(15, 23, 42, 0.4);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -141,6 +143,25 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 
 .nav-links a:hover {
   color: var(--sena-green);
+}
+
+/* Indica "dónde estoy" en la barra superior (Contacto, Asistente Personal).
+   No se usa en Términos/Privacidad a propósito. */
+.nav-links a.nav-link-current {
+  color: var(--sena-green);
+  position: relative;
+}
+
+.nav-links a.nav-link-current::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -6px;
+  height: 2px;
+  background: var(--sena-green);
+  box-shadow: 0 0 8px var(--sena-green);
+  border-radius: 2px;
 }
 
 .nav-links a.btn-create-account {
@@ -755,6 +776,9 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 .main-footer {
   background: #0f172a;
   padding: 2rem 3rem;
+  /* Espacio extra abajo para que el botón flotante "Comienza ahora" no
+     tape la última fila del pie de página. */
+  padding-bottom: 6rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
   width: 100%;
   position: relative;
@@ -935,6 +959,42 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   letter-spacing: 2px;
   text-transform: uppercase;
   border-radius: 50px;
+}
+
+/* Versión flotante y fija abajo del CTA del inicio — visible aunque se
+   vaya bajando por la página (misma idea que el botón de Términos). */
+.floating-start-now-btn {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  background: var(--sena-green);
+  color: white;
+  border: none;
+  padding: 0.95rem 2.4rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  border-radius: 50px;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+.floating-start-now-btn:hover {
+  background: var(--sena-green-hover);
+  transform: translateX(-50%) translateY(-3px);
+  box-shadow: 0 14px 30px rgba(57, 169, 0, 0.45);
+}
+
+@media (max-width: 640px) {
+  .floating-start-now-btn {
+    bottom: 1rem;
+    padding: 0.8rem 1.8rem;
+    font-size: 0.85rem;
+  }
 }
 
 @keyframes fadeIn {
@@ -1126,7 +1186,7 @@ input[type="date"]::-webkit-calendar-picker-indicator {
     margin-bottom: 0.75rem;
   }
 
-  .main-footer { padding: 1.5rem 1rem; }
+  .main-footer { padding: 1.5rem 1rem 5rem; }
   .footer-container { flex-direction: column; text-align: center; gap: 1rem; }
   .footer-info-block { align-items: center; text-align: center; }
   .info-row-top { flex-direction: column; gap: 0.4rem; }
@@ -1512,13 +1572,16 @@ input[type="search"]:focus,
   z-index: 9999;
   /* Mantiene la imagen de fondo del hero visible al abrir el asistente
      (solo en el inicio: esta clase únicamente se usa en la landing).
-     El velo oscuro da contraste; los paneles del asistente van opacos. */
+     El velo oscuro da contraste; los paneles del asistente van opacos.
+     La barra superior (.main-nav) queda por encima (z-index 10000) y
+     sigue visible/usable — el padding de aquí es solo para que el
+     contenido no quede tapado debajo de ella. */
   background:
     linear-gradient(rgba(15, 23, 42, 0.62), rgba(15, 23, 42, 0.62)),
     url('/assets/images/Fondo negro.png') center / cover no-repeat fixed,
     #0f172a;
   overflow-y: auto;
-  padding: 3.25rem 1rem 1rem;
+  padding: 6.5rem 1rem 1rem;
 
   /* El asistente reutiliza el sistema de variables del dashboard
      (UserDashboard.css), que no se carga en la landing. Lo redefinimos
@@ -1564,9 +1627,11 @@ input[type="search"]:focus,
 
 .assistant-close-btn {
   position: fixed;
-  top: 0.6rem;
+  top: 6.7rem;
   right: 1rem;
-  z-index: 10000;
+  /* Por encima de la barra superior también, para que quede alcanzable
+     aunque ambas convivan en esa esquina en pantallas muy bajas. */
+  z-index: 10001;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   color: var(--text-primary);
@@ -1587,6 +1652,9 @@ input[type="search"]:focus,
 
 @media (max-width: 768px) {
   .assistant-overlay {
-    padding: 2.75rem 0 0;
+    padding: 5rem 0 0;
+  }
+  .assistant-close-btn {
+    top: 5.2rem;
   }
 }
