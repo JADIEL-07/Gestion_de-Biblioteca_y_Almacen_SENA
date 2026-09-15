@@ -121,36 +121,28 @@ def get_item(id):
     item = Item.query.get_or_404(id)
     return jsonify(serialize_item(item))
 
-import os
-import base64
 import uuid
-from flask import current_app
 
 def save_image(image_data, prefix="item"):
-    """Procesa imagen en Base64 y la guarda físicamente en /uploads."""
-    if not image_data or not isinstance(image_data, str) or not image_data.startswith('data:image'):
-        return image_data # Retorna URL o path si no es Base64
-    
-    try:
-        header, encoded = image_data.split(',', 1)
-        ext = header.split(';')[0].split('/')[1]
-        if ext == 'jpeg': ext = 'jpg'
-        
-        filename = f"{prefix}_{uuid.uuid4().hex[:12]}.{ext}"
-        upload_folder = os.path.join(current_app.root_path, 'uploads')
-        if not os.path.exists(upload_folder):
-            os.makedirs(upload_folder)
-            
-        filepath = os.path.join(upload_folder, filename)
+    """Guarda la foto DIRECTAMENTE en la BD como data URL, sin tocar el disco.
 
-        with open(filepath, "wb") as fh:
-            fh.write(base64.b64decode(encoded))
-
-        # Retornamos la ruta relativa para guardar en DB
-        return f"/uploads/{filename}"
-    except Exception as e:
-        print(f"Error guardando imagen {prefix}:", e)
+    Antes se escribía a /app/app/uploads y se guardaba solo la ruta en la BD.
+    El problema: el disco del contenedor no es persistente entre despliegues
+    (cada `git push` reconstruye el contenedor), así que el archivo físico
+    desaparecía en el siguiente deploy aunque la ruta siguiera en la BD —
+    de ahí que las imágenes "no se guardaran". Se guarda igual que ya se
+    hace con las fotos del chat de soporte: la data URL completa en la
+    columna (TEXT, sin límite), que sobrevive cualquier redeploy porque
+    vive en Postgres, no en el contenedor.
+    """
+    if not image_data or not isinstance(image_data, str):
         return image_data
+    if not image_data.startswith('data:image'):
+        return image_data  # Ya es una URL/ruta existente (http, /uploads/..., etc.) — se deja igual.
+    if len(image_data) > 8_000_000:
+        print(f"[item-image] imagen rechazada por tamaño ({len(image_data)} bytes)")
+        return None
+    return image_data
 
 @items_bp.route('/', methods=['POST'])
 @jwt_required()

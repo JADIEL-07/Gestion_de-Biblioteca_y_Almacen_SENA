@@ -200,27 +200,14 @@ def complete_maintenance(id):
         
     db.session.commit()
 
-    # Procesar imagen en Base64 y guardarla físicamente
+    # Se guarda DIRECTAMENTE en la BD como data URL (no como archivo en disco:
+    # el disco del contenedor no sobrevive a un redeploy). Mismo criterio que
+    # las fotos de inventario, perfil y chat de soporte.
     evidence_photo_b64 = data.get('evidence_photo')
     if evidence_photo_b64 and evidence_photo_b64.startswith('data:image'):
-        try:
-            import os
-            import base64
-            from flask import current_app
-            
-            header, encoded = evidence_photo_b64.split(',', 1)
-            ext = header.split(';')[0].split('/')[1]
-            if ext == 'jpeg': ext = 'jpg'
-            
-            filename = f"maintenance_{m.id}.{ext}"
-            filepath = os.path.join(current_app.root_path, 'uploads', filename)
-
-            with open(filepath, "wb") as fh:
-                fh.write(base64.b64decode(encoded))
-
-            # Guardar ruta RELATIVA (el proxy de Vite / nginx resuelve /uploads)
-            m.evidence_photo = f"/uploads/{filename}"
+        if len(evidence_photo_b64) <= 8_000_000:
+            m.evidence_photo = evidence_photo_b64
             db.session.commit()
-        except Exception as e:
-            print("Error guardando foto del mantenimiento:", e)
+        else:
+            print(f"[maintenance-photo] imagen rechazada por tamaño ({len(evidence_photo_b64)} bytes)")
     return jsonify({"success": True}), 200

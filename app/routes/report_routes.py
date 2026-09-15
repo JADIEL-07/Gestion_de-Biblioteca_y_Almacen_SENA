@@ -124,28 +124,15 @@ def create_report():
     db.session.add(ticket)
     db.session.commit()
 
+    # Se guarda DIRECTAMENTE en la BD como data URL (no como archivo en disco:
+    # el disco del contenedor no sobrevive a un redeploy). Mismo criterio que
+    # las fotos de inventario, perfil, mantenimiento y chat de soporte.
     if photo and photo.startswith('data:image'):
-        try:
-            import os
-            import base64
-            from flask import current_app
-            
-            # extract extension and base64 string
-            header, encoded = photo.split(',', 1)
-            ext = header.split(';')[0].split('/')[1]
-            if ext == 'jpeg': ext = 'jpg'
-            
-            filename = f"ticket_{ticket.id}.{ext}"
-            filepath = os.path.join(current_app.root_path, 'uploads', filename)
-
-            with open(filepath, "wb") as fh:
-                fh.write(base64.b64decode(encoded))
-
-            # Guardar ruta RELATIVA (el proxy/nginx resuelve /uploads)
-            ticket.photo = f"/uploads/{filename}"
+        if len(photo) <= 8_000_000:
+            ticket.photo = photo
             db.session.commit()
-        except Exception as e:
-            print("Error guardando foto del ticket:", e)
+        else:
+            print(f"[ticket-photo] imagen rechazada por tamaño ({len(photo)} bytes)")
     
     # Notificar a todos los usuarios de Soporte
     soporte_role = Role.query.filter(

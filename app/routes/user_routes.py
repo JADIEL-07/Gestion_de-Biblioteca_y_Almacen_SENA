@@ -728,27 +728,14 @@ def update_profile_image():
         
     data = request.get_json()
     image_data = data.get('profile_image')
-    # Procesar imagen en Base64 y guardarla físicamente
+    # Se guarda DIRECTAMENTE en la BD como data URL, no como archivo en disco:
+    # el disco del contenedor no sobrevive a un redeploy, así que la foto
+    # "desaparecía" en el siguiente despliegue aunque la ruta siguiera en la
+    # BD. Mismo criterio que las fotos de inventario y del chat de soporte.
     if image_data and image_data.startswith('data:image'):
-        try:
-            import os
-            import base64
-            from flask import current_app
-            
-            header, encoded = image_data.split(',', 1)
-            ext = header.split(';')[0].split('/')[1]
-            if ext == 'jpeg': ext = 'jpg'
-            
-            filename = f"profile_{user.id}.{ext}"
-            filepath = os.path.join(current_app.root_path, 'uploads', filename)
-
-            with open(filepath, "wb") as fh:
-                fh.write(base64.b64decode(encoded))
-
-            # Guardar ruta RELATIVA (el proxy de Vite / nginx resuelve /uploads)
-            user.profile_image = f"/uploads/{filename}"
-        except Exception as e:
-            print("Error guardando foto de perfil:", e)
+        if len(image_data) > 8_000_000:
+            return jsonify({"error": "La imagen es demasiado grande."}), 400
+        user.profile_image = image_data
     else:
         # Ruta /uploads o URL externa: se guarda tal cual (se normaliza al leer)
         user.profile_image = _full_media_url(image_data) if image_data else image_data
