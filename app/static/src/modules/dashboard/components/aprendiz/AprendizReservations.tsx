@@ -5,6 +5,7 @@ import {
 } from 'react-icons/fi';
 import { MdQrCodeScanner } from 'react-icons/md';
 import { QRCodeSVG } from 'qrcode.react';
+import { confirmDialog } from '../../../../components/ui/ConfirmDialog';
 import './AprendizReservations.css';
 import './AprendizCatalog.css';
 
@@ -132,7 +133,7 @@ export const AprendizReservations: React.FC = () => {
   };
 
   const handleCancelReservation = async (rid: number) => {
-    if (!window.confirm('¿Estás seguro de que deseas cancelar esta reserva?')) {
+    if (!(await confirmDialog({ message: '¿Estás seguro de que deseas cancelar esta reserva?', danger: true }))) {
       return;
     }
     try {

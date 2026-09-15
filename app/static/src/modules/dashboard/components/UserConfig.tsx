@@ -7,6 +7,7 @@ import {
 import './UserConfig.css';
 import { getDeviceId } from '../../../shared/device';
 import { clearSessionAndRedirect } from '../../../shared/api';
+import { confirmDialog } from '../../../components/ui/ConfirmDialog';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -598,7 +599,7 @@ const SessionsPanel: React.FC = () => {
   // Cerrar una sesión = cerrar sesión + olvidar el dispositivo.
   const closeRow = async (row: SessionRow) => {
     const isMine = isThisDevice(row);
-    if (isMine && !confirm('Vas a cerrar la sesión de ESTE dispositivo. Se cerrará tu sesión aquí. ¿Continuar?')) return;
+    if (isMine && !(await confirmDialog('Vas a cerrar la sesión de ESTE dispositivo. Se cerrará tu sesión aquí. ¿Continuar?'))) return;
 
     const key = row.kind === 'session' ? `s${row.id}` : `t${row.trusted_device_id}`;
     setBusy(key);
@@ -618,7 +619,7 @@ const SessionsPanel: React.FC = () => {
   };
 
   const revokeAll = async () => {
-    if (!confirm('¿Cerrar TODAS las sesiones y olvidar TODOS los dispositivos? Tendrás que iniciar sesión y volver a autorizar por correo en cada uno.')) return;
+    if (!(await confirmDialog({ message: '¿Cerrar TODAS las sesiones y olvidar TODOS los dispositivos? Tendrás que iniciar sesión y volver a autorizar por correo en cada uno.', danger: true }))) return;
     const { ok, data } = await apiFetch('/auth/sessions/all', { method: 'DELETE' });
     show(ok ? (data.message || 'Listo.') : (data.error || 'Error.'), ok ? 'ok' : 'err');
     if (ok) load();
@@ -1011,7 +1012,7 @@ const HistoryPanel: React.FC = () => {
   });
 
   const clearHistory = async () => {
-    if (!confirm('¿Borrar todo el historial de accesos? Esta acción no se puede deshacer.')) return;
+    if (!(await confirmDialog({ message: '¿Borrar todo el historial de accesos? Esta acción no se puede deshacer.', danger: true }))) return;
     const { ok } = await apiFetch('/auth/access-history', { method: 'DELETE' });
     if (ok) { setEvents([]); alert('Historial eliminado correctamente.'); }
     else alert('Error al eliminar el historial.');
@@ -1070,7 +1071,7 @@ const DeleteAccountPanel: React.FC<{ userName: string }> = ({ userName }) => {
   const phrase = `ELIMINAR ${userName.split(' ')[0]?.toUpperCase() || 'CUENTA'}`;
 
   const handleDelete = async () => {
-    if (!confirm('¿Estás 100% seguro? Esta acción es definitiva.')) return;
+    if (!(await confirmDialog({ message: '¿Estás 100% seguro? Esta acción es definitiva.', danger: true }))) return;
     setBusy(true);
     const { ok, data } = await apiFetch('/users_mgmt/me', {
       method: 'DELETE',

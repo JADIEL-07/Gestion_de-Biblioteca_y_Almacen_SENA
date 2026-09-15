@@ -6,6 +6,7 @@ import {
 } from 'react-icons/fi';
 import { QRCodeCanvas } from 'qrcode.react';
 import { CustomSelect } from './CustomSelect';
+import { confirmDialog } from '../../../../components/ui/ConfirmDialog';
 import './UserManagement.css';
 
 interface UserStats {
@@ -116,14 +117,16 @@ export const UserManagement: React.FC = () => {
   // [TEMPORAL · PRUEBAS] Borrado DEFINITIVO del usuario (y sus registros) de la BD.
   // Para revertir: quitar esta función y el botón de la papelera de la tabla.
   const handleDeleteUser = async (user: User) => {
-    const ok = window.confirm(
-      `BORRADO DEFINITIVO\n\n` +
-      `Vas a eliminar a "${user.name}" (#${user.id}) de la base de datos.\n` +
-      `Se borrarán también sus préstamos, reservas, notificaciones e historial.\n` +
-      `Esta acción NO se puede deshacer.\n\n¿Continuar?`
-    );
+    const ok = await confirmDialog({
+      title: 'Borrado definitivo',
+      message: `Vas a eliminar a "${user.name}" (#${user.id}) de la base de datos.\n` +
+        `Se borrarán también sus préstamos, reservas, notificaciones e historial.\n` +
+        `Esta acción NO se puede deshacer.`,
+      confirmText: 'Sí, eliminar',
+      danger: true,
+    });
     if (!ok) return;
-    if (!window.confirm('Confírmalo una vez más: ¿borrar este usuario definitivamente?')) return;
+    if (!(await confirmDialog({ message: 'Confírmalo una vez más: ¿borrar este usuario definitivamente?', confirmText: 'Borrar definitivamente', danger: true }))) return;
     try {
       const response = await fetch(`/api/v1/users_mgmt/${user.id}`, {
         method: 'DELETE',

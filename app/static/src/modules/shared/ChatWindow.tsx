@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FiSend, FiUser, FiCheckCircle } from 'react-icons/fi';
+import { confirmDialog } from '../../components/ui/ConfirmDialog';
 import './ChatWindow.css';
 
 export interface ChatMessage {
@@ -123,7 +124,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const handleClose = async () => {
     if (!closeEndpoint) return;
-    if (!confirm('¿Cerrar este ticket? Ya no se podrán enviar más mensajes.')) return;
+    if (!(await confirmDialog('¿Cerrar este ticket? Ya no se podrán enviar más mensajes.'))) return;
 
     setClosing(true);
     try {

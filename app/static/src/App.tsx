@@ -30,6 +30,7 @@ import { FloatingParticles } from './components/ui/FloatingParticles';
 import { HeroBackground } from './components/ui/HeroBackground';
 import { SiteNav } from './components/ui/SiteNav';
 import { ImpersonationBanner } from './components/ui/ImpersonationBanner';
+import { ConfirmDialogRoot } from './components/ui/ConfirmDialog';
 
 // Helper component for reveal on scroll animations
 function RevealOnScroll({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
@@ -314,6 +315,9 @@ function AppRoutes() {
       {/* Fuera de <Routes>: sigue visible sin importar a qué dashboard se
           navegue mientras un Admin está "viendo como" otro rol. */}
       <ImpersonationBanner />
+      {/* Panel de confirmación propio (reemplaza window.confirm en toda la
+          app) — se monta una sola vez aquí, disponible en cualquier rol. */}
+      <ConfirmDialogRoot />
       <Suspense fallback={<div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw', background: 'var(--bg-main, #f0f2f5)' }}><div className="loading-spinner" style={{ border: '4px solid rgba(0,0,0,0.1)', borderLeftColor: '#39A900', borderRadius: '50%', width: '50px', height: '50px', animation: 'spin 1s linear infinite' }}></div><style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style></div>}>
       <Routes>
         {/* Public pages */}

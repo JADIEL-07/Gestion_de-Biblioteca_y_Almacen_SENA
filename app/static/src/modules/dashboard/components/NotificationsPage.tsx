@@ -3,6 +3,7 @@ import {
   FiBell, FiCheck, FiClock, FiPackage,
   FiAlertCircle, FiInbox, FiTrash2
 } from 'react-icons/fi';
+import { confirmDialog } from '../../../components/ui/ConfirmDialog';
 import './NotificationsPage.css';
 
 interface Notification {
@@ -108,7 +109,7 @@ export const NotificationsPage: React.FC = () => {
 
   const deleteOne = async (id: number, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!window.confirm('¿Eliminar esta notificación?')) return;
+    if (!(await confirmDialog({ message: '¿Eliminar esta notificación?', danger: true }))) return;
     await fetch(`/api/v1/notifications/${id}`, {
       method: 'DELETE', headers: authHeader(),
     });
@@ -116,7 +117,7 @@ export const NotificationsPage: React.FC = () => {
   };
 
   const clearAll = async () => {
-    if (!window.confirm('¿Eliminar todas las notificaciones?')) return;
+    if (!(await confirmDialog({ message: '¿Eliminar todas las notificaciones?', danger: true }))) return;
     await fetch('/api/v1/notifications/clear-all', {
       method: 'DELETE', headers: authHeader(),
     });

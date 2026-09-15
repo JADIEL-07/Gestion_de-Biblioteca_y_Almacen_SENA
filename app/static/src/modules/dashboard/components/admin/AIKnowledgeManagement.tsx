@@ -3,6 +3,7 @@ import {
   FiCpu, FiSearch, FiPlus, FiEdit2, FiTrash2, FiThumbsUp, FiThumbsDown,
   FiAlertCircle, FiCheckCircle, FiClock, FiHelpCircle, FiX, FiMessageSquare,
 } from 'react-icons/fi';
+import { confirmDialog } from '../../../../components/ui/ConfirmDialog';
 import './AIKnowledgeManagement.css';
 
 interface LearnedItem {
@@ -132,7 +133,7 @@ export const AIKnowledgeManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('¿Eliminar esta respuesta aprendida? Esta acción no se puede deshacer.')) return;
+    if (!(await confirmDialog({ message: '¿Eliminar esta respuesta aprendida? Esta acción no se puede deshacer.', danger: true }))) return;
     const { ok } = await api(`/learned/${id}`, { method: 'DELETE' });
     if (ok) setItems(prev => prev.filter(i => i.id !== id));
   };

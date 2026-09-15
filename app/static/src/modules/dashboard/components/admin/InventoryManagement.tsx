@@ -7,6 +7,7 @@ import {
 } from 'react-icons/fi';
 import { CustomSelect } from './CustomSelect';
 import { IMAGE_PLACEHOLDER } from '../../../../shared/constants';
+import { confirmDialog } from '../../../../components/ui/ConfirmDialog';
 import './InventoryManagement.css';
 
 interface Item {
@@ -266,7 +267,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
 
   // Delete
   const handleDelete = async (item: Item) => {
-    if (!confirm(`¿Eliminar "${item.name}"? Esta acción no se puede deshacer.`)) return;
+    if (!(await confirmDialog({ message: `¿Eliminar "${item.name}"? Esta acción no se puede deshacer.`, danger: true }))) return;
     setMenuOpenId(null);
     try {
       const res = await fetch(`/api/v1/items/${item.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
@@ -304,7 +305,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
   };
 
   const handleDeleteLoc = async (id: number) => {
-    if (!confirm('¿Eliminar esta ubicación?')) return;
+    if (!(await confirmDialog({ message: '¿Eliminar esta ubicación?', danger: true }))) return;
     try {
       const res = await fetch(`/api/v1/items/locations/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
       if (res.ok) fetchData();
@@ -333,7 +334,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
   };
 
   const handleDeleteCat = async (id: number) => {
-    if (!confirm('¿Eliminar esta categoría?')) return;
+    if (!(await confirmDialog({ message: '¿Eliminar esta categoría?', danger: true }))) return;
     try {
       const res = await fetch(`/api/v1/items/categories/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
       if (res.ok) fetchData();

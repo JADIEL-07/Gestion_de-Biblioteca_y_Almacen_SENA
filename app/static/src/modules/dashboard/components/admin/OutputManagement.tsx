@@ -3,6 +3,7 @@ import {
   FiSearch, FiPlus, FiRefreshCcw, FiExternalLink, 
   FiRotateCcw, FiCheckCircle, FiX, FiAlertTriangle, FiUser, FiCalendar
 } from 'react-icons/fi';
+import { confirmDialog } from '../../../../components/ui/ConfirmDialog';
 import './OutputManagement.css';
 
 interface Output {
@@ -131,7 +132,7 @@ export const OutputManagement: React.FC = () => {
   };
 
   const handleReturn = async (id: number) => {
-    if (!confirm("¿Registrar el retorno de este elemento?")) return;
+    if (!(await confirmDialog('¿Registrar el retorno de este elemento?'))) return;
     
     try {
       const res = await fetch(`/api/v1/outputs/${id}/return`, {
@@ -152,7 +153,7 @@ export const OutputManagement: React.FC = () => {
   };
 
   const handleClose = async (id: number) => {
-    if (!confirm("¿Cerrar esta salida de forma permanente? Esto cambiará el estado final del elemento.")) return;
+    if (!(await confirmDialog({ message: '¿Cerrar esta salida de forma permanente? Esto cambiará el estado final del elemento.', danger: true }))) return;
     
     try {
       const res = await fetch(`/api/v1/outputs/${id}/close`, {
