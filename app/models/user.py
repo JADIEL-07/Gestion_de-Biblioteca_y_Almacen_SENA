@@ -18,6 +18,11 @@ class User(Base):
     id = db.Column(db.String(50), primary_key=True) 
     document_type = db.Column(db.String(50), nullable=False)
     name = db.Column(db.String(100), nullable=False)
+    # Apodo personal: cómo quiere el usuario que LA APP lo salude y lo nombre
+    # en sus propios correos. Es una preferencia de vista, no cambia su
+    # identidad registrada — el personal (Soporte, Admin, etc.) siempre ve
+    # `name`, nunca este campo.
+    display_name = db.Column(db.String(100), nullable=True)
     email = db.Column(db.String(120), unique=True, nullable=False)
     phone = db.Column(db.String(20), nullable=True)
     password = db.Column(db.String(255), nullable=False)

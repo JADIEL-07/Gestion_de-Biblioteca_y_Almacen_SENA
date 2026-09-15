@@ -9,6 +9,7 @@ interface UserData {
   id: number;
   name?: string;
   nombre?: string;
+  display_name?: string;
 }
 
 interface SoporteHomeProps {
@@ -16,7 +17,7 @@ interface SoporteHomeProps {
 }
 
 export const SoporteHome: React.FC<SoporteHomeProps> = ({ user }) => {
-  const firstName = (user.name || user.nombre || 'Soporte Técnico').split(' ')[0];
+  const firstName = (user.display_name || user.name || user.nombre || 'Soporte Técnico').split(' ')[0];
 
   return (
     <div className="soporte-home fade-in">

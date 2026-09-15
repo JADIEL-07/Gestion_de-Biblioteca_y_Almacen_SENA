@@ -367,6 +367,7 @@ def get_me():
     return jsonify({
         "id": user.id,
         "name": user.name,
+        "display_name": user.display_name or '',
         "email": user.email,
         "phone": user.phone or '',
         "document_type": user.document_type,
@@ -392,10 +393,13 @@ def update_me():
     data = request.get_json() or {}
     changed = []
 
-    name_val = (data.get('name') or '').strip()
-    if 'name' in data and name_val:
-        user.name = name_val
-        changed.append('name')
+    # 'display_name' es un apodo de vista personal (saludo en la app y en sus
+    # correos) — NUNCA toca el nombre registrado (`name`), que es el que ve
+    # el resto del personal (Soporte, Admin, etc.).
+    if 'display_name' in data:
+        dn = (data.get('display_name') or '').strip()
+        user.display_name = dn or None
+        changed.append('display_name')
 
     if 'phone' in data:
         user.phone = (data.get('phone') or '').strip() or None

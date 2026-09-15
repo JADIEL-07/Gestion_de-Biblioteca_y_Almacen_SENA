@@ -155,7 +155,7 @@ export const SoporteDashboard: React.FC<SoporteDashboardProps> = ({ user, onLogo
         <main className="dashboard-main-content">
           <div className="content-container">
             {activeSection === 'dashboard' && <SoporteHome user={user} />}
-            {activeSection === 'config' && <UserConfig user={user} />}
+            {activeSection === 'config' && <UserConfig user={user} onUserUpdate={onUserUpdate} />}
             {activeSection === 'mantenimientos' && <MaintenanceManagement />}
             {activeSection === 'help' && <PersonalAssistant user={user} />}
             {activeSection === 'reportes' && <SystemReports />}

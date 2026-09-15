@@ -858,7 +858,7 @@ class AuthService:
         ))
         db.session.commit()
 
-        sent = EmailService.send_2fa_code(user.email, code, user.name or '')
+        sent = EmailService.send_2fa_code(user.email, code, user.display_name or user.name or '')
         if not sent:
             return {"error": "No pudimos enviar el correo. Inténtalo de nuevo o usa tu app de autenticación."}, 502
 
@@ -965,7 +965,7 @@ class AuthService:
         link = f"{_public_base_url()}/aprobar-dispositivo?token={token}"
 
         sent = EmailService.send_new_device_alert(
-            user.email, user.name or '', link,
+            user.email, user.display_name or user.name or '', link,
             device_label=label, location=location, ip=ip, when=when,
         )
         if sent:
@@ -1213,7 +1213,7 @@ class AuthService:
             temp_pw = _generate_temp_password(12)
             # Enviamos ANTES de tocar la contraseña: si el correo no sale, no
             # dejamos al usuario fuera de su cuenta con una temporal que nadie recibió.
-            sent = EmailService.send_temporary_password(user.email, temp_pw, user.name)
+            sent = EmailService.send_temporary_password(user.email, temp_pw, user.display_name or user.name)
             if sent:
                 user.password = bcrypt.hashpw(temp_pw.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                 user.must_change_password = True
@@ -1360,9 +1360,9 @@ class AuthService:
 
         # Enviar correo según propósito. Devuelve si el envío tuvo éxito.
         if purpose == 'ACCOUNT_VERIFY':
-            return EmailService.send_verification_code(user.email, code, user.name)
+            return EmailService.send_verification_code(user.email, code, user.display_name or user.name)
         elif purpose == 'PASSWORD_CHANGE':
-            return EmailService.send_password_change_code(user.email, code, user.name)
+            return EmailService.send_password_change_code(user.email, code, user.display_name or user.name)
         return True
 
         return vc
@@ -1480,6 +1480,7 @@ class AuthService:
         return {
             "id": user.id,
             "name": user.name,
+            "display_name": user.display_name or '',
             "email": user.email,
             "profile_image": user.profile_image,
             "role": {"name": user.role.name} if user.role else {"name": "APRENDIZ"},

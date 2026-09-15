@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FiSearch, FiGrid, FiBook, FiCalendar, FiClock, FiAlertTriangle, FiArrowRight } from 'react-icons/fi';
+import { FiBook, FiCalendar, FiClock, FiAlertTriangle, FiArrowRight } from 'react-icons/fi';
 
 interface UserData {
   id?: number;
   name?: string;
   nombre?: string;
+  display_name?: string;
   role?: { name: string };
   rol?: { nombre: string };
 }
@@ -48,7 +49,7 @@ export const AprendizDashboardHome: React.FC<DashboardHomeProps> = ({ user, onNa
     { id: 'fines', title: 'Multas pendientes', value: `$${stats?.metrics?.fines || 0}`, icon: <FiAlertTriangle />, color: '#f59e0b' },
   ];
 
-  const userName = (user.name || user.nombre || '').split(' ')[0] || 'Aprendiz';
+  const userName = (user.display_name || user.name || user.nombre || '').split(' ')[0] || 'Aprendiz';
 
   if (loading) {
     return <div className="loading-container">Cargando tu información...</div>;
@@ -56,17 +57,6 @@ export const AprendizDashboardHome: React.FC<DashboardHomeProps> = ({ user, onNa
 
   return (
     <div className="dashboard-home-content">
-      {/* Barra de Búsqueda */}
-      <div className="search-top-bar">
-        <div className="search-input-wrapper">
-          <input type="text" placeholder="Buscar libros, equipos, herramientas y más..." />
-          <button className="search-btn"><FiSearch /></button>
-        </div>
-        <button className="explore-cat-btn" onClick={() => onNavigate('explore')}>
-          <FiGrid /> Explorar por categorías
-        </button>
-      </div>
-
       <div className="home-main-grid">
         <div className="home-left-column">
           {/* Hero Banner */}

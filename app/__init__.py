@@ -57,6 +57,8 @@ def _apply_runtime_migrations():
         "UPDATE ai_learned_responses SET updated_at = created_at WHERE updated_at IS NULL",
         # Cuentas "sombra" para que un Admin pueda navegar el sistema como otro rol.
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS shadow_owner_id VARCHAR(50)",
+        # Apodo personal (vista propia, no cambia el nombre registrado).
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name VARCHAR(100)",
     ]
     for stmt in column_migrations:
         try:

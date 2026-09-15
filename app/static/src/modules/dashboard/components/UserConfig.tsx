@@ -41,6 +41,7 @@ interface UserData {
 
 interface UserConfigProps {
   user: UserData;
+  onUserUpdate?: (userData: any) => void;
 }
 
 type TabId =
@@ -51,7 +52,7 @@ type TabId =
 
 // ── Root Component ────────────────────────────────────────────────────
 
-export const UserConfig: React.FC<UserConfigProps> = ({ user }) => {
+export const UserConfig: React.FC<UserConfigProps> = ({ user, onUserUpdate }) => {
   const [activeTab, setActiveTab] = useState<TabId>('personal-info');
   const contentRef = useRef<HTMLElement>(null);
 
@@ -115,7 +116,7 @@ export const UserConfig: React.FC<UserConfigProps> = ({ user }) => {
       </aside>
 
       <main className="config-main-content" ref={contentRef}>
-        {activeTab === 'personal-info'  && <PersonalInfoPanel initialUserName={userName} getInitials={getInitials} />}
+        {activeTab === 'personal-info'  && <PersonalInfoPanel initialUserName={userName} getInitials={getInitials} onUserUpdate={onUserUpdate} />}
         {activeTab === 'email'          && <EmailPanel currentEmail={userEmail} />}
         {activeTab === 'password'       && <PasswordPanel />}
         {activeTab === '2fa'            && <TwoFAPanel />}
@@ -150,8 +151,12 @@ function useToast() {
 
 // ── Información personal ───────────────────────────────────────────────
 
-const PersonalInfoPanel: React.FC<{ initialUserName: string; getInitials: (n: string) => string }> = ({
-  initialUserName, getInitials
+const PersonalInfoPanel: React.FC<{
+  initialUserName: string;
+  getInitials: (n: string) => string;
+  onUserUpdate?: (userData: any) => void;
+}> = ({
+  initialUserName, getInitials, onUserUpdate
 }) => {
   const { show, Toast } = useToast();
   const [loading, setLoading] = useState(true);
@@ -159,6 +164,7 @@ const PersonalInfoPanel: React.FC<{ initialUserName: string; getInitials: (n: st
 
   const [form, setForm] = useState({
     name: initialUserName,
+    display_name: '',
     phone: '',
     document_type: 'CC',
     formation_ficha: '',
@@ -171,6 +177,7 @@ const PersonalInfoPanel: React.FC<{ initialUserName: string; getInitials: (n: st
       if (ok) {
         setForm({
           name:             data.name            || initialUserName,
+          display_name:     data.display_name    || '',
           phone:            data.phone           || '',
           document_type:    data.document_type   || 'CC',
           formation_ficha:  data.formation_ficha || '',
@@ -190,7 +197,7 @@ const PersonalInfoPanel: React.FC<{ initialUserName: string; getInitials: (n: st
     const { ok, data } = await apiFetch('/users_mgmt/me', {
       method: 'PATCH',
       body: JSON.stringify({
-        name:            form.name,
+        display_name:    form.display_name,
         phone:           form.phone,
         document_type:   form.document_type,
         formation_ficha: form.formation_ficha,
@@ -199,6 +206,7 @@ const PersonalInfoPanel: React.FC<{ initialUserName: string; getInitials: (n: st
     });
     setSaving(false);
     show(ok ? 'Perfil actualizado correctamente.' : (data.error || 'Error al guardar.'), ok ? 'ok' : 'err');
+    if (ok) onUserUpdate?.({ display_name: form.display_name });
   };
 
   if (loading) return <div className="config-section"><p className="card-hint">Cargando...</p></div>;
@@ -210,8 +218,21 @@ const PersonalInfoPanel: React.FC<{ initialUserName: string; getInitials: (n: st
         <h3>Datos personales</h3>
         <div className="form-grid">
           <div className="form-group full-width">
-            <label>Nombre completo</label>
-            <input type="text" name="name" value={form.name} onChange={handleChange} />
+            <label>Nombre completo (registrado)</label>
+            <input type="text" name="name" value={form.name} disabled />
+            <span className="card-hint">Este es tu nombre registrado. Personal de Soporte y Administración siempre lo verán así.</span>
+          </div>
+          <div className="form-group full-width">
+            <label>Apodo para la app</label>
+            <input
+              type="text"
+              name="display_name"
+              value={form.display_name}
+              onChange={handleChange}
+              placeholder="Ej: Jadi"
+              maxLength={100}
+            />
+            <span className="card-hint">Así te saludará la aplicación y así te llamará en tus correos. Es solo una vista personal: no cambia tu nombre registrado ni lo que ve el personal de Soporte.</span>
           </div>
           <div className="form-group">
             <label>Tipo de documento</label>

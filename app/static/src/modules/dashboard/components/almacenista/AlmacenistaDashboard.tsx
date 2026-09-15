@@ -115,7 +115,7 @@ export const AlmacenistaDashboard: React.FC<Props> = ({ user, onLogout, onUserUp
               <InventoryManagement activeTab={activeSection === 'inventory-locations' ? 'locations' : 'categories'} user={user} />
             )}
             {activeSection === 'loans'              && <StaffLoans user={user} />}
-            {activeSection === 'config'             && <UserConfig user={user} />}
+            {activeSection === 'config'             && <UserConfig user={user} onUserUpdate={onUserUpdate} />}
             {activeSection === 'help'               && <PersonalAssistant user={user} />}
             {activeSection === 'solicitudes'        && <StaffChat user={user} />}
             {activeSection === 'notifications'     && <NotificationsPage />}

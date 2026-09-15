@@ -1,10 +1,11 @@
 import React from 'react';
-import { FiSearch, FiGrid, FiBook, FiCalendar, FiClock, FiAlertTriangle } from 'react-icons/fi';
+import { FiBook, FiCalendar, FiClock, FiAlertTriangle } from 'react-icons/fi';
 
 interface UserData {
   id?: number;
   name?: string;
   nombre?: string;
+  display_name?: string;
   role?: { name: string };
   rol?: { nombre: string };
 }
@@ -40,22 +41,11 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ user, isGuest, isP
   };
 
   const currentRoleName = user.role?.name || user.rol?.nombre;
-  const userName = isGuest ? 'Invitado' : (user.name || user.nombre || '').split(' ')[0];
+  const userName = isGuest ? 'Invitado' : (user.display_name || user.name || user.nombre || '').split(' ')[0];
   const userRoleStr = isGuest ? 'Invitado' : (currentRoleName === 'ADMIN' ? 'Administrador' : (currentRoleName === 'APRENDIZ' ? 'Aprendiz' : 'Usuario'));
 
   return (
     <div className="dashboard-home-content">
-      {/* Barra de Búsqueda */}
-      <div className="search-top-bar">
-        <div className="search-input-wrapper">
-          <input type="text" placeholder="Buscar libros, equipos, herramientas y más..." />
-          <button className="search-btn"><FiSearch /></button>
-        </div>
-        <button className="explore-cat-btn">
-          <FiGrid /> Explorar por categorías
-        </button>
-      </div>
-
       <div className="home-main-grid">
         <div className="home-left-column">
           {/* Hero Banner */}

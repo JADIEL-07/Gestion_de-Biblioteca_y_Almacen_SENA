@@ -237,7 +237,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
 
           <div className="content-container">
             {activeSection === 'dashboard' && <AdminHome />}
-            {activeSection === 'config' && <UserConfig user={user} />}
+            {activeSection === 'config' && <UserConfig user={user} onUserUpdate={onUserUpdate} />}
             {activeSection === 'users' && <UserManagement />}
             {activeSection === 'audit' && <AuditLogs />}
             {activeSection === 'loans' && <LoanManagement />}

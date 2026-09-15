@@ -444,9 +444,12 @@ _PLACEHOLDER_NAMES = {
 
 
 def assistant_display_name(user, first_name_only=False):
-    """Nombre con el que el asistente se dirige a la persona.
-    Para invitados o cuentas de prueba/demo devuelve 'usuario' (sin nombre propio)."""
-    raw = ((getattr(user, 'name', '') if user else '') or '').strip()
+    """Nombre con el que el asistente se dirige a la persona. Usa el apodo
+    personal (display_name) si lo configuró — es exactamente para esto:
+    cómo quiere que la app (y sus correos) le hable —, y si no, su nombre
+    registrado. Para invitados o cuentas de prueba/demo devuelve 'usuario'
+    (sin nombre propio)."""
+    raw = ((getattr(user, 'display_name', '') if user else '') or (getattr(user, 'name', '') if user else '') or '').strip()
     email = ((getattr(user, 'email', '') if user else '') or '').strip().lower()
     if (not raw
             or raw.lower() in _PLACEHOLDER_NAMES
