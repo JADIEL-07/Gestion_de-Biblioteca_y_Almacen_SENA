@@ -6,6 +6,7 @@ import {
 } from 'react-icons/fi';
 import './UserConfig.css';
 import { getDeviceId } from '../../../shared/device';
+import { clearSessionAndRedirect } from '../../../shared/api';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -585,9 +586,14 @@ const SessionsPanel: React.FC = () => {
       : `/auth/trusted-devices/${row.trusted_device_id}`;
     const { ok, data } = await apiFetch(url, { method: 'DELETE' });
     setBusy(null);
+    if (ok && isMine) {
+      // Cerraste la sesión de ESTE dispositivo: sacar de una vez, sin esperar
+      // a que el latido de App.tsx (cada 25 s) lo detecte.
+      clearSessionAndRedirect();
+      return;
+    }
     show(ok ? (data.message || 'Listo.') : (data.error || 'Error.'), ok ? 'ok' : 'err');
     if (ok && !isMine) load();
-    // Si cerraste tu propia sesión, el latido de App.tsx mostrará "sesión expirada".
   };
 
   const revokeAll = async () => {

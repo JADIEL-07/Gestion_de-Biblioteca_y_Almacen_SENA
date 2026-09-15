@@ -58,7 +58,7 @@ function showSessionExpiredOverlay(): void {
   }, 1000);
 }
 
-function clearSessionAndRedirect() {
+export function clearSessionAndRedirect() {
   try {
     localStorage.removeItem('token');
     localStorage.removeItem('refresh_token');
