@@ -85,6 +85,9 @@
 
 .reports-table {
   width: 100%;
+  /* Sin esto, al angostarse el contenedor (p. ej. al abrir el menú
+     lateral) la tabla se aplastaba en vez de scrollear horizontalmente. */
+  min-width: max-content;
   border-collapse: collapse;
 }
 
