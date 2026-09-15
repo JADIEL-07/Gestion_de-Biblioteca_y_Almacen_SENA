@@ -182,7 +182,7 @@ export const AprendizReservations: React.FC = () => {
   return (
     <div className="res-container fade-in">
       <div className="res-header-section">
-        <h1>Mis reservas ⚡</h1>
+        <h1>Mis reservas</h1>
         <p>Consulta y administra tus reservas activas.</p>
       </div>
 
