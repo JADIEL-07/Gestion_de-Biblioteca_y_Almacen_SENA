@@ -10,7 +10,7 @@ from .movement import Movement, Notification
 from .ticket import Ticket
 from .chat_message import TicketMessage, StaffMessage
 from .item_output import ItemOutput, OutputType, OutputStatus
-from .ai_knowledge import AILearnedResponse, AIUnansweredQuery
+from .ai_knowledge import AILearnedResponse, AIUnansweredQuery, AIResponseFeedback
 from .spare_part import SparePartRequest
 from .assistant_thread import AssistantThread
 from .user_preference import UserPreference, EmailChangeToken

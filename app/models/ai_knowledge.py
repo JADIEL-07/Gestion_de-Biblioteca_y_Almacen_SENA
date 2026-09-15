@@ -34,6 +34,27 @@ class AILearnedResponse(Base):
         return f"<AILearnedResponse {self.query_text[:20]}>"
 
 
+class AIResponseFeedback(Base):
+    """👍/👎 sobre CUALQUIER respuesta del asistente (venga de Gemini, del modo
+    offline o de la IA que aprende). A diferencia de AILearnedResponse.
+    positive_feedback/negative_feedback (que solo existen para respuestas YA
+    cacheadas y afectan si se autoeliminan), esto es un registro histórico
+    simple para que un Admin pueda revisar qué respuestas no convencieron."""
+    __tablename__ = 'ai_response_feedback'
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.String(50), db.ForeignKey('users.id'), nullable=True)
+    role = db.Column(db.String(50), nullable=True)
+    query_text = db.Column(db.String(500), nullable=True)
+    response_text = db.Column(db.Text, nullable=True)
+    useful = db.Column(db.Boolean, nullable=False)
+    source = db.Column(db.String(30), nullable=True)  # 'gemini' | 'own-ai' | 'rules' | etc.
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<AIResponseFeedback {'👍' if self.useful else '👎'} {(self.query_text or '')[:20]}>"
+
+
 class AIUnansweredQuery(Base):
     """Registro de preguntas que ni la IA que aprende ni el sistema de reglas
     supieron responder con confianza (terminaron en el mensaje genérico de

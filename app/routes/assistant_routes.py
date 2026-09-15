@@ -14,7 +14,7 @@ from ..models.user import User
 from ..models.reservation import Reservation
 from ..models.token import RefreshToken
 from ..models.trusted_device import TrustedDevice
-from ..models.ai_knowledge import AILearnedResponse, AIUnansweredQuery
+from ..models.ai_knowledge import AILearnedResponse, AIUnansweredQuery, AIResponseFeedback
 from ..models.assistant_thread import AssistantThread
 from ..services.reservation_queue import enqueue_reservation, on_item_available
 from .. import db
@@ -837,25 +837,22 @@ INSTRUCCIONES DE RESPUESTA:
                 "source": "intent-support-norole",
             })
 
-    # ── SALUDO / IDENTIDAD ───────────────────────────────────────────────────
-    # Se responde de forma determinista SIEMPRE (con o sin historial): no tiene
-    # sentido gastar una llamada a Gemini para un "hola" o un "quién eres", y así
-    # el saludo no se repite en bucle. "Hola, como puedo iniciar sesion" NO cuenta
-    # como saludo puro y sí pasa al flujo normal.
+    # ── IDENTIDAD ────────────────────────────────────────────────────────────
+    # "¿Quién eres?" SÍ se responde siempre igual, de forma determinista: es un
+    # hecho (el nombre del bot), no algo que deba variar entre respuestas.
+    # Un simple "hola"/"buenos días" ya NO tiene una respuesta enlatada fija:
+    # sigue el flujo normal (IA propia si aplica, si no Gemini) para que se
+    # sienta natural y no repita siempre el mismo texto.
     greeting_kind = classify_greeting(user_query)
-    if greeting_kind and not media:
-        is_identity_q = greeting_kind == 'identity'
+    if greeting_kind == 'identity' and not media:
         CAPS = (
             "- 📚 **Catálogo** — libros, herramientas y equipos disponibles.\n"
             "- 📅 **Préstamos y reservas** — cómo solicitarlos y consultar los tuyos.\n"
             "- 🕒 **Horarios, ubicaciones y reglamento** de la sede.\n"
             "- ⚙️ **Tu cuenta** — perfil, contraseña, notificaciones y seguridad."
         )
-        if is_identity_q:
-            text = ("Soy **SENA Bot** 🤖, el asistente virtual oficial de la Biblioteca y Almacén "
-                    "del SENA — Sede Vélez, Santander. Puedo ayudarte con:\n\n" + CAPS + "\n\n¿Con qué empezamos?")
-        else:
-            text = "¡Hola de nuevo! 👋 Puedo ayudarte con:\n\n" + CAPS + "\n\n¿En qué te ayudo?"
+        text = ("Soy **SENA Bot** 🤖, el asistente virtual oficial de la Biblioteca y Almacén "
+                "del SENA — Sede Vélez, Santander. Puedo ayudarte con:\n\n" + CAPS + "\n\n¿Con qué empezamos?")
         return jsonify({"text": text, "type": "text", "source": "own-ai-greeting-short"})
 
     # 4.5 PRIORIDAD: consultar primero la IA propia (AILearnedResponse).
@@ -1437,15 +1434,29 @@ def _require_admin():
 @assistant_bp.route('/feedback', methods=['POST'])
 @jwt_required()
 def learned_feedback():
-    """👍/👎 sobre una respuesta servida por la IA que aprende. Si se acumulan
-    demasiados negativos frente a los positivos, la entrada se autoelimina —
-    así el bot deja de repetir una respuesta que la gente marca como inútil,
-    sin que un Admin tenga que estar revisándolas manualmente."""
+    """👍/👎 sobre una respuesta del asistente. Si trae `learned_id`, es sobre
+    una entrada ya cacheada por la IA que aprende (afecta sus contadores y
+    puede autoeliminarla si acumula demasiados negativos). Si no, es sobre
+    una respuesta cualquiera (Gemini en vivo, modo offline, etc.) — se
+    registra en AIResponseFeedback solo como histórico para revisión."""
     data = request.get_json() or {}
     learned_id = data.get('learned_id')
     useful = bool(data.get('useful'))
+
     if not learned_id:
-        return jsonify({"error": "Falta learned_id."}), 400
+        user_id = str(get_jwt_identity())
+        user = User.query.filter_by(id=user_id).first()
+        role_name = (user.role.name if user and user.role else None)
+        db.session.add(AIResponseFeedback(
+            user_id=user_id,
+            role=role_name,
+            query_text=(data.get('query_text') or '')[:500] or None,
+            response_text=data.get('response_text'),
+            useful=useful,
+            source=data.get('source'),
+        ))
+        db.session.commit()
+        return jsonify({"ok": True}), 200
 
     learned = AILearnedResponse.query.get(learned_id)
     if not learned:

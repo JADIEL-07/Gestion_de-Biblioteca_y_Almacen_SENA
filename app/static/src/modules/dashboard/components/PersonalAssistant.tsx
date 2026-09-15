@@ -254,14 +254,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
           });
           if (res.ok) {
             const data: ChatThread[] = await res.json();
-            if (data.length > 0) {
-              // Hay conversaciones previas: mostrar la más reciente, no crear una nueva
-              setThreads(data);
-              setActiveThreadId(data[0].id);
-            } else {
-              setThreads([newThread]);
-              setActiveThreadId(newId);
-            }
+            // Siempre se entra con una conversación nueva — el historial
+            // anterior sigue disponible en la barra lateral, pero ya no se
+            // retoma automáticamente al abrir el asistente.
+            setThreads([newThread, ...data]);
+            setActiveThreadId(newId);
             return;
           }
         } catch (e) {
@@ -693,16 +690,18 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     }
   };
 
-  // 👍/👎 sobre una respuesta que vino de la IA que aprende. Solo actualiza el
-  // estado local del mensaje (para deshabilitar los botones) — el backend ya
-  // decide si autoeliminar la entrada cuando se acumulan negativos.
-  const handleLearnedFeedback = async (msgId: string, learnedId: number, useful: boolean) => {
+  // 👍/👎 bajo CUALQUIER respuesta del bot (venga de la IA que aprende, de
+  // Gemini en vivo o del modo offline). Solo actualiza el estado local del
+  // mensaje (para deshabilitar los botones); el backend decide qué hacer con
+  // cada caso (autoeliminar una entrada aprendida muy criticada, o solo
+  // dejar constancia histórica de las demás).
+  const handleMessageFeedback = async (msg: Message, useful: boolean) => {
     const updatedThreads = threads.map((t) => {
       if (t.id !== activeThreadId) return t;
       return {
         ...t,
         messages: t.messages.map((m) =>
-          m.id === msgId ? { ...m, feedbackGiven: (useful ? 'up' : 'down') as 'up' | 'down' } : m
+          m.id === msg.id ? { ...m, feedbackGiven: (useful ? 'up' : 'down') as 'up' | 'down' } : m
         ),
       };
     });
@@ -715,7 +714,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       await fetch('/api/v1/assistant/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
-        body: JSON.stringify({ learned_id: learnedId, useful }),
+        body: JSON.stringify(
+          msg.learnedId
+            ? { learned_id: msg.learnedId, useful }
+            : { query_text: msg.userQueryRef, response_text: msg.text, source: msg.source || 'gemini', useful }
+        ),
       });
     } catch (err) {
       console.error('Error enviando feedback:', err);
@@ -896,19 +899,22 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
                     </div>
                   )}
 
-                  {/* RETROALIMENTACIÓN: solo en respuestas servidas por la IA que aprende */}
-                  {msg.sender === 'bot' && msg.source === 'own-ai' && msg.learnedId && (
+                  {/* RETROALIMENTACIÓN: bajo cualquier respuesta de texto del bot
+                      (no en las de Soporte humano, ni en navegación/confirmación,
+                      que ya tienen su propia acción). Requiere sesión iniciada. */}
+                  {msg.sender === 'bot' && !isGuest && !msg.isFromSupport &&
+                   msg.type !== 'navigate' && msg.type !== 'confirm_action' && (
                     msg.feedbackGiven ? (
                       <div className="learned-feedback-done">
                         {msg.feedbackGiven === 'up' ? '¡Gracias por confirmar que sirvió!' : 'Gracias, lo tendré en cuenta.'}
                       </div>
                     ) : (
                       <div className="learned-feedback-box">
-                        <span>¿Te sirvió esta respuesta?</span>
-                        <button className="learned-feedback-btn" onClick={() => handleLearnedFeedback(msg.id, msg.learnedId!, true)} title="Sí me sirvió">
+                        <span>¿Qué tal te pareció esta respuesta?</span>
+                        <button className="learned-feedback-btn" onClick={() => handleMessageFeedback(msg, true)} title="Sí me sirvió">
                           <FiThumbsUp size={14} />
                         </button>
-                        <button className="learned-feedback-btn" onClick={() => handleLearnedFeedback(msg.id, msg.learnedId!, false)} title="No me sirvió">
+                        <button className="learned-feedback-btn" onClick={() => handleMessageFeedback(msg, false)} title="No me sirvió">
                           <FiThumbsDown size={14} />
                         </button>
                       </div>

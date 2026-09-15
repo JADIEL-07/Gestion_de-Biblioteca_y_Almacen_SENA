@@ -147,20 +147,41 @@
 
 .assistant-empty-state .empty-state-icon {
   color: var(--sena-green);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+  filter: drop-shadow(0 0 18px rgba(57, 169, 0, 0.45));
+  animation: empty-state-icon-float 3.2s ease-in-out infinite;
+}
+
+@keyframes empty-state-icon-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
 
 .assistant-empty-state h2 {
-  font-size: 1.4rem;
+  font-size: 1.75rem;
   font-weight: 800;
   margin: 0;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.5px;
+  line-height: 1.25;
+  background: linear-gradient(90deg, var(--sena-green) 0%, #6fe000 50%, var(--sena-green) 100%);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: empty-state-title-shine 5s ease-in-out infinite;
+}
+
+@keyframes empty-state-title-shine {
+  0% { background-position: 0% center; }
+  50% { background-position: 100% center; }
+  100% { background-position: 0% center; }
 }
 
 .assistant-empty-state p {
   color: var(--text-secondary);
-  font-size: 0.92rem;
-  margin: 0;
+  font-size: 0.95rem;
+  margin: 0.25rem 0 0;
+  line-height: 1.5;
 }
 
 /* Custom Scrollbar for Chat */
