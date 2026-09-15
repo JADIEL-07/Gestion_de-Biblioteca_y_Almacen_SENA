@@ -92,7 +92,7 @@ export const DeviceApproval: React.FC = () => {
                 boxShadow: '0 8px 24px rgba(57,169,0,0.28)',
               }}>
                 <img src="/assets/images/icono-sena.png" alt="SENA"
-                  style={{ width: '114%', height: '114%', margin: '-7%', display: 'block', objectFit: 'cover' }} />
+                  style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }} />
               </span>
             </div>
 

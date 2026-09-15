@@ -32,7 +32,7 @@ function showSessionExpiredOverlay(): void {
     'border-top-color:#39A900;animation:se-spin .9s linear infinite"></div>' +
     '<div style="position:absolute;inset:0;border-radius:50%;overflow:hidden;' +
     'box-shadow:0 8px 24px rgba(57,169,0,.28)">' +
-    '<img src="/assets/images/icono-sena.png" alt="SENA" style="width:114%;height:114%;margin:-7%;' +
+    '<img src="/assets/images/icono-sena.png" alt="SENA" style="width:100%;height:100%;' +
     'display:block;object-fit:cover" /></div></div>' +
     '<h2 style="margin:0 0 8px;font-size:1.35rem;color:#39A900">Tu sesión ha expirado</h2>' +
     '<p style="margin:0;color:#94a3b8;font-size:.95rem">Se cerró la sesión de este dispositivo. ' +
