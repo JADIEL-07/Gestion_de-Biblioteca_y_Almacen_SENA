@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiAlertCircle, FiPhone, FiCreditCard, FiShield, FiSmartphone } from 'react-icons/fi';
+import { FiMail, FiLock, FiUser, FiEye, FiEyeOff, FiAlertCircle, FiPhone, FiCreditCard, FiShield, FiSmartphone, FiCheck } from 'react-icons/fi';
 import './LoginForm.css';
 import { FloatingParticles } from '../../../components/ui/FloatingParticles';
 import { HeroBackground } from '../../../components/ui/HeroBackground';
@@ -874,10 +874,12 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                 <label className="terms-check-label">
                   <input
                     type="checkbox"
+                    className="terms-checkbox-input"
                     checked={isRegister ? acceptedTerms : loginTosChecked}
                     onChange={(e) => (isRegister ? setAcceptedTerms(e.target.checked) : setLoginTosChecked(e.target.checked))}
                     disabled={loading}
                   />
+                  <span className="terms-checkbox-box" aria-hidden="true"><FiCheck /></span>
                   <span>
                     He leído y acepto los{' '}
                     <a href="/terms" target="_blank" rel="noopener noreferrer">Términos y Condiciones</a>

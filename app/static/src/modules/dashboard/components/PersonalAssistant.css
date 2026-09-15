@@ -1202,8 +1202,8 @@
 
 .learned-feedback-btn {
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: var(--text-muted, #94a3b8);
+  border: 1.5px solid var(--sena-green, #39A900);
+  color: var(--sena-green, #39A900);
   border-radius: 8px;
   width: 28px;
   height: 28px;
@@ -1215,8 +1215,8 @@
 }
 
 .learned-feedback-btn:hover {
-  border-color: var(--sena-green, #39A900);
-  color: var(--sena-green, #39A900);
+  background: var(--sena-green, #39A900);
+  color: white;
 }
 
 .learned-feedback-done {

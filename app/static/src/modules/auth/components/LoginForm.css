@@ -431,13 +431,56 @@ input:-webkit-autofill:active {
   user-select: none;
 }
 
-.terms-check-label input[type="checkbox"] {
-  margin-top: 0.15rem;
-  width: 1.05rem;
-  height: 1.05rem;
+/* Checkbox nativo: se mantiene funcional/accesible pero invisible — el
+   cuadro que se ve es .terms-checkbox-box (delineado, vacío, sin fondo;
+   se rellena de verde en hover y al quedar marcado). */
+.terms-checkbox-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.terms-checkbox-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
   flex-shrink: 0;
-  accent-color: var(--sena-green);
-  cursor: pointer;
+  margin-top: 0.1rem;
+  border: 2px solid var(--sena-green);
+  border-radius: 6px;
+  background: transparent;
+  color: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.terms-checkbox-box svg {
+  width: 0.8rem;
+  height: 0.8rem;
+  stroke-width: 3;
+}
+
+.terms-check-label:hover .terms-checkbox-box,
+.terms-checkbox-input:checked ~ .terms-checkbox-box {
+  background: var(--sena-green);
+  color: white;
+}
+
+.terms-checkbox-input:focus-visible ~ .terms-checkbox-box {
+  outline: 2px solid var(--sena-green);
+  outline-offset: 2px;
+}
+
+.terms-check.has-error .terms-checkbox-box {
+  border-color: #ef4444;
+}
+
+.terms-check.has-error .terms-check-label:hover .terms-checkbox-box {
+  background: #ef4444;
+  color: white;
 }
 
 .terms-check-label a {
@@ -452,13 +495,6 @@ input:-webkit-autofill:active {
 
 .terms-check.has-error .terms-check-label {
   color: #ef4444;
-}
-
-.terms-check.has-error input[type="checkbox"] {
-  accent-color: #ef4444;
-  outline: 2px solid rgba(239, 68, 68, 0.4);
-  outline-offset: 2px;
-  border-radius: 3px;
 }
 
 .back-btn {
