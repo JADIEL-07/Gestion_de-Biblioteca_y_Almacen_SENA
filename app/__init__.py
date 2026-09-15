@@ -90,6 +90,22 @@ def _apply_runtime_migrations():
             db.session.rollback()
             print(f"[runtime-migration] aviso ({_stmt[:52]}...): {_e}")
 
+    # Limpieza puntual: el saludo inicial cacheado ('saludo bienvenida inicial')
+    # quedó obsoleto — el saludo ahora se genera en el frontend (pantalla vacía
+    # con título aleatorio) y ya nada en el backend lo consulta. Se borra si
+    # quedó guardado de antes para que no aparezca suelto en el panel de
+    # Conocimiento IA.
+    try:
+        _res = db.session.execute(text(
+            "DELETE FROM ai_learned_responses WHERE query_keywords = 'saludo bienvenida inicial'"
+        ))
+        db.session.commit()
+        if getattr(_res, 'rowcount', 0):
+            print(f"[runtime-migration] saludo cacheado obsoleto eliminado ({_res.rowcount} fila(s)).")
+    except Exception as e:
+        db.session.rollback()
+        print(f"[runtime-migration] aviso (limpieza saludo cacheado): {e}")
+
     # Migración de la columna biography (compatible con SQLite y Postgres)
     try:
         bind = db.engine

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FiSend, FiCpu, FiBookOpen, FiTool,
@@ -41,10 +41,34 @@ const renderTextWithAppleEmojis = (text: string): any => {
   });
 };
 
+/** Título grande de la pantalla vacía del asistente: uno aleatorio (algunos
+ * solo tienen sentido según la hora del día) cada vez que se abre una
+ * conversación nueva — no es un mensaje del chat, no se guarda ni se envía. */
+function pickGreetingTitle(name: string): string {
+  const hour = new Date().getHours();
+  const timeGreeting =
+    hour >= 5 && hour < 12 ? `¡Buenos días, ${name}!` :
+    hour >= 12 && hour < 19 ? `¡Buenas tardes, ${name}!` :
+    `¡Buenas noches, ${name}!`;
+
+  const pool = [
+    timeGreeting,
+    `¡Me alegro de verte, ${name}!`,
+    `¡Cuánto tiempo, ${name}! 👀`,
+    `Estamos de vuelta, ${name} 🚀`,
+    `¡Otra vez por aquí, ${name}! Me gusta tu estilo 😎`,
+    `¡Ey, ${name}! ¿En qué andamos hoy?`,
+    `${name}, justo estaba pensando en ti 😄`,
+    `¿Listo para otra ronda, ${name}?`,
+  ];
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 interface UserData {
   id: number;
   name?: string;
   nombre?: string;
+  display_name?: string;
   role?: { name: string };
   rol?: { nombre: string };
   profile_image?: string;
@@ -113,8 +137,16 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
 
   
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const userName = user.name || user.nombre || 'Aprendiz';
   const isGuest = user.id === 0;
+  const roleNameUpper = (currentRole || '').toUpperCase();
+  // El rol genérico 'USUARIO' (cuentas públicas sin identidad verificada) se
+  // saluda como "Usuario" y no guarda historial de conversaciones — igual
+  // que un invitado. Todos los demás roles (Aprendiz, personal, etc.) ven su
+  // nombre real (o su apodo, si lo configuraron) y sí tienen historial.
+  const noHistoryRole = isGuest || roleNameUpper === 'USUARIO';
+  const greetName = noHistoryRole
+    ? 'Usuario'
+    : (user.display_name || user.name || user.nombre || 'Usuario');
 
   // Pre-fetch loans for the chatbot if they are logged in
   useEffect(() => {
@@ -200,30 +232,10 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     return () => clearInterval(interval);
   }, [activeTicket, activeThreadId, isGuest]);
 
-  // Trae el saludo guardado del backend (proviene de Gemini, cacheado en BD)
-  const fetchGreetingMessage = async (): Promise<Message | null> => {
-    try {
-      const headers: HeadersInit = {};
-      if (!isGuest) {
-        const token = getToken();
-        if (token) headers['Authorization'] = `Bearer ${token}`;
-      }
-      const res = await fetch('/api/v1/assistant/greeting', { headers });
-      if (!res.ok) return null;
-      const data = await res.json();
-      return {
-        id: 'greeting_' + Date.now(),
-        sender: 'bot',
-        text: data.text,
-        timestamp: new Date().toISOString(),
-        type: 'text',
-      };
-    } catch {
-      return null;
-    }
-  };
-
-  // Cargar threads desde la API (persistidos por cuenta)
+  // Cargar threads desde la API (persistidos por cuenta). El saludo inicial
+  // ya NO se pide al backend: la conversación nueva arranca sin mensajes, y
+  // la pantalla vacía (título + placeholder aleatorios) se genera en el
+  // propio frontend — ver el estado vacío de .messages-scroller más abajo.
   useEffect(() => {
     const loadThreads = async () => {
       const newId = 'thread_' + Date.now();
@@ -234,7 +246,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
         updatedAt: new Date().toISOString()
       };
 
-      if (!isGuest) {
+      if (!noHistoryRole) {
         try {
           const token = getToken();
           const res = await fetch('/api/v1/assistant/threads', {
@@ -247,9 +259,6 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
               setThreads(data);
               setActiveThreadId(data[0].id);
             } else {
-              // Sin historial: arrancar con un hilo vacío + saludo automático del bot
-              const greeting = await fetchGreetingMessage();
-              if (greeting) newThread.messages = [greeting];
               setThreads([newThread]);
               setActiveThreadId(newId);
             }
@@ -260,9 +269,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
         }
       }
 
-      // Sin sesión: saludo genérico
-      const greeting = await fetchGreetingMessage();
-      if (greeting) newThread.messages = [greeting];
+      // Invitado o cuenta sin historial: siempre un hilo nuevo en memoria.
       setThreads([newThread]);
       setActiveThreadId(newId);
     };
@@ -322,7 +329,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   const getToken = () => localStorage.getItem('token');
 
   const apiSaveThread = async (thread: ChatThread) => {
-    if (isGuest) return;
+    if (noHistoryRole) return;
     const token = getToken();
     await fetch(`/api/v1/assistant/threads/${thread.id}`, {
       method: 'PUT',
@@ -332,7 +339,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   };
 
   const apiCreateThread = async (thread: ChatThread) => {
-    if (isGuest) return;
+    if (noHistoryRole) return;
     const token = getToken();
     await fetch('/api/v1/assistant/threads', {
       method: 'POST',
@@ -342,7 +349,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   };
 
   const apiDeleteThread = async (threadId: string) => {
-    if (isGuest) return;
+    if (noHistoryRole) return;
     const token = getToken();
     await fetch(`/api/v1/assistant/threads/${threadId}`, {
       method: 'DELETE',
@@ -365,14 +372,19 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   const activeThread = threads.find(t => t.id === activeThreadId);
   const messages = activeThread ? activeThread.messages : [];
 
+  // Título de la pantalla vacía: uno nuevo cada vez que cambia a una
+  // conversación sin mensajes (no en cada tecla que se escribe).
+  const emptyStateTitle = useMemo(
+    () => pickGreetingTitle(greetName),
+    [activeThreadId, greetName]
+  );
 
-  const handleCreateNewChat = async () => {
+  const handleCreateNewChat = () => {
     const newId = 'thread_' + Date.now();
-    const greeting = await fetchGreetingMessage();
     const newThread: ChatThread = {
       id: newId,
       title: 'Nueva conversación',
-      messages: greeting ? [greeting] : [],
+      messages: [],
       updatedAt: new Date().toISOString()
     };
     const updated = [newThread, ...threads];
@@ -723,14 +735,16 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       {/* HEADER SECTION */}
       <div className="assistant-header">
         <div className="header-info">
-          <button 
-            type="button" 
-            className={`sidebar-toggle-btn ${isSidebarOpen ? 'active' : ''}`}
-            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-            title={isSidebarOpen ? "Ocultar historial" : "Mostrar historial"}
-          >
-            <FiMessageSquare size={18} className="toggle-icon-svg" />
-          </button>
+          {!noHistoryRole && (
+            <button
+              type="button"
+              className={`sidebar-toggle-btn ${isSidebarOpen ? 'active' : ''}`}
+              onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              title={isSidebarOpen ? "Ocultar historial" : "Mostrar historial"}
+            >
+              <FiMessageSquare size={18} className="toggle-icon-svg" />
+            </button>
+          )}
           <div className="header-icon-box" style={{ background: 'var(--sena-green)' }}>
             <AnimatedRobotIcon className="glowing-icon" size="26px" style={{ color: '#ffffff' }} />
           </div>
@@ -745,18 +759,19 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       </div>
 
       <div className="assistant-main-container">
-        {/* CHAT HISTORY SIDEBAR (ChatGPT Style) */}
+        {/* CHAT HISTORY SIDEBAR (ChatGPT Style) — no aplica a cuentas sin historial */}
+        {!noHistoryRole && (
         <div className={`chat-history-sidebar ${isSidebarOpen ? 'open' : 'collapsed'}`}>
           <button className="new-chat-btn" onClick={handleCreateNewChat}>
             <FiPlus size={16} />
             <span>Nueva conversación</span>
           </button>
-          
+
           <div className="threads-list">
             <div className="sidebar-group-title">Historial de chats</div>
             {threads.map((t) => (
-              <div 
-                key={t.id} 
+              <div
+                key={t.id}
                 className={`thread-item-wrapper ${t.id === activeThreadId ? 'active' : ''}`}
                 onClick={() => setActiveThreadId(t.id)}
               >
@@ -764,8 +779,8 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
                   <FiMessageSquare size={14} className="thread-icon" />
                   <span className="thread-title-text">{t.title}</span>
                 </div>
-                <button 
-                  className="delete-thread-btn" 
+                <button
+                  className="delete-thread-btn"
                   onClick={(e) => handleDeleteChat(e, t.id)}
                   title="Eliminar conversación"
                 >
@@ -775,11 +790,18 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
             ))}
           </div>
         </div>
+        )}
 
         {/* CHAT AREA */}
         <div className="chat-interface-card">
           <div className="messages-scroller">
-            {messages.map((msg) => (
+            {messages.length === 0 ? (
+              <div className="assistant-empty-state">
+                <AnimatedRobotIcon className="empty-state-icon" size="56px" />
+                <h2>{emptyStateTitle}</h2>
+                <p>Pregúntame sobre préstamos, reservas, horarios, el catálogo o tu cuenta.</p>
+              </div>
+            ) : messages.map((msg) => (
               <div key={msg.id} className={`message-bubble-wrapper ${msg.sender}`}>
                 {msg.sender === 'bot' && (
                   <div className="bot-avatar-wrapper" title={msg.isFromSupport ? (msg.supportName || 'Soporte') : 'SENA Bot'}>
@@ -1003,7 +1025,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
               type="text"
               placeholder={activeTicket
                 ? `Escribe un mensaje para ${activeTicket.assigned_name}...`
-                : 'Hazme una pregunta sobre biblioteca, herramientas, horarios...'}
+                : '¿En qué puedo ayudarte?'}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               disabled={isTyping}

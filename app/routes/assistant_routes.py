@@ -845,11 +845,6 @@ INSTRUCCIONES DE RESPUESTA:
     greeting_kind = classify_greeting(user_query)
     if greeting_kind and not media:
         is_identity_q = greeting_kind == 'identity'
-        # Primer contacto real (aún no hay nada en el hilo): bienvenida completa.
-        if greeting_kind == 'greeting' and len(history) == 0:
-            saved = AILearnedResponse.query.filter_by(query_keywords='saludo bienvenida inicial').first()
-            if saved:
-                return jsonify({"text": saved.response_text, "type": "text", "source": "own-ai-greeting"})
         CAPS = (
             "- 📚 **Catálogo** — libros, herramientas y equipos disponibles.\n"
             "- 📅 **Préstamos y reservas** — cómo solicitarlos y consultar los tuyos.\n"
@@ -1044,8 +1039,9 @@ INSTRUCCIONES DE RESPUESTA:
                         cache_store[cache_key] = (json_response, time.time())
 
                     # APRENDER: guardar la respuesta de Gemini para el modo offline futuro.
-                    # Los saludos NUNCA se aprenden aquí: 'saludo bienvenida inicial' es
-                    # un texto curado y fijo, y no tiene sentido cachear un "hola".
+                    # Los saludos NUNCA se aprenden aquí: se responden de forma determinista
+                    # más arriba y nunca llegan a este punto, así que no tiene sentido
+                    # cachear un "hola".
                     try:
                         kws = get_query_keywords(user_query)
                         if (
@@ -1329,19 +1325,14 @@ INSTRUCCIONES DE RESPUESTA:
 @assistant_bp.route('/greeting', methods=['GET'])
 @jwt_required(optional=True)
 def get_greeting():
-    """Devuelve el saludo guardado en BD para mostrarlo automáticamente al
-    iniciar una conversación nueva. No gasta tokens de Gemini si ya está aprendido."""
+    """Endpoint de compatibilidad: el saludo inicial ahora se genera en el
+    frontend (pantalla vacía con título aleatorio), no se necesita llamar a
+    esto para mostrar la conversación nueva. Se deja un saludo determinista
+    mínimo por si algo externo todavía lo consulta."""
     user_id = get_jwt_identity()
     user = User.query.filter_by(id=str(user_id)).first() if user_id else None
     user_name = assistant_display_name(user, first_name_only=True)
 
-    saved = AILearnedResponse.query.filter_by(query_keywords='saludo bienvenida inicial').first()
-    if saved:
-        saved.use_count += 1
-        db.session.commit()
-        return jsonify({"text": saved.response_text, "source": "own-ai-greeting"})
-
-    # Sin saludo guardado todavía — devolver uno genérico mínimo
     return jsonify({
         "text": f"¡Hola **{user_name}**! 👋 Soy SENA Bot, tu asistente virtual. ¿En qué puedo ayudarte hoy?",
         "source": "default-greeting",
@@ -1649,10 +1640,21 @@ def delete_unanswered_query(entry_id):
 
 # ─── Threads del Asistente Personal (persistencia por usuario) ───────────────
 
+def _no_history_role(user_id):
+    """El rol genérico 'USUARIO' (cuentas públicas sin identidad verificada,
+    fuera de aprendices/personal) no guarda historial de conversaciones: cada
+    sesión del asistente arranca limpia, por privacidad y simplicidad."""
+    user = User.query.filter_by(id=str(user_id)).first()
+    role_name = (user.role.name if user and user.role else '') or ''
+    return role_name.upper() == 'USUARIO'
+
+
 @assistant_bp.route('/threads', methods=['GET'])
 @jwt_required()
 def get_threads():
     user_id = str(get_jwt_identity())
+    if _no_history_role(user_id):
+        return jsonify([])
     threads = AssistantThread.query.filter_by(user_id=user_id).order_by(AssistantThread.updated_at.desc()).all()
     return jsonify([{
         'id': t.id,
@@ -1667,6 +1669,10 @@ def get_threads():
 def create_thread():
     user_id = str(get_jwt_identity())
     data = request.get_json() or {}
+    if _no_history_role(user_id):
+        # No se persiste nada, pero se responde éxito para que el frontend
+        # (que trata esta cuenta igual que un invitado) no falle.
+        return jsonify({'id': data.get('id', f"thread_{int(time.time() * 1000)}")}), 201
     thread = AssistantThread(
         id=data.get('id', f"thread_{int(time.time() * 1000)}"),
         user_id=user_id,
@@ -1682,6 +1688,8 @@ def create_thread():
 @jwt_required()
 def update_thread(thread_id):
     user_id = str(get_jwt_identity())
+    if _no_history_role(user_id):
+        return jsonify({'ok': True})
     thread = AssistantThread.query.filter_by(id=thread_id, user_id=user_id).first()
     if not thread:
         return jsonify({'error': 'No encontrado'}), 404
@@ -1700,6 +1708,8 @@ def update_thread(thread_id):
 @jwt_required()
 def delete_thread(thread_id):
     user_id = str(get_jwt_identity())
+    if _no_history_role(user_id):
+        return jsonify({'ok': True})
     thread = AssistantThread.query.filter_by(id=thread_id, user_id=user_id).first()
     if not thread:
         return jsonify({'error': 'No encontrado'}), 404
