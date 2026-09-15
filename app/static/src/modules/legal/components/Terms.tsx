@@ -20,9 +20,9 @@ export const Terms = () => {
           </header>
 
           <div className="terms-content">
-            <div className="tab-pane fade-in">
+            <div className="tab-pane fade-in legal-article">
               <section>
-                <h2>1. Introducción</h2>
+                <h2>Introducción</h2>
                 <p>
                   El presente documento establece los Términos y Condiciones que regulan el acceso y uso del Sistema de Gestión de Inventario, Activos y Biblioteca, desarrollado como una herramienta tecnológica para optimizar los procesos de control, administración y seguimiento de los recursos físicos y bibliográficos dentro del Servicio Nacional de Aprendizaje (SENA).
                 </p>
@@ -32,7 +32,7 @@ export const Terms = () => {
               </section>
 
               <section>
-                <h2>2. Finalidad del sistema</h2>
+                <h2>Finalidad del sistema</h2>
                 <p>El sistema tiene como propósito principal:</p>
                 <ul>
                   <li>Garantizar la trazabilidad de los activos institucionales</li>
@@ -44,7 +44,7 @@ export const Terms = () => {
               </section>
 
               <section>
-                <h2>3. Definiciones</h2>
+                <h2>Definiciones</h2>
                 <p>Para efectos de interpretación del presente documento, se establecen las siguientes definiciones:</p>
                 <ul>
                   <li><strong>Sistema:</strong> Plataforma web de gestión institucional</li>
@@ -56,13 +56,13 @@ export const Terms = () => {
               </section>
 
               <section>
-                <h2>4. Acceso y registro</h2>
+                <h2>Acceso y registro</h2>
                 <p>El acceso al sistema estará restringido exclusivamente a usuarios autorizados por la institución. Cada usuario contará con credenciales únicas, personales e intransferibles.</p>
                 <p>El usuario es responsable de la confidencialidad de sus credenciales y de todas las actividades realizadas bajo su cuenta.</p>
               </section>
 
               <section>
-                <h2>5. Obligaciones del usuario</h2>
+                <h2>Obligaciones del usuario</h2>
                 <p>El usuario se compromete a:</p>
                 <ul>
                   <li>Utilizar el sistema de manera responsable, ética y conforme a la normativa institucional</li>
@@ -74,7 +74,7 @@ export const Terms = () => {
               </section>
 
               <section>
-                <h2>6. Uso adecuado del sistema</h2>
+                <h2>Uso adecuado del sistema</h2>
                 <p>Queda estrictamente prohibido:</p>
                 <ul>
                   <li>Acceder sin autorización a módulos restringidos</li>
@@ -88,7 +88,7 @@ export const Terms = () => {
               </section>
 
               <section>
-                <h2>7. Gestión de inventario y préstamos</h2>
+                <h2>Gestión de inventario y préstamos</h2>
                 <p>El sistema permitirá:</p>
                 <ul>
                   <li>Registrar entradas y salidas de activos</li>
@@ -100,7 +100,7 @@ export const Terms = () => {
               </section>
 
               <section>
-                <h2>8. Responsabilidad sobre los activos</h2>
+                <h2>Responsabilidad sobre los activos</h2>
                 <p>El usuario que reciba un recurso en calidad de préstamo se compromete a:</p>
                 <ul>
                   <li>Hacer uso adecuado del mismo</li>
@@ -111,17 +111,17 @@ export const Terms = () => {
               </section>
 
               <section>
-                <h2>9. Disponibilidad del servicio</h2>
+                <h2>Disponibilidad del servicio</h2>
                 <p>La institución no garantiza la disponibilidad continua del sistema, debido a posibles mantenimientos, actualizaciones o fallos técnicos. No obstante, se procurará minimizar las interrupciones.</p>
               </section>
 
               <section>
-                <h2>10. Propiedad intelectual</h2>
+                <h2>Propiedad intelectual</h2>
                 <p>El sistema, su diseño, estructura, código fuente y contenido son propiedad de la institución o de sus desarrolladores autorizados. Queda prohibida su reproducción, distribución o modificación sin autorización previa.</p>
               </section>
 
               <section>
-                <h2>11. Modificaciones</h2>
+                <h2>Modificaciones</h2>
                 <p>La institución se reserva el derecho de modificar en cualquier momento los presentes términos. Dichas modificaciones serán notificadas a los usuarios a través del sistema.</p>
               </section>
             </div>

@@ -20,16 +20,16 @@ export const Privacy = () => {
           </header>
 
           <div className="terms-content">
-            <div className="tab-pane fade-in">
+            <div className="tab-pane fade-in legal-article">
               <section>
-                <h2>1. Introducción</h2>
+                <h2>Introducción</h2>
                 <p>
                   La presente Política de Privacidad establece los lineamientos para la recolección, uso, almacenamiento y protección de los datos personales de los usuarios del sistema, en cumplimiento de la normativa vigente en Colombia sobre protección de datos personales.
                 </p>
               </section>
 
               <section>
-                <h2>2. Información recolectada</h2>
+                <h2>Información recolectada</h2>
                 <p>El sistema podrá recolectar y almacenar los siguientes datos:</p>
                 <ul>
                   <li>Datos de identificación (nombre, documento)</li>
@@ -41,7 +41,7 @@ export const Privacy = () => {
               </section>
 
               <section>
-                <h2>3. Finalidad del tratamiento de datos</h2>
+                <h2>Finalidad del tratamiento de datos</h2>
                 <p>Los datos personales serán utilizados para:</p>
                 <ul>
                   <li>Gestionar el acceso y autenticación de usuarios</li>
@@ -53,7 +53,7 @@ export const Privacy = () => {
               </section>
 
               <section>
-                <h2>4. Principios aplicables</h2>
+                <h2>Principios aplicables</h2>
                 <p>El tratamiento de datos se regirá por los principios de:</p>
                 <ul>
                   <li>Legalidad</li>
@@ -65,7 +65,7 @@ export const Privacy = () => {
               </section>
 
               <section>
-                <h2>5. Seguridad de la información</h2>
+                <h2>Seguridad de la información</h2>
                 <p>Se implementarán medidas técnicas, administrativas y organizativas para proteger la información contra:</p>
                 <ul>
                   <li>Acceso no autorizado</li>
@@ -75,7 +75,7 @@ export const Privacy = () => {
               </section>
 
               <section>
-                <h2>6. Derechos del titular de los datos</h2>
+                <h2>Derechos del titular de los datos</h2>
                 <p>El usuario tiene derecho a:</p>
                 <ul>
                   <li>Conocer, actualizar y rectificar sus datos</li>
@@ -86,7 +86,7 @@ export const Privacy = () => {
               </section>
 
               <section>
-                <h2>7. Confidencialidad de la información</h2>
+                <h2>Confidencialidad de la información</h2>
                 <p>La información personal no será compartida con terceros, salvo:</p>
                 <ul>
                   <li>Cuando sea requerido por autoridades competentes</li>
@@ -95,17 +95,17 @@ export const Privacy = () => {
               </section>
 
               <section>
-                <h2>8. Conservación de la información</h2>
+                <h2>Conservación de la información</h2>
                 <p>Los datos serán almacenados durante el tiempo necesario para cumplir con las finalidades descritas y las obligaciones legales aplicables.</p>
               </section>
 
               <section>
-                <h2>9. Uso de tecnologías de seguimiento</h2>
+                <h2>Uso de tecnologías de seguimiento</h2>
                 <p>El sistema podrá utilizar cookies u otras tecnologías para mejorar la experiencia del usuario, optimizar el rendimiento y recopilar estadísticas de uso.</p>
               </section>
 
               <section>
-                <h2>10. Actualizaciones de la política</h2>
+                <h2>Actualizaciones de la política</h2>
                 <p>La presente política podrá ser modificada en cualquier momento. Los cambios serán comunicados oportunamente a los usuarios.</p>
               </section>
             </div>

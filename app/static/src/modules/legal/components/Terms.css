@@ -45,12 +45,21 @@
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 28px;
-  padding: 3.5rem 4rem; /* Más aire interno */
+  padding: 3rem 3rem 2.5rem;
   box-shadow: 0 40px 60px -15px rgba(0, 0, 0, 0.6);
   animation: slideInUp 0.6s ease-out;
   display: flex;
   flex-direction: column;
-  min-height: 80vh; /* Que sea más largo verticalmente */
+}
+
+/* Columna de lectura para documentos legales (Términos/Privacidad): más
+   angosta que la tarjeta para que las líneas de texto no queden demasiado
+   largas, y cada artículo numerado se agrupa en su propia tarjeta en vez
+   de flotar como texto plano separado solo por espacio en blanco. */
+.legal-article {
+  max-width: 760px;
+  margin: 0 auto;
+  counter-reset: legal-section;
 }
 
 .terms-header {
@@ -169,40 +178,79 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+/* Cada artículo vive en su propia tarjeta sutil, en vez de ser un bloque
+   de texto suelto separado solo por márgenes — así se lee como una lista
+   de artículos, no como un párrafo plano interminable. */
 .terms-content section {
-  margin-bottom: 2.5rem;
-}
-
-.terms-content h2 {
-  font-family: 'Montserrat', sans-serif;
-  font-size: 1.5rem; /* Un poco más grande para el nuevo contenedor */
-  color: var(--sena-green);
-  margin-bottom: 1.2rem;
-  font-weight: 700;
-  border-left: 5px solid var(--sena-green);
-  padding-left: 1.5rem;
-}
-
-.terms-content p {
-  color: #cbd5e1;
-  margin-bottom: 1.2rem;
-  font-size: 1.1rem; /* Lectura más cómoda */
-}
-
-.terms-content ul {
-  list-style: none;
-  padding-left: 1rem;
+  counter-increment: legal-section;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 1.5rem 1.75rem;
   margin-bottom: 1rem;
 }
 
-.terms-content li {
-  color: #cbd5e1;
-  position: relative;
-  padding-left: 1.5rem;
-  margin-bottom: 0.5rem;
+.terms-content section:last-child {
+  margin-bottom: 0;
 }
 
-.terms-content li::before {
+.terms-content h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-family: 'Montserrat', sans-serif;
+  font-size: 1.05rem;
+  color: white;
+  margin-bottom: 0.9rem;
+  font-weight: 700;
+}
+
+.terms-content h2::before {
+  content: counter(legal-section);
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--sena-green);
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 12px rgba(57, 169, 0, 0.4);
+}
+
+.terms-content section p {
+  color: #cbd5e1;
+  margin-bottom: 0.8rem;
+  font-size: 1rem;
+  line-height: 1.65;
+}
+
+.terms-content section p:last-child {
+  margin-bottom: 0;
+}
+
+.terms-content section ul {
+  list-style: none;
+  padding-left: 0.25rem;
+  margin-bottom: 0;
+}
+
+.terms-content section li {
+  color: #cbd5e1;
+  position: relative;
+  padding-left: 1.4rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.98rem;
+}
+
+.terms-content section li:last-child {
+  margin-bottom: 0;
+}
+
+.terms-content section li::before {
   content: '•';
   color: var(--sena-green);
   position: absolute;
@@ -213,10 +261,11 @@
 .highlight-text {
   background: rgba(57, 169, 0, 0.1);
   border-radius: 8px;
-  padding: 1rem;
+  padding: 0.85rem 1rem;
   border-left: 4px solid var(--sena-green);
   color: white !important;
   font-weight: 500;
+  font-size: 0.95rem;
 }
 
 .terms-footer {
@@ -257,9 +306,12 @@
 
 @media (max-width: 640px) {
   .terms-glass-card {
-    padding: 2rem 1.5rem;
+    padding: 2rem 1.25rem;
   }
   .terms-header h1 {
     font-size: 1.4rem;
+  }
+  .terms-content section {
+    padding: 1.1rem 1.1rem;
   }
 }
