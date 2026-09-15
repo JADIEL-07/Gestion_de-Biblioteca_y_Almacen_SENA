@@ -253,11 +253,21 @@ body.has-impersonation-banner .main-nav {
 
 /* Dropdown Premium: Cristal Oscuro */
 .crystal-dark {
-  background: rgba(15, 23, 42, 0.75) !important;
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  background: rgba(10, 16, 30, 0.94) !important;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Si el navegador/entorno no soporta backdrop-filter (por ejemplo, dentro de
+   un webview embebido), el panel se queda solo con el rgba de arriba y el
+   fondo de detrás se sigue transparentando bastante. En ese caso se sube el
+   fondo a casi opaco para garantizar que el contenido de detrás no se vea. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .crystal-dark {
+    background: rgba(8, 13, 24, 0.99) !important;
+  }
 }
 
 .user-dropdown {
