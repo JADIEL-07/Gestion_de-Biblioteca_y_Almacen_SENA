@@ -17,3 +17,4 @@ from .user_preference import UserPreference, EmailChangeToken
 from .verification_code import VerificationCode
 from .pending_registration import PendingRegistration
 from .trusted_device import TrustedDevice
+from .saved_item import SavedItem

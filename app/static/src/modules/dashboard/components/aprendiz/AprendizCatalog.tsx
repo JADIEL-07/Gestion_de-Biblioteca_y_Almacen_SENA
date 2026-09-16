@@ -24,6 +24,7 @@ interface Item {
   description: string;
   physical_condition?: string;
   stock: number;
+  is_saved?: boolean;
 }
 
 interface FilterData {
@@ -48,6 +49,7 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
   const [showQRView, setShowQRView] = useState(false);
   const [isDark, setIsDark] = useState(!document.body.classList.contains('theme-light'));
   const [scannerStarted, setScannerStarted] = useState(false);
+  const [showOnlySaved, setShowOnlySaved] = useState(false);
   const scannerRef = useRef<any>(null);
 
   useEffect(() => {
@@ -201,6 +203,32 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
     }
   };
 
+  // Guardar/quitar un elemento (bookmark). Es solo prioridad VISUAL: el
+  // elemento aparece primero en el catálogo (lo ordena así el backend) y en
+  // el filtro "Favoritos" de aquí abajo — no cambia el orden de la cola de
+  // reservas, que sigue siendo por orden de llegada para todos.
+  const handleToggleSave = async (e: React.MouseEvent, itemId: number) => {
+    e.stopPropagation();
+    if (isGuest) {
+      alertDialog('Inicia sesión para guardar elementos.');
+      return;
+    }
+    const token = localStorage.getItem('token');
+    try {
+      const r = await fetch(`/api/v1/items/${itemId}/save`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!r.ok) return;
+      const data = await r.json();
+      setItems(prev => prev.map(i => i.id === itemId ? { ...i, is_saved: data.saved } : i));
+    } catch (error) {
+      console.error('Error guardando elemento:', error);
+    }
+  };
+
+  const visibleItems = showOnlySaved ? items.filter(i => i.is_saved) : items;
+
   return (
     <div className="aprendiz-catalog-container fade-in">
       {/* 1. Header Section */}
@@ -243,7 +271,17 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
         <button className="btn-filter-main">
           <FiFilter /> Filtros
         </button>
-        
+
+        {!isGuest && (
+          <button
+            className={`btn-filter-saved ${showOnlySaved ? 'active' : ''}`}
+            onClick={() => setShowOnlySaved(v => !v)}
+            title="Ver solo los elementos que guardaste"
+          >
+            <FiBookmark /> Favoritos
+          </button>
+        )}
+
         <div className="filter-selects">
           <CustomSelect 
             label="Área de Servicio"
@@ -274,21 +312,36 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
         </div>
       ) : (
         <div className={`catalog-view-pro ${viewMode}`}>
-          {items.length === 0 ? (
+          {visibleItems.length === 0 ? (
             <div className="empty-state" style={{ gridColumn: '1 / -1', minHeight: '400px' }}>
               <FiPackage size={64} style={{ opacity: 0.1, marginBottom: '1rem' }} />
-              <h3>No encontramos lo que buscas</h3>
-              <p>Prueba con otros términos o categorías.</p>
+              {showOnlySaved ? (
+                <>
+                  <h3>Todavía no guardaste ningún elemento</h3>
+                  <p>Toca el ícono de marcador en una tarjeta para guardarla aquí.</p>
+                </>
+              ) : (
+                <>
+                  <h3>No encontramos lo que buscas</h3>
+                  <p>Prueba con otros términos o categorías.</p>
+                </>
+              )}
             </div>
-          ) : items.map(item => (
+          ) : visibleItems.map(item => (
             <div key={item.id} className="item-card-pro">
               <div className="card-image-area">
                 <span className={`status-badge-pro ${getStatusClass(item.status_name)}`}>
                   {isLoanedOut(item.status_name) ? 'Ocupado' : translateStatus(item.status_name)}
                 </span>
-                <button className="btn-bookmark">
-                  <FiBookmark />
-                </button>
+                {!isGuest && (
+                  <button
+                    className={`btn-bookmark ${item.is_saved ? 'active' : ''}`}
+                    onClick={(e) => handleToggleSave(e, item.id)}
+                    title={item.is_saved ? 'Quitar de guardados' : 'Guardar elemento'}
+                  >
+                    <FiBookmark />
+                  </button>
+                )}
                 <div className="image-holder">
                   {item.image_url ? (
                     <img src={item.image_url} alt={item.name} />
@@ -400,7 +453,21 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
               <div className="modal-right">
                 <div className="modal-header-info">
 
-                  <span className="modal-badge">{selectedItem.category_name}</span>
+                  <div className="modal-badge-row">
+                    <span className="modal-badge">{selectedItem.category_name}</span>
+                    {!isGuest && (
+                      <button
+                        className={`btn-bookmark modal-bookmark ${selectedItem.is_saved ? 'active' : ''}`}
+                        onClick={(e) => {
+                          handleToggleSave(e, selectedItem.id);
+                          setSelectedItem({ ...selectedItem, is_saved: !selectedItem.is_saved });
+                        }}
+                        title={selectedItem.is_saved ? 'Quitar de guardados' : 'Guardar elemento'}
+                      >
+                        <FiBookmark />
+                      </button>
+                    )}
+                  </div>
                   <h2>{selectedItem.name}</h2>
                   <span className={`modal-status ${getStatusClass(selectedItem.status_name)}`}>
                     {translateStatus(selectedItem.status_name)}

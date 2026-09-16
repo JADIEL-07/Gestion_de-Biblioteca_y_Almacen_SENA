@@ -1,9 +1,10 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
 from ..models.item import Item, Category, Status, Location
 from ..models.movement import Notification
 from ..models.user import User, Role
+from ..models.saved_item import SavedItem
 from sqlalchemy import or_, String
 
 items_bp = Blueprint('items', __name__)
@@ -23,8 +24,10 @@ def _full_media_url(path):
         return path[idx:] if idx != -1 else path
     return path
 
-def serialize_item(item):
-    """Serializa un objeto Item a diccionario de forma segura."""
+def serialize_item(item, saved_ids=None):
+    """Serializa un objeto Item a diccionario de forma segura.
+    `saved_ids`: set con los ids de elementos que el usuario actual guardó
+    (bookmark), para marcar `is_saved` sin hacer una consulta por elemento."""
     return {
         "id": item.id,
         "name": item.name or "",
@@ -42,9 +45,11 @@ def serialize_item(item):
         "stock": item.stock if item.stock is not None else 1,
         "description": item.description or "",
         "physical_condition": item.physical_condition or "",
+        "is_saved": bool(saved_ids) and item.id in saved_ids,
     }
 
 @items_bp.route('/', methods=['GET'])
+@jwt_required(optional=True)
 def get_items():
     search = request.args.get('search', '')
     cat_id = request.args.get('category_id')
@@ -86,10 +91,57 @@ def get_items():
 
     try:
         items = query.order_by(Item.id.desc()).all()
-        return jsonify([serialize_item(i) for i in items])
+
+        user_id = get_jwt_identity()
+        saved_ids = set()
+        if user_id:
+            saved_ids = {
+                row.item_id for row in
+                SavedItem.query.filter_by(user_id=user_id).with_entities(SavedItem.item_id).all()
+            }
+
+        # Los elementos guardados (bookmark) van primero — es solo prioridad
+        # visual para encontrarlos rápido, NO reordena ni afecta la cola de
+        # reservas (que sigue por orden de llegada, igual para todos).
+        if saved_ids:
+            items = sorted(items, key=lambda i: i.id not in saved_ids)
+
+        return jsonify([serialize_item(i, saved_ids) for i in items])
     except Exception as e:
         print(f"[ERROR] get_items: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@items_bp.route('/saved', methods=['GET'])
+@jwt_required()
+def get_saved_items():
+    """Lista de elementos que el usuario actual guardó (bookmark), del más
+    reciente al más antiguo — para la sección "Favoritos" del catálogo."""
+    user_id = get_jwt_identity()
+    saved = (SavedItem.query.filter_by(user_id=user_id)
+             .order_by(SavedItem.created_at.desc()).all())
+    saved_ids = {s.item_id for s in saved}
+    items_by_id = {i.id: i for i in Item.query.filter(Item.id.in_(saved_ids)).all()}
+    # Se respeta el orden de "guardado más reciente primero"; si un elemento
+    # ya no existe (fue borrado del inventario), se omite en silencio.
+    ordered = [items_by_id[s.item_id] for s in saved if s.item_id in items_by_id]
+    return jsonify([serialize_item(i, saved_ids) for i in ordered])
+
+
+@items_bp.route('/<int:id>/save', methods=['POST'])
+@jwt_required()
+def toggle_save_item(id):
+    """Alterna si el usuario actual tiene guardado (bookmark) este elemento."""
+    user_id = get_jwt_identity()
+    item = Item.query.get_or_404(id)
+    existing = SavedItem.query.filter_by(user_id=user_id, item_id=item.id).first()
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        return jsonify({"saved": False}), 200
+    db.session.add(SavedItem(user_id=user_id, item_id=item.id))
+    db.session.commit()
+    return jsonify({"saved": True}), 201
 
 @items_bp.route('/filters', methods=['GET'])
 def get_item_filters():
@@ -311,6 +363,7 @@ def update_item(id):
 def delete_item(id):
     item = Item.query.get_or_404(id)
     try:
+        SavedItem.query.filter_by(item_id=id).delete()
         db.session.delete(item)
         db.session.commit()
         return jsonify({"message": f"Elemento '{item.name}' eliminado exitosamente"}), 200

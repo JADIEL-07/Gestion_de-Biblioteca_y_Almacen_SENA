@@ -77,6 +77,7 @@ def _hard_delete_user(user):
     # 3) Registros propios del usuario
     for sql, table in [
         ("DELETE FROM trusted_devices WHERE user_id = :uid", 'trusted_devices'),
+        ("DELETE FROM saved_items WHERE user_id = :uid", 'saved_items'),
         ("DELETE FROM user_preferences WHERE user_id = :uid", 'user_preferences'),
         ("DELETE FROM email_change_tokens WHERE user_id = :uid", 'email_change_tokens'),
         ("DELETE FROM verification_codes WHERE user_id = :uid", 'verification_codes'),
