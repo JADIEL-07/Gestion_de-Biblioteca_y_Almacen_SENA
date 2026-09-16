@@ -16,8 +16,8 @@
 }
 
 .profile-card {
-  background: var(--admin-bg-card);
-  border: 1px solid var(--admin-border-color);
+  background: var(--admin-bg-card, var(--bg-card, #151e32));
+  border: 1px solid var(--admin-border-color, var(--border-color, #2a374f));
   width: 100%;
   max-width: 380px;
   border-radius: 24px;
@@ -44,9 +44,9 @@
   position: absolute;
   top: 1rem;
   right: 1rem;
-  background: var(--admin-bg-main);
-  border: 1px solid var(--admin-border-color);
-  color: var(--admin-text-primary);
+  background: var(--admin-bg-main, var(--bg-main, #0b1120));
+  border: 1px solid var(--admin-border-color, var(--border-color, #2a374f));
+  color: var(--admin-text-primary, var(--text-primary, #f8fafc));
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -107,13 +107,13 @@
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  border: 1px solid var(--admin-border-color);
-  background: var(--admin-bg-main);
-  color: var(--admin-text-primary);
+  border: 1px solid var(--admin-border-color, var(--border-color, #2a374f));
+  background: var(--admin-bg-main, var(--bg-main, #0b1120));
+  color: var(--admin-text-primary, var(--text-primary, #f8fafc));
 }
 
 .btn-photo:hover {
-  background: var(--admin-item-hover);
+  background: var(--admin-item-hover, rgba(255, 255, 255, 0.05));
   border-color: var(--sena-green);
 }
 
@@ -167,16 +167,16 @@
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
-  color: var(--admin-text-muted);
+  color: var(--admin-text-muted, var(--text-muted, #64748b));
   letter-spacing: 0.05em;
 }
 
 .profile-info-value {
   padding: 0.6rem 1rem;
-  background: var(--admin-bg-main);
-  border: 1px solid var(--admin-border-color);
+  background: var(--admin-bg-main, var(--bg-main, #0b1120));
+  border: 1px solid var(--admin-border-color, var(--border-color, #2a374f));
   border-radius: 12px;
-  color: var(--admin-text-primary);
+  color: var(--admin-text-primary, var(--text-primary, #f8fafc));
   font-weight: 500;
   font-size: 0.9rem;
   opacity: 0.8; /* Indica que es lectura */
@@ -184,7 +184,7 @@
 
 .profile-footer {
   padding: 1rem 1.5rem;
-  border-top: 1px solid var(--admin-border-color);
+  border-top: 1px solid var(--admin-border-color, var(--border-color, #2a374f));
   display: flex;
   justify-content: center;
 }
@@ -251,13 +251,13 @@
 
 /* CROP MODAL */
 .crop-container {
-  background: var(--admin-bg-card);
+  background: var(--admin-bg-card, var(--bg-card, #151e32));
   padding: 2.5rem;
   border-radius: 35px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  border: 1px solid var(--admin-border-color);
+  border: 1px solid var(--admin-border-color, var(--border-color, #2a374f));
   box-shadow: 0 30px 60px rgba(0,0,0,0.6);
   width: 100%;
   max-width: 420px;
