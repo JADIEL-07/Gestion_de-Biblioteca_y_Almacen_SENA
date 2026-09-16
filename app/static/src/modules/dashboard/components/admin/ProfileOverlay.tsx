@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { alertDialog } from '../../../../components/ui/ConfirmDialog';
 import { FiX, FiCamera, FiUpload, FiSave, FiUser, FiMail, FiShield, FiTag } from 'react-icons/fi';
 import './ProfileOverlay.css';
 import { apiFetch } from '../../../../shared/api';
@@ -44,7 +45,7 @@ export const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ user, onClose, o
   // Camera Logic
   const startCamera = async () => {
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert('Tu navegador no soporta el acceso a la cámara o estás en una conexión no segura (HTTP). Por favor usa localhost o HTTPS.');
+      alertDialog('Tu navegador no soporta el acceso a la cámara o estás en una conexión no segura (HTTP). Por favor usa localhost o HTTPS.');
       return;
     }
 
@@ -60,7 +61,7 @@ export const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ user, onClose, o
       }
     } catch (err) {
       console.error("Camera access error:", err);
-      alert('No se pudo acceder a la cámara. Verifica los permisos de tu navegador.');
+      alertDialog('No se pudo acceder a la cámara. Verifica los permisos de tu navegador.');
       setShowCamera(false);
     }
   };
@@ -192,11 +193,11 @@ export const ProfileOverlay: React.FC<ProfileOverlayProps> = ({ user, onClose, o
       } else {
         const err = await response.json().catch(() => ({}));
         // No cerramos: el usuario conserva el recorte y puede reintentar.
-        alert('No se pudo guardar la foto: ' + (err.error || err.msg || err.message || 'inténtalo de nuevo'));
+        alertDialog('No se pudo guardar la foto: ' + (err.error || err.msg || err.message || 'inténtalo de nuevo'));
       }
     } catch (error) {
       console.error('Save error:', error);
-      alert('Error de conexión al servidor. La foto no se guardó.');
+      alertDialog('Error de conexión al servidor. La foto no se guardó.');
     } finally {
       setSaving(false);
     }

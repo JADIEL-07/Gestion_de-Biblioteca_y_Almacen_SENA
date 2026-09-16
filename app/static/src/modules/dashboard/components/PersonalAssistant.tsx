@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { alertDialog } from '../../../components/ui/ConfirmDialog';
 import { useNavigate } from 'react-router-dom';
 import {
   FiSend, FiCpu, FiBookOpen, FiTool,
@@ -335,7 +336,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       recorder.start();
       setIsRecording(true);
     } catch (err) {
-      alert("No se pudo acceder al micrófono.");
+      alertDialog("No se pudo acceder al micrófono.");
     }
   };
 
@@ -652,9 +653,9 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       setThreads(updatedThreads);
       saveThreadsToStorage(updatedThreads);
 
-      alert(`${data.message}\n\nTicket #${data.ticket_id} creado. El equipo de Soporte te responderá en esta misma conversación.`);
+      alertDialog(`${data.message}\n\nTicket #${data.ticket_id} creado. El equipo de Soporte te responderá en esta misma conversación.`);
     } catch (err: any) {
-      alert(err.message || 'No se pudo crear la solicitud.');
+      alertDialog(err.message || 'No se pudo crear la solicitud.');
     } finally {
       setEscalating(null);
     }

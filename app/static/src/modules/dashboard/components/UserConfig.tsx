@@ -7,7 +7,7 @@ import {
 import './UserConfig.css';
 import { getDeviceId } from '../../../shared/device';
 import { clearSessionAndRedirect } from '../../../shared/api';
-import { confirmDialog } from '../../../components/ui/ConfirmDialog';
+import { confirmDialog, alertDialog } from '../../../components/ui/ConfirmDialog';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
@@ -1014,8 +1014,8 @@ const HistoryPanel: React.FC = () => {
   const clearHistory = async () => {
     if (!(await confirmDialog({ message: '¿Borrar todo el historial de accesos? Esta acción no se puede deshacer.', danger: true }))) return;
     const { ok } = await apiFetch('/auth/access-history', { method: 'DELETE' });
-    if (ok) { setEvents([]); alert('Historial eliminado correctamente.'); }
-    else alert('Error al eliminar el historial.');
+    if (ok) { setEvents([]); alertDialog('Historial eliminado correctamente.'); }
+    else alertDialog('Error al eliminar el historial.');
   };
 
   return (

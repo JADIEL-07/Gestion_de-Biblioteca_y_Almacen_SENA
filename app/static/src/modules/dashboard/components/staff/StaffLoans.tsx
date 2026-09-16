@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { alertDialog } from '../../../../components/ui/ConfirmDialog';
 import {
   FiCheckCircle, FiClock, FiPackage, FiUser, FiCamera,
   FiCalendar, FiRefreshCw, FiSearch, FiChevronDown,
@@ -175,13 +176,13 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
         body: JSON.stringify({ token: qrToken, days })
       });
       if (res.ok) { 
-        alert('Préstamo creado y elemento entregado con éxito.'); 
+        alertDialog('Préstamo creado y elemento entregado con éxito.'); 
         fetchReservations(); 
       } else { 
         const e = await res.json(); 
-        alert(`Error: ${e.error || 'No se pudo procesar el préstamo'}`); 
+        alertDialog(`Error: ${e.error || 'No se pudo procesar el préstamo'}`); 
       }
-    } catch { alert('Error de red'); }
+    } catch { alertDialog('Error de red'); }
   };
 
   const handleScanSubmit = (e: React.FormEvent) => {
@@ -214,7 +215,7 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
       r.id.toString() === val || r.user_id === val
     );
     if (match) handleApprove(match.id);
-    else alert(`No se encontró reserva pendiente para: ${val}`);
+    else alertDialog(`No se encontró reserva pendiente para: ${val}`);
     setScanInput('');
   };
 
@@ -248,9 +249,9 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
           },
           body: JSON.stringify({ days: loanDays })
         });
-        if (res.ok) { alert('Préstamo creado y elemento entregado con éxito.'); fetchReservations(); }
-        else { const e = await res.json(); alert(`Error: ${e.error || 'No se pudo aprobar'}`); }
-      } catch { alert('Error de red'); }
+        if (res.ok) { alertDialog('Préstamo creado y elemento entregado con éxito.'); fetchReservations(); }
+        else { const e = await res.json(); alertDialog(`Error: ${e.error || 'No se pudo aprobar'}`); }
+      } catch { alertDialog('Error de red'); }
     }
   };
 

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { alertDialog } from '../../../../components/ui/ConfirmDialog';
 import { 
   FiSearch, FiFilter, FiPackage, FiMapPin, FiInfo, 
   FiArrowLeft, FiGrid, FiList, FiBook, FiCpu, FiTool,
@@ -69,7 +70,7 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
             () => {}
           ).catch((err: any) => {
             console.error(err);
-            alert("No se pudo iniciar la cámara. Verifica los permisos.");
+            alertDialog("No se pudo iniciar la cámara. Verifica los permisos.");
             setScannerStarted(false);
           });
         }, 100);
@@ -190,13 +191,13 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
     const data = await r.json().catch(() => ({}));
     if (r.ok) {
       if (data.status === 'READY') {
-        alert('Tu reserva está lista. Tienes 15 minutos para reclamarla.');
+        alertDialog('Tu reserva está lista. Tienes 15 minutos para reclamarla.');
       } else {
-        alert('Te agregamos a la cola. Te avisaremos cuando esté disponible.');
+        alertDialog('Te agregamos a la cola. Te avisaremos cuando esté disponible.');
       }
       setSelectedItem(null);
     } else {
-      alert(data.error || 'No se pudo crear la reserva');
+      alertDialog(data.error || 'No se pudo crear la reserva');
     }
   };
 

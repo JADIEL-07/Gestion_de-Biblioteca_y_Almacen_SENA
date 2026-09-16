@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { alertDialog } from '../../../../components/ui/ConfirmDialog';
 import { FiAlertCircle, FiCheck, FiClock, FiUser, FiActivity, FiBriefcase, FiList, FiFileText, FiSearch } from 'react-icons/fi';
 import './SoporteIncidencias.css';
 
@@ -57,16 +58,16 @@ export const SoporteIncidencias: React.FC<SoporteIncidenciasProps> = ({ user }) 
       });
 
       if (res.ok) {
-        alert("¡Has tomado el caso con éxito!");
+        alertDialog("¡Has tomado el caso con éxito!");
         setLoading(true);
         await fetchIncidents();
       } else {
         const err = await res.json();
-        alert(err.error || "No se pudo tomar el caso.");
+        alertDialog(err.error || "No se pudo tomar el caso.");
       }
     } catch (error) {
       console.error("Error taking case:", error);
-      alert("Error de conexión al tomar el caso.");
+      alertDialog("Error de conexión al tomar el caso.");
     }
   };
 

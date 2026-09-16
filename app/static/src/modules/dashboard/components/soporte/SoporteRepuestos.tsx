@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { alertDialog } from '../../../../components/ui/ConfirmDialog';
 import { FiBox, FiPlus, FiCheckCircle, FiClock, FiFileText, FiImage, FiSearch } from 'react-icons/fi';
 import './SoporteRepuestos.css';
 
@@ -77,7 +78,7 @@ export const SoporteRepuestos: React.FC = () => {
   const handleAddSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemId || !newReason || !newCost || !newSupplier || !newInvoiceImage) {
-      alert("Por favor, complete todos los campos requeridos, incluyendo la imagen de la factura.");
+      alertDialog("Por favor, complete todos los campos requeridos, incluyendo la imagen de la factura.");
       return;
     }
 
@@ -100,7 +101,7 @@ export const SoporteRepuestos: React.FC = () => {
       });
 
       if (response.ok) {
-        alert("Solicitud de repuesto registrada con éxito.");
+        alertDialog("Solicitud de repuesto registrada con éxito.");
         setShowAddModal(false);
         setNewItemId('');
         setNewReason('');
@@ -110,11 +111,11 @@ export const SoporteRepuestos: React.FC = () => {
         await fetchParts();
       } else {
         const err = await response.json();
-        alert(err.error || "Error al registrar la solicitud.");
+        alertDialog(err.error || "Error al registrar la solicitud.");
       }
     } catch (error) {
       console.error("Error submitting spare part:", error);
-      alert("Error de conexión al registrar repuesto.");
+      alertDialog("Error de conexión al registrar repuesto.");
     } finally {
       setIsSubmitting(false);
     }
@@ -123,7 +124,7 @@ export const SoporteRepuestos: React.FC = () => {
   const handleReceiveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!receivePart || !receiveImage) {
-      alert("Se requiere la imagen del repuesto recibido para confirmar.");
+      alertDialog("Se requiere la imagen del repuesto recibido para confirmar.");
       return;
     }
 
@@ -140,14 +141,14 @@ export const SoporteRepuestos: React.FC = () => {
       });
 
       if (response.ok) {
-        alert("Repuesto marcado como recibido correctamente.");
+        alertDialog("Repuesto marcado como recibido correctamente.");
         setShowReceiveModal(false);
         setReceivePart(null);
         setReceiveImage(null);
         await fetchParts();
       } else {
         const err = await response.json();
-        alert(err.error || "Error al actualizar estado.");
+        alertDialog(err.error || "Error al actualizar estado.");
       }
     } catch (error) {
       console.error("Error receiving spare part:", error);

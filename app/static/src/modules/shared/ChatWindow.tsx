@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FiSend, FiUser, FiCheckCircle } from 'react-icons/fi';
-import { confirmDialog } from '../../components/ui/ConfirmDialog';
+import { confirmDialog, alertDialog } from '../../components/ui/ConfirmDialog';
 import './ChatWindow.css';
 
 export interface ChatMessage {
@@ -116,7 +116,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       setMessages((prev) => [...prev, newMsg]);
       setInputText('');
     } catch (err: any) {
-      alert(err.message || 'No se pudo enviar el mensaje.');
+      alertDialog(err.message || 'No se pudo enviar el mensaje.');
     } finally {
       setSending(false);
     }
@@ -139,7 +139,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       }
       onClose?.();
     } catch (err: any) {
-      alert(err.message || 'No se pudo cerrar el ticket.');
+      alertDialog(err.message || 'No se pudo cerrar el ticket.');
     } finally {
       setClosing(false);
     }

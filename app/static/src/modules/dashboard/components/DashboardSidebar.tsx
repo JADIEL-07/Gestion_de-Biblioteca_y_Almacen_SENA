@@ -1,4 +1,5 @@
 import React from 'react';
+import { alertDialog } from '../../../components/ui/ConfirmDialog';
 import {
   FiHome, FiSearch, FiBookOpen, FiCalendar, FiClock,
   FiHelpCircle, FiSettings, FiLogOut, FiMenu, FiEdit3, FiHeadphones
@@ -57,11 +58,11 @@ export const DashboardSidebar: React.FC<SidebarProps> = ({
   const handleNav = (item: any) => {
     if (item.restricted) {
       if (isGuest) {
-        alert('Esta sección requiere iniciar sesión.');
+        alertDialog('Esta sección requiere iniciar sesión.');
         return;
       }
       if (isPendingUser) {
-        alert('Debes actualizar tu información para acceder a esta sección.');
+        alertDialog('Debes actualizar tu información para acceder a esta sección.');
         onNavigate('update');
         return;
       }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { alertDialog } from '../../../../components/ui/ConfirmDialog';
 import {
   FiHeadphones, FiClock, FiMessageSquare, FiArrowLeft,
   FiInbox, FiUser, FiCheckCircle, FiPlay
@@ -101,10 +102,10 @@ export const SoporteSolicitudes: React.FC<SoporteSolicitudesProps> = ({ user }) 
         await fetchTickets();
       } else {
         const err = await res.json();
-        alert(err.error || 'No se pudo aceptar la solicitud.');
+        alertDialog(err.error || 'No se pudo aceptar la solicitud.');
       }
     } catch {
-      alert('Error de conexión al aceptar la solicitud.');
+      alertDialog('Error de conexión al aceptar la solicitud.');
     } finally {
       setAccepting(false);
     }

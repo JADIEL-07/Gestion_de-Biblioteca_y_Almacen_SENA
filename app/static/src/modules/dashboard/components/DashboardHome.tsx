@@ -1,4 +1,5 @@
 import React from 'react';
+import { alertDialog } from '../../../components/ui/ConfirmDialog';
 import { FiBook, FiCalendar, FiClock, FiAlertTriangle } from 'react-icons/fi';
 
 interface UserData {
@@ -29,15 +30,15 @@ export const DashboardHome: React.FC<DashboardHomeProps> = ({ user, isGuest, isP
 
   const handleAction = (action: string) => {
     if (isGuest) {
-      alert(`Para ${action} debes iniciar sesión.`);
+      alertDialog(`Para ${action} debes iniciar sesión.`);
       return;
     }
     if (isPendingUser) {
-      alert(`Para ${action} debes terminar de actualizar tus datos y tomar el rol de aprendiz.`);
+      alertDialog(`Para ${action} debes terminar de actualizar tus datos y tomar el rol de aprendiz.`);
       onNavigate('update');
       return;
     }
-    alert(`Acción: ${action}`);
+    alertDialog(`Acción: ${action}`);
   };
 
   const currentRoleName = user.role?.name || user.rol?.nombre;

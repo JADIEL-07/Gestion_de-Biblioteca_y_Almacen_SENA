@@ -3,7 +3,7 @@ import {
   FiSearch, FiPlus, FiRefreshCcw, FiExternalLink, 
   FiRotateCcw, FiCheckCircle, FiX, FiAlertTriangle, FiUser, FiCalendar
 } from 'react-icons/fi';
-import { confirmDialog } from '../../../../components/ui/ConfirmDialog';
+import { confirmDialog, alertDialog } from '../../../../components/ui/ConfirmDialog';
 import './OutputManagement.css';
 
 interface Output {
@@ -100,7 +100,7 @@ export const OutputManagement: React.FC = () => {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedItem) {
-      alert("Debes seleccionar un elemento");
+      alertDialog("Debes seleccionar un elemento");
       return;
     }
     
@@ -118,16 +118,16 @@ export const OutputManagement: React.FC = () => {
       });
       
       if (res.ok) {
-        alert("Salida registrada correctamente");
+        alertDialog("Salida registrada correctamente");
         setShowAddModal(false);
         setSelectedItem(null);
         fetchOutputs();
       } else {
         const err = await res.json();
-        alert(`Error: ${err.error}`);
+        alertDialog(`Error: ${err.error}`);
       }
     } catch (err) {
-      alert("Error al conectar con el servidor");
+      alertDialog("Error al conectar con el servidor");
     }
   };
 
@@ -148,7 +148,7 @@ export const OutputManagement: React.FC = () => {
         fetchOutputs();
       }
     } catch (err) {
-      alert("Error al procesar retorno");
+      alertDialog("Error al procesar retorno");
     }
   };
 
@@ -165,7 +165,7 @@ export const OutputManagement: React.FC = () => {
         fetchOutputs();
       }
     } catch (err) {
-      alert("Error al cerrar salida");
+      alertDialog("Error al cerrar salida");
     }
   };
 

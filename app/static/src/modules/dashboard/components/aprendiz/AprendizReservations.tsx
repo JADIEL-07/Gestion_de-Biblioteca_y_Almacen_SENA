@@ -5,7 +5,7 @@ import {
 } from 'react-icons/fi';
 import { MdQrCodeScanner } from 'react-icons/md';
 import { QRCodeSVG } from 'qrcode.react';
-import { confirmDialog } from '../../../../components/ui/ConfirmDialog';
+import { confirmDialog, alertDialog } from '../../../../components/ui/ConfirmDialog';
 import './AprendizReservations.css';
 import './AprendizCatalog.css';
 
@@ -124,11 +124,11 @@ export const AprendizReservations: React.FC = () => {
         setSelectedRes(res);
         setShowQRView(initiallyShowQR);
       } else {
-        alert('No se pudo cargar la información del elemento');
+        alertDialog('No se pudo cargar la información del elemento');
       }
     } catch (e) {
       console.error(e);
-      alert('Error de conexión al cargar el elemento');
+      alertDialog('Error de conexión al cargar el elemento');
     }
   };
 
@@ -143,15 +143,15 @@ export const AprendizReservations: React.FC = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (r.ok) {
-        alert('Reserva cancelada exitosamente');
+        alertDialog('Reserva cancelada exitosamente');
         load(); // Refresh list
       } else {
         const errData = await r.json().catch(() => ({}));
-        alert(errData.error || 'No se pudo cancelar la reserva');
+        alertDialog(errData.error || 'No se pudo cancelar la reserva');
       }
     } catch (e) {
       console.error(e);
-      alert('Error de conexión al cancelar la reserva');
+      alertDialog('Error de conexión al cancelar la reserva');
     }
   };
 

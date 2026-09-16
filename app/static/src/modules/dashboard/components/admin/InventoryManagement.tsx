@@ -7,7 +7,7 @@ import {
 } from 'react-icons/fi';
 import { CustomSelect } from './CustomSelect';
 import { IMAGE_PLACEHOLDER } from '../../../../shared/constants';
-import { confirmDialog } from '../../../../components/ui/ConfirmDialog';
+import { confirmDialog, alertDialog } from '../../../../components/ui/ConfirmDialog';
 import './InventoryManagement.css';
 
 interface Item {
@@ -101,7 +101,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        alert('La imagen es demasiado grande. Máximo 2MB.');
+        alertDialog('La imagen es demasiado grande. Máximo 2MB.');
         return;
       }
       const reader = new FileReader();
@@ -152,7 +152,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
       if (videoRef.current) videoRef.current.srcObject = stream;
-    } catch { alert('No se pudo acceder a la cámara.'); setShowCamera(false); }
+    } catch { alertDialog('No se pudo acceder a la cámara.'); setShowCamera(false); }
   };
   const capturePhoto = (target: 'new' | 'edit') => {
     if (videoRef.current && canvasRef.current) {
@@ -196,17 +196,17 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
         body: JSON.stringify(payload)
       });
       if (res.ok) { 
-        alert('Elemento guardado exitosamente'); 
+        alertDialog('Elemento guardado exitosamente'); 
         setShowAddModal(false); 
         setNewItem({ ...emptyForm, category_id: filters.categories[0]?.id.toString() || '', status_id: filters.statuses[0]?.id.toString() || '', location_id: filters.locations[0]?.id.toString() || '' }); 
         fetchData(); 
       }
       else { 
         const err = await res.json().catch(() => ({ error: 'Error desconocido en el servidor' }));
-        alert(`Error: ${err.error || err.detail || 'No se pudo completar el registro'}`); 
+        alertDialog(`Error: ${err.error || err.detail || 'No se pudo completar el registro'}`); 
       }
     } catch (err) { 
-      alert('Error de conexión al servidor: Verifique que la imagen no sea demasiado pesada'); 
+      alertDialog('Error de conexión al servidor: Verifique que la imagen no sea demasiado pesada'); 
     }
     finally { setLoading(false); }
   };
@@ -251,16 +251,16 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
         })
       });
       if (res.ok) { 
-        alert('Elemento actualizado exitosamente'); 
+        alertDialog('Elemento actualizado exitosamente'); 
         setEditItem(null); 
         fetchData(); 
       }
       else { 
         const err = await res.json().catch(() => ({ error: 'Error al procesar la respuesta del servidor' }));
-        alert(`Error: ${err.error || err.detail || 'Fallo en la actualización'}`); 
+        alertDialog(`Error: ${err.error || err.detail || 'Fallo en la actualización'}`); 
       }
     } catch (err) { 
-      alert('Error de conexión: Es posible que la imagen sea demasiado pesada o el servidor no responda'); 
+      alertDialog('Error de conexión: Es posible que la imagen sea demasiado pesada o el servidor no responda'); 
     }
     finally { setLoading(false); }
   };
@@ -271,9 +271,9 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
     setMenuOpenId(null);
     try {
       const res = await fetch(`/api/v1/items/${item.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
-      if (res.ok) { alert('Elemento eliminado'); fetchData(); }
-      else { const err = await res.json(); alert(`Error: ${err.error}`); }
-    } catch { alert('Error de conexión'); }
+      if (res.ok) { alertDialog('Elemento eliminado'); fetchData(); }
+      else { const err = await res.json(); alertDialog(`Error: ${err.error}`); }
+    } catch { alertDialog('Error de conexión'); }
   };
 
   const getStatusClass = (s: string) => { const u = s.toUpperCase(); if (u.includes('DISPONIBLE') || u === 'EXCELENTE' || u === 'BUENO') return 'disponible'; if (u.includes('PRESTADO')) return 'prestado'; if (u.includes('MANTENIMIENTO') || u === 'REGULAR') return 'mantenimiento'; if (u.includes('DAÑADO') || u === 'MALO') return 'dañado'; return ''; };
@@ -299,9 +299,9 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
       else { 
         const errData = await res.json();
         const msg = errData.error || errData.msg || errData.message || 'Detalle no disponible';
-        alert(`Error ${res.status}: ${msg}`); 
+        alertDialog(`Error ${res.status}: ${msg}`); 
       }
-    } catch (err) { alert('Error de conexión o formato al guardar ubicación'); }
+    } catch (err) { alertDialog('Error de conexión o formato al guardar ubicación'); }
   };
 
   const handleDeleteLoc = async (id: number) => {
@@ -309,8 +309,8 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
     try {
       const res = await fetch(`/api/v1/items/locations/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
       if (res.ok) fetchData();
-      else alert('No se puede eliminar: tiene elementos asociados');
-    } catch { alert('Error de conexión'); }
+      else alertDialog('No se puede eliminar: tiene elementos asociados');
+    } catch { alertDialog('Error de conexión'); }
   };
 
   // CRUD for Categories
@@ -328,9 +328,9 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
       else { 
         const errData = await res.json();
         const msg = errData.error || errData.msg || errData.message || 'Detalle no disponible';
-        alert(`Error ${res.status}: ${msg}`); 
+        alertDialog(`Error ${res.status}: ${msg}`); 
       }
-    } catch (err) { alert('Error de conexión o formato al guardar categoría'); }
+    } catch (err) { alertDialog('Error de conexión o formato al guardar categoría'); }
   };
 
   const handleDeleteCat = async (id: number) => {
@@ -338,8 +338,8 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
     try {
       const res = await fetch(`/api/v1/items/categories/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token()}` } });
       if (res.ok) fetchData();
-      else alert('No se puede eliminar: tiene elementos asociados');
-    } catch { alert('Error de conexión'); }
+      else alertDialog('No se puede eliminar: tiene elementos asociados');
+    } catch { alertDialog('Error de conexión'); }
   };
 
   if (activeTab === 'locations') {

@@ -6,7 +6,7 @@ import {
 } from 'react-icons/fi';
 import { QRCodeCanvas } from 'qrcode.react';
 import { CustomSelect } from './CustomSelect';
-import { confirmDialog } from '../../../../components/ui/ConfirmDialog';
+import { confirmDialog, alertDialog } from '../../../../components/ui/ConfirmDialog';
 import { roleLabel } from '../../../../shared/constants';
 import './UserManagement.css';
 
@@ -135,14 +135,14 @@ export const UserManagement: React.FC = () => {
       });
       const data = await response.json().catch(() => ({}));
       if (response.ok) {
-        alert(data.message || 'Usuario eliminado definitivamente.');
+        alertDialog(data.message || 'Usuario eliminado definitivamente.');
         fetchData();
       } else {
-        alert(data.error || 'No se pudo eliminar el usuario.');
+        alertDialog(data.error || 'No se pudo eliminar el usuario.');
       }
     } catch (error) {
       console.error(error);
-      alert('Error de conexión.');
+      alertDialog('Error de conexión.');
     }
   };
 
@@ -173,7 +173,7 @@ export const UserManagement: React.FC = () => {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
       if (videoRef.current) videoRef.current.srcObject = stream;
     } catch { 
-      alert('No se pudo acceder a la cámara.'); 
+      alertDialog('No se pudo acceder a la cámara.'); 
       setShowCamera(false); 
     }
   };
@@ -229,13 +229,13 @@ export const UserManagement: React.FC = () => {
           phone: '', role: 'APRENDIZ', dependency_id: '', password: '', formation_ficha: '', image_url: ''
         });
         fetchData();
-        alert('Usuario creado exitosamente');
+        alertDialog('Usuario creado exitosamente');
       } else {
-        alert(result.error || 'Error al crear usuario');
+        alertDialog(result.error || 'Error al crear usuario');
       }
     } catch (error) {
       console.error(error);
-      alert('Error de conexión');
+      alertDialog('Error de conexión');
     } finally {
       setIsSubmitting(false);
     }
@@ -255,16 +255,16 @@ export const UserManagement: React.FC = () => {
       });
       
       if (response.ok) {
-        alert('Rol actualizado correctamente');
+        alertDialog('Rol actualizado correctamente');
         setShowRolePanel(false);
         setShowDetail(false);
         fetchData();
       } else {
-        alert('Error al cambiar el rol');
+        alertDialog('Error al cambiar el rol');
       }
     } catch (error) {
       console.error(error);
-      alert('Error de conexión');
+      alertDialog('Error de conexión');
     } finally {
       setIsSubmitting(false);
     }

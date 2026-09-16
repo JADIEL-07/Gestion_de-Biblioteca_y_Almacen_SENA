@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FiAlertTriangle, FiHelpCircle } from 'react-icons/fi';
+import { FiAlertTriangle, FiHelpCircle, FiInfo } from 'react-icons/fi';
 import './ConfirmDialog.css';
 
 export interface ConfirmOptions {
@@ -13,7 +13,21 @@ export interface ConfirmOptions {
   danger?: boolean;
 }
 
-interface InternalState extends Required<Pick<ConfirmOptions, 'message' | 'confirmText' | 'cancelText' | 'danger'>> {
+export interface AlertOptions {
+  /** Mensaje — equivalente al de window.alert(). */
+  message: string;
+  title?: string;
+  okText?: string;
+  /** Errores/fallos: ícono en rojo en vez del verde por defecto. */
+  danger?: boolean;
+}
+
+interface InternalState {
+  mode: 'confirm' | 'alert';
+  message: string;
+  confirmText: string;
+  cancelText: string;
+  danger: boolean;
   title?: string;
   resolve: (value: boolean) => void;
 }
@@ -39,12 +53,40 @@ export function confirmDialog(arg: string | ConfirmOptions): Promise<boolean> {
       return;
     }
     _setState({
+      mode: 'confirm',
       title: options.title,
       message: options.message,
       confirmText: options.confirmText || 'Aceptar',
       cancelText: options.cancelText || 'Cancelar',
       danger: !!options.danger,
       resolve,
+    });
+  });
+}
+
+/**
+ * Reemplazo de window.alert() con el mismo diseño (una sola tarjeta con
+ * botón "Aceptar"), para no mostrar el cuadro nativo del navegador con el
+ * dominio ("sena.newonline.digital says..."). Uso:
+ *   alertDialog('Tu reserva está lista.');
+ *   await alertDialog('Guardado con éxito'); // si se necesita esperar el cierre
+ */
+export function alertDialog(arg: string | AlertOptions): Promise<void> {
+  const options: AlertOptions = typeof arg === 'string' ? { message: arg } : arg;
+  return new Promise((resolve) => {
+    if (!_setState) {
+      window.alert(options.message);
+      resolve();
+      return;
+    }
+    _setState({
+      mode: 'alert',
+      title: options.title,
+      message: options.message,
+      confirmText: options.okText || 'Aceptar',
+      cancelText: '',
+      danger: !!options.danger,
+      resolve: () => resolve(),
     });
   });
 }
@@ -71,6 +113,8 @@ export const ConfirmDialogRoot: React.FC = () => {
 
   if (!state) return null;
 
+  const isAlert = state.mode === 'alert';
+
   const close = (result: boolean) => {
     state.resolve(result);
     setState(null);
@@ -81,17 +125,20 @@ export const ConfirmDialogRoot: React.FC = () => {
       <div className="confirm-dialog-wrap" onClick={(e) => e.stopPropagation()}>
         <div className={`confirm-dialog-card ${state.danger ? 'danger' : ''}`}>
           <div className="confirm-dialog-icon">
-            {state.danger ? <FiAlertTriangle /> : <FiHelpCircle />}
+            {state.danger ? <FiAlertTriangle /> : isAlert ? <FiInfo /> : <FiHelpCircle />}
           </div>
           {state.title && <h3>{state.title}</h3>}
           <p>{state.message}</p>
           <div className="confirm-dialog-actions">
-            <button className="confirm-dialog-btn cancel" onClick={() => close(false)} autoFocus>
-              {state.cancelText}
-            </button>
+            {!isAlert && (
+              <button className="confirm-dialog-btn cancel" onClick={() => close(false)} autoFocus>
+                {state.cancelText}
+              </button>
+            )}
             <button
               className={`confirm-dialog-btn confirm ${state.danger ? 'danger' : ''}`}
               onClick={() => close(true)}
+              autoFocus={isAlert}
             >
               {state.confirmText}
             </button>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { alertDialog } from '../../../../components/ui/ConfirmDialog';
 import { 
   FiChevronDown, FiClock, FiUser, FiMapPin, 
   FiBox, FiUploadCloud, FiCheckCircle, FiServer, FiPhone
@@ -49,11 +50,11 @@ export const MaintenanceManagement: React.FC = () => {
         await fetchData();
       } else {
         const err = await response.json();
-        alert(err.error || "No se pudo actualizar el estado.");
+        alertDialog(err.error || "No se pudo actualizar el estado.");
       }
     } catch (error) {
       console.error("Error updating status:", error);
-      alert("Error de conexión al actualizar el estado.");
+      alertDialog("Error de conexión al actualizar el estado.");
     } finally {
       setUpdating(false);
     }
@@ -103,14 +104,14 @@ export const MaintenanceManagement: React.FC = () => {
       });
       if (response.ok) {
         setShowCompleteModal(false);
-        alert("¡Caso finalizado con éxito!");
+        alertDialog("¡Caso finalizado con éxito!");
         await fetchData();
       } else {
-        alert("No se pudo finalizar el caso.");
+        alertDialog("No se pudo finalizar el caso.");
       }
     } catch (error) {
       console.error("Error completing case:", error);
-      alert("Error de conexión al finalizar el caso.");
+      alertDialog("Error de conexión al finalizar el caso.");
     } finally {
       setUpdating(false);
     }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { alertDialog } from '../../../../components/ui/ConfirmDialog';
 import { FiGrid, FiClock, FiAlertCircle, FiArchive, FiInfo, FiPackage } from 'react-icons/fi';
 import './AprendizLoans.css';
 
@@ -108,15 +109,15 @@ export const AprendizLoans: React.FC = () => {
       });
 
       if (response.ok) {
-        alert("Reporte de incidencia creado con éxito.");
+        alertDialog("Reporte de incidencia creado con éxito.");
         handleCloseReportModal();
       } else {
         const err = await response.json();
-        alert(err.error || "Error al crear el reporte.");
+        alertDialog(err.error || "Error al crear el reporte.");
       }
     } catch (error) {
       console.error("Error submitting report:", error);
-      alert("Error de conexión al enviar el reporte.");
+      alertDialog("Error de conexión al enviar el reporte.");
     } finally {
       setSubmittingReport(false);
     }
