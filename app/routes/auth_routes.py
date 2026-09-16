@@ -136,6 +136,19 @@ def send_2fa_email():
     result, status = AuthService.send_2fa_email(user_id)
     return jsonify(result), status
 
+@auth_bp.route('/2fa/authenticator/generate', methods=['POST'])
+@jwt_required()
+def generate_authenticator():
+    """Genera el QR/código para agregar una app autenticadora (Google Authenticator,
+    Authy, etc.), desde Configuración con el usuario ya logueado (token normal,
+    no el temporal de 2FA)."""
+    claims = get_jwt()
+    if claims.get("type") == "2fa_temp":
+        return jsonify({"error": "Token inválido para esta operación."}), 401
+
+    result, status = AuthService.generate_authenticator(get_jwt_identity())
+    return jsonify(result), status
+
 @auth_bp.route('/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh():

@@ -5,6 +5,7 @@ import {
   FiCheck, FiAlertTriangle, FiEye, FiEyeOff, FiInfo, FiRefreshCw
 } from 'react-icons/fi';
 import './UserConfig.css';
+import { QRCodeCanvas } from 'qrcode.react';
 import { getDeviceId } from '../../../shared/device';
 import { clearSessionAndRedirect } from '../../../shared/api';
 import { confirmDialog, alertDialog } from '../../../components/ui/ConfirmDialog';
@@ -517,17 +518,69 @@ const PasswordPanel: React.FC = () => {
 // ── 2FA ────────────────────────────────────────────────────────────────
 
 const TwoFAPanel: React.FC = () => {
+  const { show, Toast } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [totpData, setTotpData] = useState<{ totp_secret: string; otpauth_url: string } | null>(null);
+
+  const handleGenerate = async () => {
+    setLoading(true);
+    const { ok, data } = await apiFetch('/auth/2fa/authenticator/generate', { method: 'POST' });
+    setLoading(false);
+    if (ok) {
+      setTotpData({ totp_secret: data.totp_secret, otpauth_url: data.otpauth_url });
+    } else {
+      show(data.error || 'No se pudo generar el código.', 'err');
+    }
+  };
+
   return (
     <div className="config-section fade-in">
+      {Toast}
       <div className="config-card info-card">
         <FiShield size={28} style={{ flexShrink: 0 }} />
         <div>
           <strong>Autenticación en dos pasos</strong>
           <p className="card-hint" style={{ marginTop: 4 }}>
-            Esta función estará disponible próximamente. Podrás usar Google Authenticator,
-            Authy u otras apps compatibles con TOTP para proteger tu cuenta.
+            Es una capa extra de seguridad para tu cuenta: además de tu contraseña, cada vez
+            que inicies sesión desde un dispositivo nuevo deberás confirmar tu identidad con
+            un código de un solo uso, para que nadie más pueda entrar aunque conozca tu
+            contraseña.
           </p>
         </div>
+      </div>
+
+      <div className="config-card">
+        <strong>Método actual: correo electrónico</strong>
+        <p className="card-hint" style={{ marginTop: 4 }}>
+          Actualmente la verificación se hace mediante el correo vinculado a tu cuenta:
+          al iniciar sesión desde un dispositivo nuevo, te enviamos un código allí.
+        </p>
+      </div>
+
+      <div className="config-card">
+        <strong>App autenticadora (opcional)</strong>
+        <p className="card-hint" style={{ marginTop: 4 }}>
+          También puedes agregar tu cuenta a Google Authenticator, Authy u otra app
+          compatible con TOTP para generar el código tú mismo, sin depender del correo.
+        </p>
+
+        {!totpData ? (
+          <button className="btn-save" onClick={handleGenerate} disabled={loading} style={{ marginTop: '0.85rem' }}>
+            <FiShield /> {loading ? 'Generando...' : 'Generar autenticación'}
+          </button>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '1.25rem 0 0.5rem' }}>
+            <div style={{ padding: '16px', background: '#fff', borderRadius: '8px', marginBottom: '16px' }}>
+              <QRCodeCanvas value={totpData.otpauth_url} size={200} level="M" />
+            </div>
+            <p className="card-hint" style={{ textAlign: 'center' }}>
+              Escanea el código QR con tu app, o ingresa el código manual:<br />
+              <strong style={{ letterSpacing: '2px', fontSize: '1.1em', userSelect: 'all' }}>
+                {totpData.totp_secret}
+              </strong>
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

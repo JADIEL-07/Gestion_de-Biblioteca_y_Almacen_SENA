@@ -50,6 +50,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
   const [requires2fa, setRequires2fa] = useState(false);
   const [tempToken2fa, setTempToken2fa] = useState('');
   const [totpData, setTotpData] = useState<{ totp_secret: string, otpauth_url: string } | null>(null);
+  const [showAuthenticatorSetup, setShowAuthenticatorSetup] = useState(false);
   const [twoFaCode, setTwoFaCode] = useState('');
   const [twoFaEmailHint, setTwoFaEmailHint] = useState<string | null>(null);
   const [emailSending, setEmailSending] = useState(false);
@@ -618,24 +619,35 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
               <img src="/assets/images/icono-sena.png" alt="Logo SENA" className="sena-logo-img" />
             </div>
             <div className="form-header">
-              <h3 className="login-title">Configura tu Autenticador</h3>
-              <p>Escanea el código QR con Google Authenticator o similar para configurar la verificación de dos pasos.</p>
+              <h3 className="login-title">Verificación en dos pasos</h3>
+              <p>Actualmente la verificación se hace mediante el correo vinculado a tu cuenta.</p>
             </div>
 
             {successMsg && <div className="alert-success fade-in">{successMsg}</div>}
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '20px 0' }}>
-              <div style={{ padding: '16px', background: '#fff', borderRadius: '8px', marginBottom: '16px' }}>
-                <QRCodeCanvas value={totpData.otpauth_url} size={200} level="M" />
+            {!showAuthenticatorSetup ? (
+              <button
+                type="button"
+                className="switch-mode-btn"
+                onClick={() => setShowAuthenticatorSetup(true)}
+                style={{ margin: '10px 0 4px', display: 'block' }}
+              >
+                + Agregar authenticator
+              </button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', margin: '16px 0' }}>
+                <div style={{ padding: '16px', background: '#fff', borderRadius: '8px', marginBottom: '16px' }}>
+                  <QRCodeCanvas value={totpData.otpauth_url} size={200} level="M" />
+                </div>
+                <p style={{ fontSize: '0.9em', color: '#666', textAlign: 'center' }}>
+                  Escanea el código QR con Google Authenticator o similar, o ingresa el código manual:<br/>
+                  <strong style={{ letterSpacing: '2px', fontSize: '1.1em', userSelect: 'all' }}>{totpData.totp_secret}</strong>
+                </p>
               </div>
-              <p style={{ fontSize: '0.9em', color: '#666', textAlign: 'center' }}>
-                O ingresa el código manual:<br/>
-                <strong style={{ letterSpacing: '2px', fontSize: '1.1em', userSelect: 'all' }}>{totpData.totp_secret}</strong>
-              </p>
-            </div>
+            )}
 
             <button type="button" className="submit-btn" onClick={finishRegistration}>
-              He escaneado el código (Entrar)
+              Continuar
             </button>
             <div style={{ height: '20px' }}></div>
           </div>

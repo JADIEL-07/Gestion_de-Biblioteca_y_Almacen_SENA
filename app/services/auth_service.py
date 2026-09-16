@@ -926,6 +926,31 @@ class AuthService:
             "user": AuthService._user_payload(user),
         }, 200
 
+    @staticmethod
+    def generate_authenticator(user_id):
+        """Genera (o regenera) el secreto TOTP del usuario y devuelve el QR/código
+        para agregarlo a Google Authenticator o similar. Se llama desde
+        Configuración ('Agregar authenticator'), con el usuario ya logueado.
+        El correo vinculado sigue funcionando como respaldo de 2FA."""
+        user = User.query.filter_by(id=user_id, is_deleted=False).first()
+        if not user:
+            return {"error": "Usuario no encontrado"}, 404
+
+        totp_secret = pyotp.random_base32()
+        user.totp_secret = totp_secret
+        user.is_2fa_enabled = True
+        db.session.commit()
+
+        totp = pyotp.TOTP(totp_secret)
+        otpauth_url = totp.provisioning_uri(name=user.email, issuer_name="Biblioteca SENA")
+
+        AuthService._log_audit(user.id, "2FA_AUTHENTICATOR_GENERATED", ip=request.remote_addr)
+        return {
+            "success": True,
+            "totp_secret": totp_secret,
+            "otpauth_url": otpauth_url,
+        }, 200
+
     # ── Autorización de dispositivo nuevo ────────────────────────────
 
     @staticmethod
