@@ -29,6 +29,17 @@ interface UnansweredItem {
   resolved: boolean;
 }
 
+interface FeedbackItem {
+  id: number;
+  user: string | null;
+  role: string | null;
+  query_text: string | null;
+  response_text: string | null;
+  useful: boolean;
+  source: string | null;
+  created_at: string | null;
+}
+
 const ROLE_OPTIONS = ['ADMIN', 'APRENDIZ', 'USUARIO', 'BIBLIOTECARIO', 'ALMACENISTA', 'SOPORTE', 'INSTRUCTOR', 'INVITADO'];
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -51,7 +62,7 @@ async function api(path: string, opts?: RequestInit) {
 const fmtDate = (iso: string | null) => iso ? new Date(iso).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' }) : '—';
 
 export const AIKnowledgeManagement: React.FC = () => {
-  const [tab, setTab] = useState<'learned' | 'unanswered'>('learned');
+  const [tab, setTab] = useState<'learned' | 'unanswered' | 'feedback'>('learned');
 
   const [items, setItems] = useState<LearnedItem[]>([]);
   const [total, setTotal] = useState(0);
@@ -60,6 +71,12 @@ export const AIKnowledgeManagement: React.FC = () => {
 
   const [unanswered, setUnanswered] = useState<UnansweredItem[]>([]);
   const [loadingUnanswered, setLoadingUnanswered] = useState(true);
+
+  const [feedbackItems, setFeedbackItems] = useState<FeedbackItem[]>([]);
+  const [feedbackFilter, setFeedbackFilter] = useState<'' | 'useful' | 'not_useful'>('');
+  const [totalUseful, setTotalUseful] = useState(0);
+  const [totalNotUseful, setTotalNotUseful] = useState(0);
+  const [loadingFeedback, setLoadingFeedback] = useState(true);
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<LearnedItem | null>(null);
@@ -86,8 +103,24 @@ export const AIKnowledgeManagement: React.FC = () => {
     setLoadingUnanswered(false);
   }, []);
 
+  const loadFeedback = useCallback(async () => {
+    setLoadingFeedback(true);
+    const q = feedbackFilter ? `?only=${feedbackFilter}&per_page=50` : '?per_page=50';
+    const { ok, data } = await api(`/feedback${q}`);
+    if (ok) {
+      setFeedbackItems(data.items || []);
+      setTotalUseful(data.total_useful || 0);
+      setTotalNotUseful(data.total_not_useful || 0);
+    }
+    setLoadingFeedback(false);
+  }, [feedbackFilter]);
+
   useEffect(() => { loadLearned(); }, [loadLearned]);
   useEffect(() => { if (tab === 'unanswered') loadUnanswered(); }, [tab, loadUnanswered]);
+  // Se carga siempre (no solo al abrir la pestaña) para que la tarjeta de
+  // estadísticas "Calificaciones totales" tenga el número real desde el
+  // principio, sin esperar a que el admin entre a esa pestaña.
+  useEffect(() => { loadFeedback(); }, [loadFeedback]);
 
   const openCreate = (prefillQuery = '') => {
     setEditing(null);
@@ -149,8 +182,6 @@ export const AIKnowledgeManagement: React.FC = () => {
   };
 
   const expiredCount = items.filter(i => i.expired).length;
-  const totalPositive = items.reduce((sum, i) => sum + (i.positive_feedback || 0), 0);
-  const totalNegative = items.reduce((sum, i) => sum + (i.negative_feedback || 0), 0);
 
   return (
     <div className="aiknow-container fade-in">
@@ -176,8 +207,8 @@ export const AIKnowledgeManagement: React.FC = () => {
           <span className="aiknow-stat-label">Preguntas sin responder</span>
         </div>
         <div className="aiknow-stat-card">
-          <span className="aiknow-stat-value ok">{totalPositive}👍 / {totalNegative}👎</span>
-          <span className="aiknow-stat-label">Retroalimentación (esta página)</span>
+          <span className="aiknow-stat-value ok">{totalUseful}👍 / {totalNotUseful}👎</span>
+          <span className="aiknow-stat-label">Calificaciones totales</span>
         </div>
       </div>
 
@@ -187,6 +218,9 @@ export const AIKnowledgeManagement: React.FC = () => {
         </button>
         <button className={`aiknow-tab ${tab === 'unanswered' ? 'active' : ''}`} onClick={() => setTab('unanswered')}>
           <FiHelpCircle /> Preguntas sin responder {unanswered.length > 0 && <span className="aiknow-tab-badge">{unanswered.length}</span>}
+        </button>
+        <button className={`aiknow-tab ${tab === 'feedback' ? 'active' : ''}`} onClick={() => setTab('feedback')}>
+          <FiThumbsUp /> Calificaciones
         </button>
       </div>
 
@@ -290,6 +324,59 @@ export const AIKnowledgeManagement: React.FC = () => {
             </tbody>
           </table>
         </div>
+      )}
+
+      {tab === 'feedback' && (
+        <>
+          <div className="aiknow-toolbar">
+            <div className="aiknow-feedback-filters">
+              <button className={`aiknow-fchip ${feedbackFilter === '' ? 'active' : ''}`} onClick={() => setFeedbackFilter('')}>Todas</button>
+              <button className={`aiknow-fchip pos ${feedbackFilter === 'useful' ? 'active' : ''}`} onClick={() => setFeedbackFilter('useful')}>👍 Útiles</button>
+              <button className={`aiknow-fchip neg ${feedbackFilter === 'not_useful' ? 'active' : ''}`} onClick={() => setFeedbackFilter('not_useful')}>👎 No útiles</button>
+            </div>
+          </div>
+
+          <div className="aiknow-table-wrapper">
+            <table className="aiknow-table responsive-table">
+              <thead>
+                <tr>
+                  <th>Pregunta</th>
+                  <th>Respuesta</th>
+                  <th className="col-center">Calificación</th>
+                  <th className="col-center">Origen</th>
+                  <th className="col-center">Usuario</th>
+                  <th className="col-center">Fecha</th>
+                  <th className="col-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loadingFeedback ? (
+                  <tr><td colSpan={7} className="aiknow-empty">Cargando...</td></tr>
+                ) : feedbackItems.length === 0 ? (
+                  <tr><td colSpan={7} className="aiknow-empty">Aún no hay calificaciones registradas.</td></tr>
+                ) : feedbackItems.map(f => (
+                  <tr key={f.id}>
+                    <td data-label="Pregunta"><span className="aiknow-clamp">{f.query_text || '—'}</span></td>
+                    <td data-label="Respuesta"><span className="aiknow-clamp">{f.response_text || '—'}</span></td>
+                    <td data-label="Calificación" className="col-center">
+                      {f.useful
+                        ? <span className="fb-pos" title="Marcada como útil">👍 Útil</span>
+                        : <span className="fb-neg" title="Marcada como no útil">👎 No útil</span>}
+                    </td>
+                    <td data-label="Origen" className="col-center"><span className={`aiknow-source-badge ${f.source || ''}`}>{SOURCE_LABEL[f.source || ''] || f.source || '—'}</span></td>
+                    <td data-label="Usuario" className="col-center">{f.user || 'Anónimo'}{f.role && <div className="aiknow-expired-tag" style={{ color: 'var(--admin-text-muted)' }}>{f.role}</div>}</td>
+                    <td data-label="Fecha" className="col-center">{fmtDate(f.created_at)}</td>
+                    <td data-label="Acciones" className="col-center">
+                      <div className="aiknow-row-actions">
+                        <button className="btn-icon" title="Enseñar una mejor respuesta" onClick={() => openCreate(f.query_text || '')}><FiPlus /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {showForm && (

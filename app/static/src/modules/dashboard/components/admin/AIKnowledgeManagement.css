@@ -89,7 +89,12 @@
   display: flex;
   gap: 0.5rem;
   border-bottom: 1px solid var(--admin-border-color);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+
+.aiknow-tabs::-webkit-scrollbar { display: none; }
 
 .aiknow-tab {
   display: flex;
@@ -104,6 +109,8 @@
   font-size: 0.9rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .aiknow-tab:hover {
@@ -139,21 +146,64 @@
   gap: 0.6rem;
   background: var(--admin-bg-card);
   border: 1px solid var(--admin-border-color);
-  border-radius: 12px;
-  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  padding: 0.6rem 1.1rem;
   flex: 1;
   min-width: 220px;
   color: var(--admin-text-muted);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.aiknow-search input {
-  border: none;
-  background: transparent;
+.aiknow-search:focus-within {
+  border-color: var(--sena-green);
+  box-shadow: 0 0 0 3px rgba(57, 169, 0, 0.15);
+}
+
+/* Gana a la regla global !important de input[type="text"]: el marco ya lo
+   pone .aiknow-search (el mismo estilo que .staff-chat-search-box), el
+   input en sí debe quedar plano en vez de tener su propia caja duplicada
+   — así se ve igual que los demás buscadores "bonitos" de la app. */
+.aiknow-search input[type="text"] {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
   outline: none;
   color: var(--admin-text-primary);
   width: 100%;
   font-size: 0.9rem;
 }
+
+.aiknow-feedback-filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.aiknow-fchip {
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--admin-border-color);
+  background: var(--admin-bg-card);
+  color: var(--admin-text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.aiknow-fchip:hover {
+  border-color: var(--sena-green);
+  color: var(--admin-text-primary);
+}
+
+.aiknow-fchip.active {
+  background: var(--sena-green);
+  border-color: var(--sena-green);
+  color: white;
+}
+
+.aiknow-fchip.pos.active { background: var(--sena-green); border-color: var(--sena-green); }
+.aiknow-fchip.neg.active { background: #ef4444; border-color: #ef4444; }
 
 /* ── Tabla ── */
 .aiknow-table-wrapper {
@@ -316,5 +366,72 @@
 
 @media (max-width: 768px) {
   .aiknow-header { flex-direction: column; align-items: flex-start; }
-  .aiknow-clamp { max-width: none; }
+  .aiknow-clamp { max-width: none; -webkit-line-clamp: 4; }
+
+  /* La tabla de 7-8 columnas con scroll horizontal era ilegible en un
+     celular (había que arrastrar para ver cada dato). Se convierte cada
+     fila en una tarjeta y cada celda en un renglón "etiqueta: valor",
+     usando el data-label que ya traía cada <td> (antes no tenía ningún
+     estilo asociado). */
+  .aiknow-table-wrapper {
+    overflow-x: visible;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+  }
+
+  .aiknow-table {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .aiknow-table thead {
+    display: none;
+  }
+
+  .aiknow-table tbody tr {
+    display: block;
+    background: var(--admin-bg-card);
+    border: 1px solid var(--admin-border-color);
+    border-radius: 14px;
+    padding: 0.5rem 0.9rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .aiknow-table tbody tr:hover { background: var(--admin-bg-card); }
+  .aiknow-table tbody tr.is-expired { background: rgba(245, 158, 11, 0.06); }
+
+  .aiknow-table td {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    padding: 0.55rem 0;
+    border-bottom: 1px dashed var(--admin-border-color);
+    text-align: left;
+    max-width: none;
+  }
+
+  .aiknow-table td:last-child { border-bottom: none; }
+
+  .aiknow-table td::before {
+    content: attr(data-label);
+    font-weight: 700;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--sena-green);
+  }
+
+  .aiknow-table td.aiknow-empty {
+    display: block;
+    text-align: center !important;
+    border-bottom: none;
+  }
+
+  .aiknow-table td.aiknow-empty::before {
+    content: none;
+  }
+
+  .aiknow-row-actions { justify-content: flex-start; }
 }

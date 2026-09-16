@@ -1549,6 +1549,59 @@ def list_learned_responses():
     }), 200
 
 
+@assistant_bp.route('/feedback', methods=['GET'])
+@jwt_required()
+def list_response_feedback():
+    """Calificaciones (👍/👎) que dejaron los usuarios sobre CUALQUIER
+    respuesta del asistente (Gemini en vivo, modo offline o la IA que
+    aprende) — no solo las que ya están cacheadas en AILearnedResponse.
+    Antes esto se guardaba en AIResponseFeedback pero ninguna vista de
+    Admin lo mostraba: como la mayoría de conversaciones reales terminan
+    en Gemini en vivo (la IA propia solo responde en casos muy puntuales),
+    casi toda la retroalimentación quedaba invisible."""
+    admin, err = _require_admin()
+    if err:
+        return err
+
+    only = (request.args.get('only') or '').strip()  # 'useful' | 'not_useful' | ''
+    page = max(1, int(request.args.get('page', 1)))
+    per_page = min(100, max(1, int(request.args.get('per_page', 25))))
+
+    query = AIResponseFeedback.query
+    if only == 'useful':
+        query = query.filter(AIResponseFeedback.useful.is_(True))
+    elif only == 'not_useful':
+        query = query.filter(AIResponseFeedback.useful.is_(False))
+
+    total = query.count()
+    total_useful = AIResponseFeedback.query.filter(AIResponseFeedback.useful.is_(True)).count()
+    total_not_useful = AIResponseFeedback.query.filter(AIResponseFeedback.useful.is_(False)).count()
+
+    items = (query.order_by(AIResponseFeedback.created_at.desc())
+             .offset((page - 1) * per_page).limit(per_page).all())
+
+    user_ids = {i.user_id for i in items if i.user_id}
+    users = {u.id: u for u in User.query.filter(User.id.in_(user_ids)).all()} if user_ids else {}
+
+    return jsonify({
+        "total": total,
+        "total_useful": total_useful,
+        "total_not_useful": total_not_useful,
+        "page": page,
+        "per_page": per_page,
+        "items": [{
+            "id": i.id,
+            "user": users[i.user_id].name if i.user_id in users else None,
+            "role": i.role,
+            "query_text": i.query_text,
+            "response_text": i.response_text,
+            "useful": i.useful,
+            "source": i.source,
+            "created_at": i.created_at.isoformat() if i.created_at else None,
+        } for i in items],
+    }), 200
+
+
 @assistant_bp.route('/learned', methods=['POST'])
 @jwt_required()
 def create_learned_response():
