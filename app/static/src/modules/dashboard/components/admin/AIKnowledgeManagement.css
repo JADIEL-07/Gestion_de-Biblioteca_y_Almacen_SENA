@@ -243,8 +243,27 @@
 .aiknow-source-badge.manual { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
 .aiknow-source-badge.soporte { background: rgba(168, 85, 247, 0.12); color: #a855f7; }
 
-.fb-pos { color: var(--sena-green); font-size: 0.8rem; margin-right: 0.4rem; }
-.fb-neg { color: #ef4444; font-size: 0.8rem; }
+/* Antes eran solo dos números sueltos sin ningún fondo ni borde — al lado
+   de los badges de Rol/Origen (que sí son píldoras con relleno) se veían
+   como texto suelto, casi como si no fueran un elemento "real" de la UI. */
+.aiknow-feedback-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.fb-pos, .fb-neg {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.fb-pos { color: var(--sena-green); background: rgba(57, 169, 0, 0.12); }
+.fb-neg { color: #ef4444; background: rgba(239, 68, 68, 0.1); }
 
 .aiknow-expired-tag {
   display: flex;

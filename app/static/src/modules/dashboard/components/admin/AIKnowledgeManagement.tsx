@@ -233,7 +233,12 @@ export const AIKnowledgeManagement: React.FC = () => {
                     <td data-label="Rol" className="col-center">{item.role ? <span className="aiknow-role-badge">{item.role}</span> : <span className="aiknow-role-badge generic">Cualquiera</span>}</td>
                     <td data-label="Origen" className="col-center"><span className={`aiknow-source-badge ${item.source}`}>{SOURCE_LABEL[item.source] || item.source}</span></td>
                     <td data-label="Usos" className="col-center">{item.use_count}</td>
-                    <td data-label="Feedback" className="col-center"><span className="fb-pos">👍{item.positive_feedback}</span> <span className="fb-neg">👎{item.negative_feedback}</span></td>
+                    <td data-label="Feedback" className="col-center">
+                      <span className="aiknow-feedback-cell">
+                        <span className="fb-pos" title="Veces marcada como útil">👍 {item.positive_feedback}</span>
+                        <span className="fb-neg" title="Veces marcada como no útil">👎 {item.negative_feedback}</span>
+                      </span>
+                    </td>
                     <td data-label="Actualizada" className="col-center">
                       {fmtDate(item.updated_at)}
                       {item.expired && <div className="aiknow-expired-tag"><FiAlertCircle size={12} /> Vencida</div>}
