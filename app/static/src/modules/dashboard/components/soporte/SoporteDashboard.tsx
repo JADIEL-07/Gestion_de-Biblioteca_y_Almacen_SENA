@@ -16,7 +16,6 @@ import { StaffChat } from '../../../shared/StaffChat';
 import '../admin/AdminDashboard.css'; // base de .admin-sidebar (layout + drawer móvil); SoporteDashboard.css solo pinta colores
 import './SoporteDashboard.css';
 import '../UserDashboard.css';
-import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from '../PersonalAssistant';
 import { NotificationsPage } from '../NotificationsPage';
 import { DashboardBg } from '../DashboardBg';
@@ -111,11 +110,8 @@ export const SoporteDashboard: React.FC<SoporteDashboardProps> = ({ user, onLogo
 
         <div className="topnav-right">
           <div className="topnav-links hidden-mobile">
-            <a href="#contact">
+            <a href="#" onClick={(e) => { e.preventDefault(); navigate('/contacto'); }}>
               <FiMail className="nav-icon" /> CONTACTO
-            </a>
-            <a href="#help">
-              <AnimatedRobotIcon className="nav-icon" /> ASISTENTE PERSONAL
             </a>
           </div>
 

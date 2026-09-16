@@ -15,7 +15,6 @@ import { AprendizCatalog } from './aprendiz/AprendizCatalog';
 import { AprendizHistory } from './aprendiz/AprendizHistory';
 import { AprendizSolicitudes } from './aprendiz/AprendizSolicitudes';
 import { NotificationBell } from '../../../shared/NotificationBell';
-import { AnimatedRobotIcon } from '../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from './PersonalAssistant';
 import { NotificationsPage } from './NotificationsPage';
 import { DashboardBg } from './DashboardBg';
@@ -129,11 +128,8 @@ export const UserDashboard: React.FC<UserDashboardProps> = ({
                 <FiHome className="nav-icon" /> INICIO
               </a>
             )}
-            <a href="#contact">
+            <a href="#" onClick={(e) => { e.preventDefault(); navigate('/contacto'); }}>
               <FiMail className="nav-icon" /> CONTACTO
-            </a>
-            <a href="#help">
-              <AnimatedRobotIcon className="nav-icon" /> ASISTENTE PERSONAL
             </a>
           </div>
 
