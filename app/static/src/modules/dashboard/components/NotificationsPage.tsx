@@ -57,6 +57,11 @@ const authHeader = (): HeadersInit => {
   return token ? { Authorization: `Bearer ${token}` } : {};
 };
 
+// Le avisa a NotificationBell (componente hermano, sin estado compartido)
+// que el conteo de no leídas pudo haber cambiado, para que se refresque
+// de inmediato en vez de esperar a su próximo sondeo.
+const notifyBellChanged = () => window.dispatchEvent(new Event('sena:notifications-changed'));
+
 export const NotificationsPage: React.FC = () => {
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,6 +103,7 @@ export const NotificationsPage: React.FC = () => {
       method: 'POST', headers: authHeader(),
     });
     setItems(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    notifyBellChanged();
   };
 
   const markAllRead = async () => {
@@ -105,6 +111,7 @@ export const NotificationsPage: React.FC = () => {
       method: 'POST', headers: authHeader(),
     });
     setItems(prev => prev.map(n => ({ ...n, is_read: true })));
+    notifyBellChanged();
   };
 
   const deleteOne = async (id: number, e: React.MouseEvent) => {
@@ -114,6 +121,7 @@ export const NotificationsPage: React.FC = () => {
       method: 'DELETE', headers: authHeader(),
     });
     setItems(prev => prev.filter(n => n.id !== id));
+    notifyBellChanged();
   };
 
   const clearAll = async () => {
@@ -122,6 +130,7 @@ export const NotificationsPage: React.FC = () => {
       method: 'DELETE', headers: authHeader(),
     });
     setItems([]);
+    notifyBellChanged();
   };
 
   const unreadCount = items.filter(n => !n.is_read).length;

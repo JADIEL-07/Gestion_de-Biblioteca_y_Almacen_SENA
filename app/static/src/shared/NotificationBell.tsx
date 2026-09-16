@@ -69,6 +69,17 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigate }
     return () => clearInterval(id);
   }, [fetchUnread]);
 
+  // La campanita y NotificationsPage no comparten estado (son componentes
+  // hermanos independientes) — sin esto, marcar como leída o borrar una
+  // notificación ahí no le avisaba a la campanita, y el número se quedaba
+  // desactualizado hasta el siguiente sondeo (30s). NotificationsPage
+  // dispara este evento tras cada acción que cambie el conteo.
+  useEffect(() => {
+    const handler = () => fetchUnread();
+    window.addEventListener('sena:notifications-changed', handler);
+    return () => window.removeEventListener('sena:notifications-changed', handler);
+  }, [fetchUnread]);
+
   const handleClick = () => {
     if (onNavigate) onNavigate('notifications');
   };
