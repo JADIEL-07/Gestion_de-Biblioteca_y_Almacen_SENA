@@ -31,8 +31,12 @@ def get_loans():
     start_date = request.args.get('startDate', '')
     end_date = request.args.get('endDate', '')
     category = request.args.get('category', 'ALL')
+    status = request.args.get('status', 'ALL')
 
     query = Loan.query.join(User, Loan.user_id == User.id).outerjoin(LoanDetail).outerjoin(Item)
+
+    if status and status != 'ALL':
+        query = query.filter(Loan.status == status)
 
     if search:
         search_filter = f"%{search}%"
@@ -304,13 +308,19 @@ def return_loan(id):
     return jsonify({"success": True, "message": "Préstamo devuelto exitosamente"}), 200
 
 
-def _require_admin():
-    """Devuelve (admin, None) o (None, (response, status)) si no es Admin."""
-    admin_id = get_jwt_identity()
-    admin = User.query.get(admin_id)
-    if not admin or not admin.role or admin.role.name != 'ADMIN':
-        return None, (jsonify({"error": "Solo un administrador puede realizar esta acción."}), 403)
-    return admin, None
+STAFF_SANCTION_ROLES = ('ADMIN', 'BIBLIOTECARIO', 'ALMACENISTA')
+
+
+def _require_loan_staff():
+    """Devuelve (usuario, None) o (None, (response, status)) si no es Admin,
+    Bibliotecario o Almacenista — son quienes procesan préstamos/devoluciones
+    y por lo tanto quienes notan si un elemento nunca se devolvió."""
+    uid = get_jwt_identity()
+    staff = User.query.get(uid)
+    role_name = (staff.role.name if staff and staff.role else '').strip().upper()
+    if role_name not in STAFF_SANCTION_ROLES:
+        return None, (jsonify({"error": "No tienes permiso para realizar esta acción."}), 403)
+    return staff, None
 
 
 @loan_bp.route('/<int:id>/mark-not-returned', methods=['POST'])
@@ -318,8 +328,8 @@ def _require_admin():
 def mark_loan_not_returned(id):
     """El aprendiz nunca devolvió el elemento: cierra el préstamo como
     NOT_RETURNED e impone una sanción que le bloquea nuevas reservas hasta
-    que un Admin la levante (ver enqueue_reservation)."""
-    admin, err = _require_admin()
+    que un Admin/Bibliotecario/Almacenista la levante (ver enqueue_reservation)."""
+    admin, err = _require_loan_staff()
     if err:
         return err
 
@@ -379,7 +389,7 @@ def mark_loan_not_returned(id):
 def lift_loan_sanction(id):
     """Levanta la sanción de un préstamo NOT_RETURNED: el usuario vuelve a
     poder reservar. El préstamo queda como historial (no cambia su estado)."""
-    admin, err = _require_admin()
+    admin, err = _require_loan_staff()
     if err:
         return err
 

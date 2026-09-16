@@ -13,6 +13,14 @@ interface LoanItem {
   return_status: string | null;
 }
 
+const LOAN_STATUS_OPTIONS = [
+  { id: 'ALL', name: 'Todos los estados' },
+  { id: 'ACTIVE', name: 'Activo' },
+  { id: 'OVERDUE', name: 'Vencido' },
+  { id: 'RETURNED', name: 'Devuelto' },
+  { id: 'NOT_RETURNED', name: 'No devuelto' },
+];
+
 interface Loan {
   id: number;
   user_id: string;
@@ -39,6 +47,7 @@ export const LoanManagement: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('ALL');
+  const [filterStatus, setFilterStatus] = useState('ALL');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
 
@@ -63,7 +72,8 @@ export const LoanManagement: React.FC = () => {
         search: searchTerm,
         startDate: startDate,
         endDate: endDate,
-        category: filterCategory
+        category: filterCategory,
+        status: filterStatus,
       });
       const response = await fetch(`/api/v1/loans/?${params.toString()}`, {
         headers: {
@@ -83,7 +93,7 @@ export const LoanManagement: React.FC = () => {
 
   useEffect(() => {
     fetchLoans();
-  }, [searchTerm, filterCategory, startDate, endDate]);
+  }, [searchTerm, filterCategory, filterStatus, startDate, endDate]);
 
   const openNotReturnedModal = (loan: Loan) => {
     setNotReturnedLoan(loan);
@@ -185,18 +195,21 @@ export const LoanManagement: React.FC = () => {
       );
     
     // Filtro por Categoría
-    const matchesCategory = filterCategory === 'ALL' || 
+    const matchesCategory = filterCategory === 'ALL' ||
       loan.items.some(item => item.category === filterCategory);
-    
+
+    // Filtro por Estado (equivalente al "filtro por acción" que ya tiene Auditoría)
+    const matchesStatus = filterStatus === 'ALL' || loan.status === filterStatus;
+
     // Filtro por Rango de Fechas
     const start = startDate ? new Date(startDate + 'T00:00:00') : null;
     const end = endDate ? new Date(endDate + 'T23:59:59') : null;
-    
+
     let matchesDate = true;
     if (start && loanDate < start) matchesDate = false;
     if (end && loanDate > end) matchesDate = false;
-    
-    return matchesSearch && matchesCategory && matchesDate;
+
+    return matchesSearch && matchesCategory && matchesStatus && matchesDate;
   });
 
   return (
@@ -226,12 +239,22 @@ export const LoanManagement: React.FC = () => {
           </div>
 
           <div className="filter-item">
-            <CustomSelect 
+            <CustomSelect
               label="Categoría del Elemento"
               options={[{ id: 'ALL', name: 'Todas las categorías' }, ...categories.map(cat => ({ id: cat, name: cat }))]}
               value={filterCategory}
               onChange={setFilterCategory}
               icon={<FiPackage />}
+            />
+          </div>
+
+          <div className="filter-item">
+            <CustomSelect
+              label="Estado"
+              options={LOAN_STATUS_OPTIONS}
+              value={filterStatus}
+              onChange={setFilterStatus}
+              icon={<FiAlertTriangle />}
             />
           </div>
         </div>
@@ -266,6 +289,7 @@ export const LoanManagement: React.FC = () => {
               setStartDate('');
               setEndDate('');
               setFilterCategory('ALL');
+              setFilterStatus('ALL');
               setSearchTerm('');
             }}>Limpiar Filtros</button>
           </div>

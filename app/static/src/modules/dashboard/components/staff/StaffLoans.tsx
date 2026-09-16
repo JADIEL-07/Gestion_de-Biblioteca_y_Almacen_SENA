@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { alertDialog } from '../../../../components/ui/ConfirmDialog';
+import { alertDialog, confirmDialog } from '../../../../components/ui/ConfirmDialog';
 import {
   FiCheckCircle, FiClock, FiPackage, FiUser, FiCamera,
   FiCalendar, FiRefreshCw, FiSearch, FiChevronDown,
-  FiAlertTriangle, FiBox, FiGift, FiTrendingUp, FiShield
+  FiAlertTriangle, FiBox, FiGift, FiTrendingUp, FiShield, FiX
 } from 'react-icons/fi';
 import { MdQrCodeScanner } from 'react-icons/md';
+import { CustomSelect } from '../admin/CustomSelect';
 import './StaffLoans.css';
 
 interface Reservation {
@@ -36,14 +37,29 @@ interface Loan {
   return_date: string | null;
   status: string;
   fine_amount: number;
+  sanction_type: 'DAYS' | 'CUSTOM' | null;
+  sanction_days: number | null;
+  sanction_description: string | null;
+  sanction_active: boolean;
+  sanction_created_at: string | null;
+  sanction_lifted_at: string | null;
   items: LoanItem[];
 }
 
 const loanStatusMap: Record<string, { label: string; color: string; bg: string }> = {
-  ACTIVE:   { label: 'Activo',    color: '#3b82f6', bg: 'rgba(59,130,246,0.12)'  },
-  RETURNED: { label: 'Devuelto',  color: '#22c55e', bg: 'rgba(34,197,94,0.12)'   },
-  OVERDUE:  { label: 'Vencido',   color: '#ef4444', bg: 'rgba(239,68,68,0.12)'   },
+  ACTIVE:       { label: 'Activo',      color: '#3b82f6', bg: 'rgba(59,130,246,0.12)'  },
+  RETURNED:     { label: 'Devuelto',    color: '#22c55e', bg: 'rgba(34,197,94,0.12)'   },
+  OVERDUE:      { label: 'Vencido',     color: '#ef4444', bg: 'rgba(239,68,68,0.12)'   },
+  NOT_RETURNED: { label: 'No devuelto', color: '#ef4444', bg: 'rgba(239,68,68,0.18)'   },
 };
+
+const LOAN_STATUS_FILTER_OPTIONS = [
+  { id: 'ALL', name: 'Todos los estados' },
+  { id: 'ACTIVE', name: 'Activo' },
+  { id: 'OVERDUE', name: 'Vencido' },
+  { id: 'RETURNED', name: 'Devuelto' },
+  { id: 'NOT_RETURNED', name: 'No devuelto' },
+];
 
 const fmt = (iso: string) => {
   if (!iso) return '—';
@@ -58,6 +74,23 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
   const [scanInput, setScanInput] = useState('');
   const [search, setSearch] = useState('');
   const scanInputRef = useRef<HTMLInputElement>(null);
+
+  // Filtros del Historial de Préstamos (mismo filtro que en la vista del Admin)
+  const [loanSearch, setLoanSearch] = useState('');
+  const [loanStatusFilter, setLoanStatusFilter] = useState('ALL');
+  const [loanStartDate, setLoanStartDate] = useState('');
+  const [loanEndDate, setLoanEndDate] = useState('');
+
+  // Panel para marcar un préstamo como no devuelto + imponer la sanción
+  const [notReturnedLoan, setNotReturnedLoan] = useState<Loan | null>(null);
+  const [sanctionType, setSanctionType] = useState<'DAYS' | 'CUSTOM'>('DAYS');
+  const [sanctionDays, setSanctionDays] = useState('7');
+  const [sanctionDescription, setSanctionDescription] = useState('');
+  const [submittingSanction, setSubmittingSanction] = useState(false);
+
+  // Panel de detalle de una sanción (ver descripción / levantarla)
+  const [sanctionPanelLoan, setSanctionPanelLoan] = useState<Loan | null>(null);
+  const [liftingSanction, setLiftingSanction] = useState(false);
 
   const token = () => localStorage.getItem('token');
   const depId = user?.dependency_id;
@@ -144,7 +177,14 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
 
   const fetchLoans = async () => {
     try {
-      const res = await fetch(`/api/v1/loans/?dependency_id=${depId || ''}`, {
+      const params = new URLSearchParams({
+        dependency_id: depId || '',
+        search: loanSearch,
+        status: loanStatusFilter,
+        startDate: loanStartDate,
+        endDate: loanEndDate,
+      });
+      const res = await fetch(`/api/v1/loans/?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token()}` }
       });
       if (res.ok) setLoans(await res.json());
@@ -153,8 +193,95 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
 
   useEffect(() => {
     if (activeTab === 'scan') fetchReservations();
-    else fetchLoans();
   }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === 'history') fetchLoans();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, loanSearch, loanStatusFilter, loanStartDate, loanEndDate]);
+
+  const openNotReturnedModal = (loan: Loan) => {
+    setNotReturnedLoan(loan);
+    setSanctionType('DAYS');
+    setSanctionDays('7');
+    setSanctionDescription('');
+  };
+
+  const submitNotReturned = async () => {
+    if (!notReturnedLoan) return;
+    if (sanctionType === 'DAYS') {
+      const n = parseInt(sanctionDays, 10);
+      if (!n || n <= 0) {
+        alertDialog('Ingresa un número de días válido.');
+        return;
+      }
+    } else if (!sanctionDescription.trim()) {
+      alertDialog('Escribe una descripción para la sanción.');
+      return;
+    }
+
+    const ok = await confirmDialog({
+      title: 'Marcar como no devuelto',
+      message: `Se cerrará el préstamo #${notReturnedLoan.id} como NO DEVUELTO y ${notReturnedLoan.user_name} no podrá hacer nuevas reservas hasta que levantes la sanción. ¿Continuar?`,
+      confirmText: 'Sí, aplicar sanción',
+      danger: true,
+    });
+    if (!ok) return;
+
+    setSubmittingSanction(true);
+    try {
+      const res = await fetch(`/api/v1/loans/${notReturnedLoan.id}/mark-not-returned`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token()}`,
+        },
+        body: JSON.stringify({
+          sanction_type: sanctionType,
+          sanction_days: sanctionType === 'DAYS' ? parseInt(sanctionDays, 10) : undefined,
+          sanction_description: sanctionDescription.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setNotReturnedLoan(null);
+        fetchLoans();
+      } else {
+        alertDialog(data.error || 'No se pudo aplicar la sanción.');
+      }
+    } catch {
+      alertDialog('Error de conexión al aplicar la sanción.');
+    } finally {
+      setSubmittingSanction(false);
+    }
+  };
+
+  const handleLiftSanction = async (loan: Loan) => {
+    const ok = await confirmDialog({
+      message: `¿Levantar la sanción del préstamo #${loan.id}? ${loan.user_name} volverá a poder hacer reservas.`,
+      confirmText: 'Sí, levantar sanción',
+    });
+    if (!ok) return;
+
+    setLiftingSanction(true);
+    try {
+      const res = await fetch(`/api/v1/loans/${loan.id}/lift-sanction`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token()}` },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setSanctionPanelLoan(null);
+        fetchLoans();
+      } else {
+        alertDialog(data.error || 'No se pudo levantar la sanción.');
+      }
+    } catch {
+      alertDialog('Error de conexión al levantar la sanción.');
+    } finally {
+      setLiftingSanction(false);
+    }
+  };
 
   const handleApprove = async (id: number) => {
     const res = pending.find(r => r.id === id);
@@ -470,58 +597,132 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
             </button>
           </div>
 
-          {/* Cabecera */}
-          <div style={{ display: 'grid', gridTemplateColumns: '48px 1fr 1fr 160px 120px 120px 90px', gap: '0.75rem', padding: '0 1rem 0.5rem', borderBottom: '1px solid var(--admin-border-color, #334155)', marginBottom: '0.5rem' }}>
-            {['#', 'Elemento(s)', 'Aprendiz', 'Procesado por', 'F. Préstamo', 'F. Vencimiento', 'Estado'].map(h => (
-              <span key={h} style={{ fontSize: '0.71rem', fontWeight: 700, color: 'var(--admin-text-muted, #64748b)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{h}</span>
-            ))}
+          {/* Filtros — mismo criterio que la vista de Préstamos del Admin */}
+          <div className="staffloan-filters">
+            <div className="staffloan-filter-item search">
+              <label>Búsqueda rápida</label>
+              <div className="input-with-icon">
+                <FiSearch />
+                <input
+                  type="text"
+                  placeholder="Nombre, ID o elemento..."
+                  value={loanSearch}
+                  onChange={(e) => setLoanSearch(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="staffloan-filter-item">
+              <CustomSelect
+                label="Estado"
+                options={LOAN_STATUS_FILTER_OPTIONS}
+                value={loanStatusFilter}
+                onChange={setLoanStatusFilter}
+                icon={<FiAlertTriangle />}
+              />
+            </div>
+            <div className="staffloan-filter-item">
+              <label>Desde (fecha)</label>
+              <div className="input-with-icon">
+                <FiCalendar />
+                <input type="date" value={loanStartDate} onChange={(e) => setLoanStartDate(e.target.value)} />
+              </div>
+            </div>
+            <div className="staffloan-filter-item">
+              <label>Hasta (fecha)</label>
+              <div className="input-with-icon">
+                <FiCalendar />
+                <input type="date" value={loanEndDate} onChange={(e) => setLoanEndDate(e.target.value)} />
+              </div>
+            </div>
+            <button className="btn-reset" onClick={() => {
+              setLoanSearch('');
+              setLoanStatusFilter('ALL');
+              setLoanStartDate('');
+              setLoanEndDate('');
+            }}>Limpiar filtros</button>
           </div>
 
-          {loans.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--admin-text-muted, #64748b)' }}>No hay historial de préstamos registrado.</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {loans.map(l => {
-                const s = loanStatusMap[l.status] ?? { label: l.status, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
-                const isOverdue = l.status === 'ACTIVE' && new Date(l.due_date) < new Date();
-                const itemNames = l.items?.map(i => i.name).join(', ') || '—';
-                return (
-                  <div key={l.id} style={{ display: 'grid', gridTemplateColumns: '48px 1fr 1fr 160px 120px 120px 90px', gap: '0.75rem', alignItems: 'center', background: 'rgba(0,0,0,0.15)', border: `1px solid ${isOverdue ? 'rgba(239,68,68,0.3)' : 'var(--admin-border-color, #2a374f)'}`, borderRadius: '8px', padding: '0.75rem 1rem' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '7px', background: 'rgba(57,169,0,0.12)', color: 'var(--sena-green, #39A900)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: '0.78rem' }}>{l.id}</div>
-
-                    <span style={{ fontWeight: 600, color: 'var(--admin-text-primary, #f8fafc)', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <FiPackage size={12} style={{ marginRight: '0.3rem', verticalAlign: 'middle', opacity: 0.6 }} />
-                      {itemNames}
-                    </span>
-
-                    <span style={{ color: 'var(--admin-text-secondary, #94a3b8)', fontSize: '0.85rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <FiUser size={12} style={{ marginRight: '0.3rem', verticalAlign: 'middle', opacity: 0.6 }} />
-                      {l.user_name}
-                    </span>
-
-                    <span style={{ color: 'var(--admin-text-secondary, #94a3b8)', fontSize: '0.82rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <FiShield size={12} style={{ marginRight: '0.3rem', verticalAlign: 'middle', opacity: 0.6 }} />
-                      {l.admin_name || 'Sistema'}
-                    </span>
-
-                    <span style={{ color: 'var(--admin-text-muted, #64748b)', fontSize: '0.82rem' }}>
-                      <FiCalendar size={11} style={{ marginRight: '0.25rem', verticalAlign: 'middle', opacity: 0.6 }} />
-                      {fmt(l.loan_date)}
-                    </span>
-
-                    <span style={{ color: isOverdue ? '#ef4444' : 'var(--admin-text-muted, #64748b)', fontSize: '0.82rem', fontWeight: isOverdue ? 700 : 400 }}>
-                      <FiCalendar size={11} style={{ marginRight: '0.25rem', verticalAlign: 'middle', opacity: 0.6 }} />
-                      {fmt(l.due_date)}{isOverdue && ' ⚠️'}
-                    </span>
-
-                    <span style={{ padding: '0.25rem 0.65rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, color: s.color, background: s.bg, whiteSpace: 'nowrap', textAlign: 'center', display: 'inline-block' }}>
-                      {s.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <div className="staffloan-table-wrapper">
+            <table className="staffloan-table">
+              <thead>
+                <tr>
+                  <th className="col-center">#</th>
+                  <th>Elemento(s)</th>
+                  <th>Aprendiz</th>
+                  <th>Procesado por</th>
+                  <th className="col-center">F. Préstamo</th>
+                  <th className="col-center">F. Vencimiento</th>
+                  <th className="col-center">Estado</th>
+                  <th className="col-center">Multa</th>
+                  <th className="col-center">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loans.length === 0 ? (
+                  <tr><td colSpan={9} className="staffloan-empty">No hay historial de préstamos registrado.</td></tr>
+                ) : loans.map(l => {
+                  const s = loanStatusMap[l.status] ?? { label: l.status, color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' };
+                  const isOverdue = l.status === 'ACTIVE' && new Date(l.due_date) < new Date();
+                  const itemNames = l.items?.map(i => i.name).join(', ') || '—';
+                  return (
+                    <tr key={l.id}>
+                      <td className="col-center"><span className="staffloan-id-badge">#{l.id}</span></td>
+                      <td>
+                        <FiPackage size={12} style={{ marginRight: '0.3rem', verticalAlign: 'middle', opacity: 0.6 }} />
+                        {itemNames}
+                      </td>
+                      <td>
+                        <FiUser size={12} style={{ marginRight: '0.3rem', verticalAlign: 'middle', opacity: 0.6 }} />
+                        {l.user_name}
+                      </td>
+                      <td>
+                        <FiShield size={12} style={{ marginRight: '0.3rem', verticalAlign: 'middle', opacity: 0.6 }} />
+                        {l.admin_name || 'Sistema'}
+                      </td>
+                      <td className="col-center date-text">{fmt(l.loan_date)}</td>
+                      <td className="col-center date-text" style={{ color: isOverdue ? '#ef4444' : undefined, fontWeight: isOverdue ? 700 : 400 }}>
+                        {fmt(l.due_date)}{isOverdue && ' ⚠️'}
+                      </td>
+                      <td className="col-center">
+                        <span style={{ padding: '0.25rem 0.65rem', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, color: s.color, background: s.bg, whiteSpace: 'nowrap', textAlign: 'center', display: 'inline-block' }}>
+                          {s.label}
+                        </span>
+                      </td>
+                      <td className="col-center">
+                        {l.status === 'NOT_RETURNED' ? (
+                          <button
+                            className={`staffloan-fine-btn ${l.sanction_active ? 'sanction-active' : 'sanction-lifted'}`}
+                            onClick={() => setSanctionPanelLoan(l)}
+                            title="Ver detalle de la sanción"
+                          >
+                            {l.sanction_active ? <FiAlertTriangle size={12} /> : <FiCheckCircle size={12} />}
+                            {l.sanction_active ? 'Sí aplica' : 'Levantada'}
+                          </button>
+                        ) : (
+                          <span className="staffloan-fine-badge">
+                            {l.fine_amount > 0 ? `$${l.fine_amount.toLocaleString()}` : 'No aplica'}
+                          </span>
+                        )}
+                      </td>
+                      <td className="col-center">
+                        {(l.status === 'ACTIVE' || l.status === 'OVERDUE') ? (
+                          <button
+                            className="staffloan-btn-not-returned"
+                            onClick={() => openNotReturnedModal(l)}
+                            title="El aprendiz nunca devolvió este elemento"
+                          >
+                            <FiAlertTriangle size={12} /> No devuelto
+                          </button>
+                        ) : (
+                          <span style={{ color: 'var(--admin-text-muted, #64748b)' }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
       {/* Modal for Camera */}
@@ -623,6 +824,127 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
                 <FiCheckCircle size={18} /> Confirmar préstamo
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* PANEL: marcar como no devuelto + imponer sanción */}
+      {notReturnedLoan && (
+        <div className="staffloan-modal-overlay" onClick={() => setNotReturnedLoan(null)}>
+          <div className="staffloan-modal-content" onClick={e => e.stopPropagation()}>
+            <div className="staffloan-modal-header">
+              <h3><FiAlertTriangle /> Marcar préstamo #{notReturnedLoan.id} como no devuelto</h3>
+              <button className="btn-close-staffloan-modal" onClick={() => setNotReturnedLoan(null)}><FiX /></button>
+            </div>
+            <div className="staffloan-modal-body">
+              <p className="staffloan-modal-hint">
+                <strong>{notReturnedLoan.user_name}</strong> no devolvió {notReturnedLoan.items.length > 1 ? 'los elementos' : 'el elemento'} de este préstamo.
+                Esto lo bloqueará para hacer nuevas reservas hasta que levantes la sanción.
+              </p>
+
+              <label className="staffloan-form-label">Tipo de sanción</label>
+              <div className="staffloan-sanction-toggle">
+                <button
+                  type="button"
+                  className={sanctionType === 'DAYS' ? 'active' : ''}
+                  onClick={() => setSanctionType('DAYS')}
+                >
+                  Sanción por días
+                </button>
+                <button
+                  type="button"
+                  className={sanctionType === 'CUSTOM' ? 'active' : ''}
+                  onClick={() => setSanctionType('CUSTOM')}
+                >
+                  Otra sanción
+                </button>
+              </div>
+
+              {sanctionType === 'DAYS' ? (
+                <>
+                  <label className="staffloan-form-label">Días de suspensión de reservas</label>
+                  <input
+                    type="number"
+                    min={1}
+                    className="staffloan-form-input"
+                    value={sanctionDays}
+                    onChange={e => setSanctionDays(e.target.value)}
+                  />
+                  <label className="staffloan-form-label">Nota adicional (opcional)</label>
+                  <textarea
+                    className="staffloan-form-textarea"
+                    rows={2}
+                    placeholder="Ej: el aprendiz no respondió a los recordatorios..."
+                    value={sanctionDescription}
+                    onChange={e => setSanctionDescription(e.target.value)}
+                  />
+                </>
+              ) : (
+                <>
+                  <label className="staffloan-form-label">Describe la sanción</label>
+                  <textarea
+                    className="staffloan-form-textarea"
+                    rows={4}
+                    placeholder="Ej: se retiene el carné hasta que reponga el elemento..."
+                    value={sanctionDescription}
+                    onChange={e => setSanctionDescription(e.target.value)}
+                  />
+                </>
+              )}
+            </div>
+            <div className="staffloan-modal-footer">
+              <button className="btn-staffloan-secondary" onClick={() => setNotReturnedLoan(null)} disabled={submittingSanction}>
+                Cancelar
+              </button>
+              <button className="btn-staffloan-danger" onClick={submitNotReturned} disabled={submittingSanction}>
+                {submittingSanction ? 'Aplicando...' : 'Aplicar sanción'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* PANEL: detalle de la sanción / levantarla */}
+      {sanctionPanelLoan && (
+        <div className="staffloan-modal-overlay" onClick={() => setSanctionPanelLoan(null)}>
+          <div className="staffloan-modal-content mini" onClick={e => e.stopPropagation()}>
+            <div className="staffloan-modal-header">
+              <h3><FiAlertTriangle /> Sanción — Préstamo #{sanctionPanelLoan.id}</h3>
+              <button className="btn-close-staffloan-modal" onClick={() => setSanctionPanelLoan(null)}><FiX /></button>
+            </div>
+            <div className="staffloan-modal-body">
+              <div className="staffloan-sanction-detail-row">
+                <label>Aprendiz</label>
+                <span>{sanctionPanelLoan.user_name}</span>
+              </div>
+              <div className="staffloan-sanction-detail-row">
+                <label>Tipo</label>
+                <span>{sanctionPanelLoan.sanction_type === 'DAYS' ? `${sanctionPanelLoan.sanction_days} día(s) de suspensión` : 'Sanción personalizada'}</span>
+              </div>
+              <div className="staffloan-sanction-detail-row">
+                <label>Descripción</label>
+                <p>{sanctionPanelLoan.sanction_description || 'Sin descripción.'}</p>
+              </div>
+              <div className="staffloan-sanction-detail-row">
+                <label>Impuesta</label>
+                <span>{sanctionPanelLoan.sanction_created_at ? new Date(sanctionPanelLoan.sanction_created_at).toLocaleString() : '—'}</span>
+              </div>
+              {!sanctionPanelLoan.sanction_active && (
+                <div className="staffloan-sanction-lifted-note">
+                  <FiCheckCircle /> Sanción levantada{sanctionPanelLoan.sanction_lifted_at ? ` el ${new Date(sanctionPanelLoan.sanction_lifted_at).toLocaleString()}` : ''}. El aprendiz ya puede reservar.
+                </div>
+              )}
+            </div>
+            {sanctionPanelLoan.sanction_active && (
+              <div className="staffloan-modal-footer">
+                <button className="btn-staffloan-secondary" onClick={() => setSanctionPanelLoan(null)} disabled={liftingSanction}>
+                  Cerrar
+                </button>
+                <button className="btn-staffloan-primary" onClick={() => handleLiftSanction(sanctionPanelLoan)} disabled={liftingSanction}>
+                  {liftingSanction ? 'Levantando...' : 'Levantar sanción'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

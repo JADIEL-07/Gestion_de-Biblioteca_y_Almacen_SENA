@@ -713,3 +713,395 @@
   transform: translateY(-1px);
   box-shadow: 0 6px 20px rgba(57, 169, 0, 0.35);
 }
+
+/* ══════════════ Historial de Préstamos: filtros + tabla ══════════════
+   Nombres propios ("staffloan-*") para no colisionar con las clases del
+   mismo tipo en LoanManagement.css (tabla de Préstamos del Admin) si
+   ambos terminan en el mismo bundle. */
+
+.staffloan-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--admin-border-color, #334155);
+}
+
+.staffloan-filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 160px;
+}
+
+.staffloan-filter-item.search {
+  flex: 1;
+  min-width: 220px;
+}
+
+.staffloan-filter-item label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--admin-text-muted, #64748b);
+}
+
+.staffloan-filters .input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.staffloan-filters .input-with-icon svg {
+  position: absolute;
+  left: 0.8rem;
+  color: var(--sena-green, #39A900);
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.staffloan-filters .input-with-icon input {
+  width: 100%;
+  height: 42px;
+  padding: 0 0.8rem 0 2.4rem;
+  background: var(--admin-bg, #0f172a);
+  border: 1px solid var(--admin-border-color, #334155);
+  border-radius: 10px;
+  color: var(--admin-text-primary, #f8fafc);
+  font-size: 0.88rem;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.staffloan-filters .input-with-icon input:focus {
+  border-color: var(--sena-green, #39A900);
+  box-shadow: 0 0 0 3px rgba(57, 169, 0, 0.12);
+}
+
+.staffloan-filters .btn-reset {
+  height: 42px;
+  padding: 0 1.1rem;
+  background: rgba(239, 68, 68, 0.06);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.staffloan-filters .btn-reset:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+/* Tabla — antes era un grid de divs sin scroll horizontal: si las columnas
+   no cabían, el contenido de la derecha quedaba tapado por el borde de la
+   página (no había forma de deslizar para verlo). */
+.staffloan-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.staffloan-table {
+  width: 100%;
+  min-width: max-content;
+  border-collapse: collapse;
+}
+
+.staffloan-table th {
+  padding: 0.85rem 1rem;
+  text-align: left;
+  font-size: 0.71rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--admin-text-muted, #64748b);
+  border-bottom: 1px solid var(--admin-border-color, #334155);
+  white-space: nowrap;
+}
+
+.staffloan-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--admin-border-color, #2a374f);
+  color: var(--admin-text-secondary, #94a3b8);
+  font-size: 0.85rem;
+  vertical-align: middle;
+}
+
+.staffloan-table tbody tr:last-child td { border-bottom: none; }
+.staffloan-table tbody tr:hover { background: rgba(57, 169, 0, 0.04); }
+
+.staffloan-empty {
+  text-align: center !important;
+  padding: 3rem 1rem !important;
+  color: var(--admin-text-muted, #64748b);
+}
+
+.staffloan-id-badge {
+  background: rgba(57, 169, 0, 0.12);
+  color: var(--sena-green, #39A900);
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-weight: 800;
+  font-size: 0.78rem;
+}
+
+.staffloan-table .date-text {
+  color: var(--admin-text-muted, #64748b);
+  white-space: nowrap;
+}
+
+.staffloan-fine-badge {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--admin-text-muted, #64748b);
+}
+
+.staffloan-fine-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+.staffloan-fine-btn.sanction-active {
+  color: var(--sena-green, #39A900);
+  background: rgba(57, 169, 0, 0.12);
+  border-color: rgba(57, 169, 0, 0.3);
+}
+.staffloan-fine-btn.sanction-active:hover { background: rgba(57, 169, 0, 0.22); }
+.staffloan-fine-btn.sanction-lifted {
+  color: var(--admin-text-muted, #64748b);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--admin-border-color, #334155);
+}
+.staffloan-fine-btn.sanction-lifted:hover { background: rgba(255, 255, 255, 0.08); }
+
+.staffloan-btn-not-returned {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.staffloan-btn-not-returned:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #ef4444;
+}
+
+/* ── Paneles: marcar no devuelto / detalle de sanción ── */
+.staffloan-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.staffloan-modal-content {
+  background: var(--admin-bg-card, #1e293b);
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 20px;
+  border: 1px solid var(--admin-border-color, #334155);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+  animation: staffloanModalIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.staffloan-modal-content.mini { max-width: 420px; }
+
+@keyframes staffloanModalIn {
+  from { opacity: 0; transform: scale(0.94) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.staffloan-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--admin-border-color, #334155);
+}
+
+.staffloan-modal-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1rem;
+  color: #ef4444;
+}
+
+.btn-close-staffloan-modal {
+  background: var(--admin-bg, #0f172a);
+  border: 1px solid var(--admin-border-color, #334155);
+  color: var(--admin-text-primary, #f8fafc);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.btn-close-staffloan-modal:hover { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+.staffloan-modal-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.staffloan-modal-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--admin-text-secondary, #94a3b8);
+  line-height: 1.5;
+}
+
+.staffloan-form-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--admin-text-muted, #64748b);
+  margin-top: 0.4rem;
+}
+
+.staffloan-form-input,
+.staffloan-form-textarea {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  background: var(--admin-bg, #0f172a);
+  border: 1px solid var(--admin-border-color, #334155);
+  border-radius: 10px;
+  color: var(--admin-text-primary, #f8fafc);
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+}
+.staffloan-form-input:focus,
+.staffloan-form-textarea:focus {
+  border-color: var(--sena-green, #39A900);
+  box-shadow: 0 0 0 3px rgba(57, 169, 0, 0.12);
+}
+
+.staffloan-sanction-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+.staffloan-sanction-toggle button {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--admin-border-color, #334155);
+  background: var(--admin-bg, #0f172a);
+  color: var(--admin-text-secondary, #94a3b8);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.staffloan-sanction-toggle button.active {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.staffloan-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1.1rem 1.5rem;
+  border-top: 1px solid var(--admin-border-color, #334155);
+}
+
+.btn-staffloan-secondary,
+.btn-staffloan-danger,
+.btn-staffloan-primary {
+  padding: 0.65rem 1.2rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+.btn-staffloan-secondary {
+  background: transparent;
+  border-color: var(--admin-border-color, #334155);
+  color: var(--admin-text-secondary, #94a3b8);
+}
+.btn-staffloan-secondary:hover { background: rgba(255, 255, 255, 0.05); }
+
+.btn-staffloan-danger { background: #ef4444; color: #fff; }
+.btn-staffloan-danger:hover { background: #dc2626; }
+.btn-staffloan-danger:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-staffloan-primary { background: var(--sena-green, #39A900); color: #fff; }
+.btn-staffloan-primary:hover { background: #2d8a00; }
+.btn-staffloan-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.staffloan-sanction-detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.staffloan-sanction-detail-row label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--admin-text-muted, #64748b);
+}
+.staffloan-sanction-detail-row span,
+.staffloan-sanction-detail-row p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--admin-text-primary, #f8fafc);
+  line-height: 1.5;
+}
+
+.staffloan-sanction-lifted-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(57, 169, 0, 0.1);
+  border: 1px solid rgba(57, 169, 0, 0.25);
+  border-radius: 10px;
+  color: var(--sena-green, #39A900);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 768px) {
+  .staffloan-filters { flex-direction: column; align-items: stretch; }
+  .staffloan-filter-item { min-width: 0; }
+}
