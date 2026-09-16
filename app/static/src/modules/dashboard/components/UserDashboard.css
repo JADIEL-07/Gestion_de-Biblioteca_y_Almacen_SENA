@@ -309,6 +309,18 @@ body.has-impersonation-banner .dashboard-topnav {
   display: flex;
   flex: 1;
   min-height: 0; /* Permite que el sidebar y el contenido hagan scroll interno en vez de crecer */
+  transition: margin-top 0.2s ease;
+}
+
+/* El banner de "viendo como" empuja la barra superior hacia abajo (ver
+   .dashboard-topnav arriba), pero al ser position:sticky su espacio
+   RESERVADO en el flujo normal sigue siendo el de siempre (70px) — el
+   navbar se pinta más abajo, pero el contenido de aquí seguía arrancando
+   donde el navbar solía estar, así que quedaba tapado por su nueva
+   posición. Se empuja este contenedor esa misma distancia para que
+   arranque justo debajo del navbar ya desplazado. */
+body.has-impersonation-banner .dashboard-body {
+  margin-top: var(--impersonation-banner-height, 0px);
 }
 
 /* ── SIDEBAR ──
@@ -562,6 +574,13 @@ body.has-impersonation-banner .dashboard-topnav {
   max-height: calc(100dvh - 70px);
   display: flex;
   flex-direction: column;
+}
+
+/* Mismo ajuste que en .dashboard-body: el alto disponible se achica la
+   altura del banner. */
+body.has-impersonation-banner .dashboard-main-content {
+  max-height: calc(100vh - 70px - var(--impersonation-banner-height, 0px));
+  max-height: calc(100dvh - 70px - var(--impersonation-banner-height, 0px));
 }
 
 /* ── DASHBOARD HOME ── */
