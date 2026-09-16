@@ -162,7 +162,7 @@
   width: 50px;
   height: 50px;
   border-radius: 6px;
-  background: #334155;
+  background: var(--bg-card-light, #334155);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -182,14 +182,14 @@
 }
 
 .item-name {
-  color: #ffffff;
+  color: var(--text-primary, #ffffff);
   font-weight: 600;
   font-size: 1rem;
 }
 
 .item-cat {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--text-muted, #94a3b8);
 }
 
 .date-cell, .status-cell {
@@ -198,13 +198,13 @@
 }
 
 .date-str {
-  color: #ffffff;
+  color: var(--text-primary, #ffffff);
   font-weight: 500;
 }
 
 .time-str {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--text-muted, #94a3b8);
 }
 
 .status-text {
@@ -214,84 +214,43 @@
 .status-text.success { color: #39A900; }
 .status-text.warning { color: #f59e0b; }
 .status-text.danger  { color: #dc2626; }
-.status-text.default { color: #94a3b8; }
+.status-text.default { color: var(--text-muted, #94a3b8); }
 
 .status-sub {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--text-muted, #94a3b8);
 }
 
-.btn-outline {
-  background: transparent;
-  border: 1px solid #3b82f6;
-  color: #3b82f6;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  white-space: nowrap;
-}
-
-.btn-outline:hover {
-  background: rgba(59, 130, 246, 0.1);
-}
-
-/* Renewal Banner */
-.renewal-banner {
-  display: flex;
-  align-items: center;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid var(--border-color, #334155);
-  border-radius: 12px;
-  padding: 1.2rem 1.5rem;
-  gap: 1.5rem;
-  margin-top: 0.5rem;
-}
-
-.renewal-icon {
+.btn-icon-loan {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: 2px solid #3b82f6;
-  color: #3b82f6;
-  flex-shrink: 0;
-}
-
-.renewal-content {
-  flex-grow: 1;
-}
-
-.renewal-content h4 {
-  color: #ffffff;
-  margin: 0 0 0.3rem 0;
-  font-size: 1.05rem;
-  font-weight: 600;
-}
-
-.renewal-content p {
-  color: #cbd5e1;
-  margin: 0;
-  font-size: 0.9rem;
-}
-
-.btn-renewal {
-  background: #1d4ed8;
-  color: white;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  border-radius: 6px;
-  font-weight: 600;
+  background: transparent;
+  border: 1px solid var(--border-color, #334155);
+  color: var(--text-secondary, #94a3b8);
+  border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s;
-  white-space: nowrap;
+  transition: all 0.2s;
 }
 
-.btn-renewal:hover {
-  background: #2563eb;
+.btn-icon-loan:hover {
+  background: var(--bg-card-light, rgba(59, 130, 246, 0.1));
+  color: var(--text-primary, #ffffff);
+  border-color: #3b82f6;
+}
+
+.btn-icon-loan-danger {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+.btn-icon-loan-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: #ef4444;
+  color: #ef4444;
 }
 
 /* Empty State / Loading */
@@ -354,19 +313,6 @@
     margin-bottom: 0.5rem;
   }
   
-  .btn-outline {
-    width: 100%;
-    margin-top: 0.5rem;
-  }
-  
-  .renewal-banner {
-    flex-direction: column;
-    text-align: center;
-  }
-  
-  .btn-renewal {
-    width: 100%;
-  }
 }
 
 /* Glassmorphism / Backdrop Blur Modal */
@@ -388,8 +334,8 @@
 }
 
 .report-modal {
-  background: rgba(30, 41, 59, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-card, rgba(30, 41, 59, 0.95));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 16px;
   width: 100%;
   max-width: 500px;
@@ -400,7 +346,7 @@
 
 .report-modal-header {
   padding: 1.2rem 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.05));
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -408,7 +354,7 @@
 
 .report-modal-header h3 {
   margin: 0;
-  color: #ffffff;
+  color: var(--text-primary, #ffffff);
   font-size: 1.25rem;
   font-weight: 700;
 }
@@ -416,7 +362,7 @@
 .btn-close-modal {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: var(--text-muted, #94a3b8);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -426,7 +372,7 @@
 }
 
 .btn-close-modal:hover {
-  color: #ffffff;
+  color: var(--text-primary, #ffffff);
 }
 
 .report-modal-body {
@@ -439,7 +385,7 @@
 
 .report-form-group label {
   display: block;
-  color: #cbd5e1;
+  color: var(--text-secondary, #cbd5e1);
   font-size: 0.85rem;
   font-weight: 600;
   text-transform: uppercase;
@@ -449,9 +395,9 @@
 
 .report-form-control {
   width: 100%;
-  background: #0f172a;
-  border: 1px solid #334155;
-  color: #ffffff;
+  background: var(--bg-main, #0f172a);
+  border: 1px solid var(--border-color, #334155);
+  color: var(--text-primary, #ffffff);
   border-radius: 8px;
   padding: 0.75rem 1rem;
   font-size: 0.95rem;
@@ -470,11 +416,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  border: 2px dashed #334155;
+  border: 2px dashed var(--border-color, #334155);
   border-radius: 8px;
   padding: 1.5rem;
   text-align: center;
-  background: #0f172a;
+  background: var(--bg-main, #0f172a);
   cursor: pointer;
   transition: border-color 0.2s;
 }
@@ -495,18 +441,18 @@
 
 .upload-icon {
   font-size: 1.8rem;
-  color: #94a3b8;
+  color: var(--text-muted, #94a3b8);
   margin-bottom: 0.5rem;
 }
 
 .upload-text {
-  color: #cbd5e1;
+  color: var(--text-secondary, #cbd5e1);
   font-size: 0.85rem;
   font-weight: 500;
 }
 
 .upload-hint {
-  color: #64748b;
+  color: var(--text-muted, #64748b);
   font-size: 0.75rem;
   margin-top: 0.25rem;
 }
@@ -518,7 +464,7 @@
   border-radius: 8px;
   overflow: hidden;
   margin-top: 0.5rem;
-  border: 1px solid #334155;
+  border: 1px solid var(--border-color, #334155);
 }
 
 .photo-preview-container img {
@@ -551,7 +497,7 @@
 
 .report-modal-footer {
   padding: 1.2rem 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.05));
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;

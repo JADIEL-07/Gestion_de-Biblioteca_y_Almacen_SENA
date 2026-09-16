@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { alertDialog } from '../../../../components/ui/ConfirmDialog';
-import { FiGrid, FiClock, FiAlertCircle, FiArchive, FiInfo, FiPackage } from 'react-icons/fi';
+import { FiGrid, FiClock, FiAlertCircle, FiArchive, FiPackage, FiEye, FiAlertTriangle } from 'react-icons/fi';
 import './AprendizLoans.css';
 
 interface LoanItem {
@@ -321,14 +321,16 @@ export const AprendizLoans: React.FC = () => {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <button className="btn-outline">Ver detalle</button>
+                        <button className="btn-icon-loan" title="Ver detalle">
+                          <FiEye size={16} />
+                        </button>
                         {(fi.status === 'ACTIVE' || fi.status === 'OVERDUE') && (
-                          <button 
-                            className="btn-outline" 
-                            style={{ borderColor: '#ef4444', color: '#ef4444' }}
+                          <button
+                            className="btn-icon-loan btn-icon-loan-danger"
+                            title="Reportar Daño"
                             onClick={() => handleOpenReportModal(fi)}
                           >
-                            Reportar Daño
+                            <FiAlertTriangle size={16} />
                           </button>
                         )}
                       </div>
@@ -338,20 +340,6 @@ export const AprendizLoans: React.FC = () => {
               })}
             </tbody>
           </table>
-        </div>
-      )}
-
-      {/* RENEWAL BANNER */}
-      {activeTab === 'activos' && activeItems.length > 0 && (
-        <div className="renewal-banner">
-          <div className="renewal-icon">
-            <FiInfo size={24} />
-          </div>
-          <div className="renewal-content">
-            <h4>¿Necesitas más tiempo?</h4>
-            <p>Puedes solicitar una renovación si el elemento no ha sido reservado por otra persona.</p>
-          </div>
-          <button className="btn-renewal">Solicitar renovación</button>
         </div>
       )}
 
@@ -365,9 +353,9 @@ export const AprendizLoans: React.FC = () => {
             </div>
             <form onSubmit={handleReportSubmit}>
               <div className="report-modal-body">
-                <div style={{ marginBottom: '1rem', background: '#0f172a', padding: '0.8rem', borderRadius: '8px', border: '1px solid #334155' }}>
-                  <span style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>Elemento en Reporte</span>
-                  <strong style={{ fontSize: '1rem', color: '#ffffff', marginTop: '0.2rem', display: 'block' }}>{selectedItemForReport.item.name}</strong>
+                <div style={{ marginBottom: '1rem', background: 'var(--bg-main, #0f172a)', padding: '0.8rem', borderRadius: '8px', border: '1px solid var(--border-color, #334155)' }}>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-muted, #94a3b8)', display: 'block', textTransform: 'uppercase', fontWeight: 600 }}>Elemento en Reporte</span>
+                  <strong style={{ fontSize: '1rem', color: 'var(--text-primary, #ffffff)', marginTop: '0.2rem', display: 'block' }}>{selectedItemForReport.item.name}</strong>
                   <span style={{ fontSize: '0.8rem', color: '#39A900', marginTop: '0.1rem', display: 'block' }}>Código: {selectedItemForReport.item.code}</span>
                 </div>
 
