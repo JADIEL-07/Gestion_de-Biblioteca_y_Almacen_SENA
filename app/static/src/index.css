@@ -264,13 +264,22 @@ body.has-impersonation-banner .main-nav {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 
-/* Dropdown Premium: Cristal Oscuro */
+/* Dropdown Premium: Cristal — oscuro por defecto, con variante clara.
+   Antes este panel (el selector "Ver como otro rol" de Administrador) se
+   quedaba siempre oscuro sin importar el tema activo, porque estos colores
+   estaban fijos con !important sin ninguna variante para tema claro. */
 .crystal-dark {
   background: rgba(10, 16, 30, 0.94) !important;
   backdrop-filter: blur(20px) saturate(180%);
   -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6) !important;
+}
+
+.theme-light .crystal-dark {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border: 1px solid rgba(15, 23, 42, 0.1) !important;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.18) !important;
 }
 
 /* Si el navegador/entorno no soporta backdrop-filter (por ejemplo, dentro de
@@ -280,6 +289,9 @@ body.has-impersonation-banner .main-nav {
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   .crystal-dark {
     background: rgba(8, 13, 24, 0.99) !important;
+  }
+  .theme-light .crystal-dark {
+    background: rgba(255, 255, 255, 0.99) !important;
   }
 }
 
@@ -331,6 +343,10 @@ body.has-impersonation-banner .main-nav {
   color: #fff;
 }
 
+.theme-light .dropdown-name {
+  color: #0f172a;
+}
+
 .dropdown-role {
   font-size: 0.75rem;
   color: var(--sena-green);
@@ -343,6 +359,10 @@ body.has-impersonation-banner .main-nav {
   height: 1px;
   background: rgba(255, 255, 255, 0.1);
   margin: 0.5rem 0;
+}
+
+.theme-light .dropdown-divider {
+  background: rgba(15, 23, 42, 0.1);
 }
 
 .dropdown-item {
@@ -361,10 +381,19 @@ body.has-impersonation-banner .main-nav {
   text-align: left;
 }
 
+.theme-light .dropdown-item {
+  color: rgba(15, 23, 42, 0.75);
+}
+
 .dropdown-item:hover {
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
   padding-left: 1.1rem;
+}
+
+.theme-light .dropdown-item:hover {
+  background: rgba(15, 23, 42, 0.06);
+  color: #0f172a;
 }
 
 .dropdown-item-icon {

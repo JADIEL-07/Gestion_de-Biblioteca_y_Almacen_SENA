@@ -458,11 +458,8 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
                     {!isGuest && (
                       <button
                         className={`btn-bookmark modal-bookmark ${selectedItem.is_saved ? 'active' : ''}`}
-                        onClick={(e) => {
-                          handleToggleSave(e, selectedItem.id);
-                          setSelectedItem({ ...selectedItem, is_saved: !selectedItem.is_saved });
-                        }}
-                        title={selectedItem.is_saved ? 'Quitar de guardados' : 'Guardar elemento'}
+                        disabled
+                        title={selectedItem.is_saved ? 'Guardado (usa la tarjeta del catálogo para quitarlo)' : 'Usa la tarjeta del catálogo para guardar este elemento'}
                       >
                         <FiBookmark />
                       </button>

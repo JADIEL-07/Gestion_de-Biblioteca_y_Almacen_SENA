@@ -301,6 +301,17 @@
 }
 .btn-bookmark.modal-bookmark.active { color: var(--sena-green); }
 
+/* Deshabilitado a propósito: guardar/quitar de favoritos se hace desde la
+   tarjeta del catálogo, no desde aquí — este ícono queda solo como
+   indicador de si ya está guardado. */
+.btn-bookmark.modal-bookmark:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.btn-bookmark.modal-bookmark:disabled:hover {
+  transform: none;
+}
+
 .modal-badge-row {
   display: flex;
   align-items: center;
