@@ -9,8 +9,20 @@ class Loan(db.Model):
     due_date = db.Column(db.DateTime, nullable=False)
     return_date = db.Column(db.DateTime)
     admin_id = db.Column(db.String(50), db.ForeignKey('users.id'), nullable=True) # El que realizó el préstamo
-    status = db.Column(db.String(50), default='ACTIVE') # ACTIVE, RETURNED, OVERDUE
-    fine_amount = db.Column(db.Float, default=0.0) # Multa si aplica
+    status = db.Column(db.String(50), default='ACTIVE') # ACTIVE, RETURNED, OVERDUE, NOT_RETURNED
+    fine_amount = db.Column(db.Float, default=0.0) # Multa automática por devolución tardía (informativa, no bloquea)
+
+    # Sanción manual que un Admin impone cuando el préstamo queda NOT_RETURNED
+    # (el aprendiz nunca devolvió el elemento). Mientras sanction_active sea
+    # True, el usuario no puede crear nuevas reservas (ver enqueue_reservation
+    # en reservation_queue.py) hasta que un Admin la "levante".
+    sanction_type = db.Column(db.String(20), nullable=True)          # 'DAYS' | 'CUSTOM'
+    sanction_days = db.Column(db.Integer, nullable=True)             # solo si sanction_type == 'DAYS'
+    sanction_description = db.Column(db.Text, nullable=True)         # motivo escrito por el Admin
+    sanction_active = db.Column(db.Boolean, default=False)
+    sanction_created_at = db.Column(db.DateTime, nullable=True)
+    sanction_lifted_at = db.Column(db.DateTime, nullable=True)
+    sanction_lifted_by = db.Column(db.String(50), db.ForeignKey('users.id'), nullable=True)
 
     # N:M relationship via LoanDetail
     details = db.relationship('LoanDetail', backref='loan', lazy=True)

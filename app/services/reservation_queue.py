@@ -18,6 +18,7 @@ from ..extensions import db
 from ..models.reservation import Reservation
 from ..models.item import Item, Status
 from ..models.movement import Notification
+from ..models.loan import Loan
 
 RESERVATION_HOLD_MINUTES = 15
 REMINDER_INTERVAL_HOURS = 1
@@ -65,6 +66,19 @@ def enqueue_reservation(user_id, item_id, admin_id=None):
     item = Item.query.get(item_id)
     if not item:
         return None, "Ítem no encontrado"
+
+    # Sanción activa (préstamo NOT_RETURNED sin levantar): bloquea cualquier
+    # reserva nueva, la haga el propio usuario o el staff en su nombre, hasta
+    # que un Admin la levante desde Historial de Préstamos.
+    sanctioned_loan = Loan.query.filter_by(
+        user_id=str(user_id), status='NOT_RETURNED', sanction_active=True
+    ).first()
+    if sanctioned_loan:
+        motivo = sanctioned_loan.sanction_description or 'sanción activa'
+        return None, (
+            f"No puedes reservar: tienes una sanción activa por el préstamo #{sanctioned_loan.id} "
+            f"que no se devolvió ({motivo}). Un administrador debe levantarla."
+        )
 
     # Evitar reservas duplicadas activas del mismo usuario para el mismo ítem
     duplicate = Reservation.query.filter(

@@ -229,6 +229,7 @@
 .status-pill.active { background: rgba(var(--sena-green-rgb), 0.1); color: var(--sena-green); }
 .status-pill.returned { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
 .status-pill.overdue { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+.status-pill.not_returned { background: rgba(239, 68, 68, 0.18); color: #ef4444; }
 
 .fine-badge {
   font-size: 0.8rem;
@@ -241,6 +242,267 @@
   background: rgba(239, 68, 68, 0.1);
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
+}
+
+/* Multa por sanción manual (préstamo NOT_RETURNED) — botón que abre el
+   panel de detalle. "Sí aplica" en verde mientras esté activa (bloquea
+   reservas); una vez levantada se ve atenuada, solo para consulta. */
+.fine-badge-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+
+.fine-badge-btn.sanction-active {
+  color: var(--sena-green);
+  background: rgba(var(--sena-green-rgb), 0.12);
+  border-color: rgba(var(--sena-green-rgb), 0.3);
+}
+.fine-badge-btn.sanction-active:hover {
+  background: rgba(var(--sena-green-rgb), 0.22);
+}
+
+.fine-badge-btn.sanction-lifted {
+  color: var(--admin-text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border-color: var(--admin-border-color);
+}
+.fine-badge-btn.sanction-lifted:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-mark-not-returned {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-mark-not-returned:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #ef4444;
+}
+
+/* ── Paneles: marcar no devuelto / detalle de sanción ──
+   Nombres propios (no ".modal-overlay"/".modal-content" a secas) para no
+   colisionar con los mismos nombres genéricos de otros archivos de este
+   bundle (UserManagement.css, AIKnowledgeManagement.css, etc.). */
+.loan-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 1rem;
+}
+
+.loan-modal-content {
+  background: var(--admin-bg-card);
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  border-radius: 20px;
+  border: 1px solid var(--admin-border-color);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+  animation: loanModalIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.loan-modal-content.mini {
+  max-width: 420px;
+}
+
+@keyframes loanModalIn {
+  from { opacity: 0; transform: scale(0.94) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.loan-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--admin-border-color);
+}
+
+.loan-modal-header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 1rem;
+  color: #ef4444;
+}
+
+.btn-close-loan-modal {
+  background: var(--admin-bg-main);
+  border: 1px solid var(--admin-border-color);
+  color: var(--admin-text-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.btn-close-loan-modal:hover { background: rgba(239, 68, 68, 0.15); color: #ef4444; }
+
+.loan-modal-body {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.loan-modal-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--admin-text-secondary);
+  line-height: 1.5;
+}
+
+.loan-form-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--admin-text-muted);
+  margin-top: 0.4rem;
+}
+
+.loan-form-input,
+.loan-form-textarea {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  background: var(--admin-bg-main);
+  border: 1px solid var(--admin-border-color);
+  border-radius: 10px;
+  color: var(--admin-text-primary);
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  resize: vertical;
+}
+.loan-form-input:focus,
+.loan-form-textarea:focus {
+  border-color: var(--sena-green);
+  box-shadow: 0 0 0 3px rgba(var(--sena-green-rgb), 0.12);
+}
+
+.sanction-type-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+.sanction-type-toggle button {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--admin-border-color);
+  background: var(--admin-bg-main);
+  color: var(--admin-text-secondary);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.sanction-type-toggle button.active {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.loan-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1.1rem 1.5rem;
+  border-top: 1px solid var(--admin-border-color);
+}
+
+.btn-loan-secondary,
+.btn-loan-danger,
+.btn-loan-primary {
+  padding: 0.65rem 1.2rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+.btn-loan-secondary {
+  background: transparent;
+  border-color: var(--admin-border-color);
+  color: var(--admin-text-secondary);
+}
+.btn-loan-secondary:hover { background: rgba(255, 255, 255, 0.05); }
+
+.btn-loan-danger {
+  background: #ef4444;
+  color: #fff;
+}
+.btn-loan-danger:hover { background: #dc2626; }
+.btn-loan-danger:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.btn-loan-primary {
+  background: var(--sena-green);
+  color: #fff;
+}
+.btn-loan-primary:hover { background: var(--sena-green-hover, #2d8600); }
+.btn-loan-primary:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.sanction-detail-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.sanction-detail-row label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--admin-text-muted);
+}
+.sanction-detail-row span,
+.sanction-detail-row p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--admin-text-primary);
+  line-height: 1.5;
+}
+
+.sanction-lifted-note {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: rgba(var(--sena-green-rgb), 0.1);
+  border: 1px solid rgba(var(--sena-green-rgb), 0.25);
+  border-radius: 10px;
+  color: var(--sena-green);
+  font-size: 0.82rem;
 }
 
 .td-center {

@@ -66,6 +66,15 @@ def _apply_runtime_migrations():
         # Encuesta rápida ("¿te sirvió Soporte?") que el asistente pregunta en
         # cuanto Soporte cierra el ticket.
         "ALTER TABLE tickets ADD COLUMN IF NOT EXISTS satisfaction VARCHAR(20)",
+        # Sanción manual sobre un préstamo NOT_RETURNED: bloquea reservas del
+        # usuario hasta que un Admin la levanta.
+        "ALTER TABLE loans ADD COLUMN IF NOT EXISTS sanction_type VARCHAR(20)",
+        "ALTER TABLE loans ADD COLUMN IF NOT EXISTS sanction_days INTEGER",
+        "ALTER TABLE loans ADD COLUMN IF NOT EXISTS sanction_description TEXT",
+        "ALTER TABLE loans ADD COLUMN IF NOT EXISTS sanction_active BOOLEAN DEFAULT FALSE",
+        "ALTER TABLE loans ADD COLUMN IF NOT EXISTS sanction_created_at TIMESTAMP",
+        "ALTER TABLE loans ADD COLUMN IF NOT EXISTS sanction_lifted_at TIMESTAMP",
+        "ALTER TABLE loans ADD COLUMN IF NOT EXISTS sanction_lifted_by VARCHAR(50)",
     ]
     for stmt in column_migrations:
         try:

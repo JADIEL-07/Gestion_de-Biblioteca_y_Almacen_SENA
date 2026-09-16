@@ -97,6 +97,12 @@ def get_loans():
             "return_date": loan.return_date.isoformat() if loan.return_date else None,
             "status": loan.status,
             "fine_amount": loan.fine_amount,
+            "sanction_type": loan.sanction_type,
+            "sanction_days": loan.sanction_days,
+            "sanction_description": loan.sanction_description,
+            "sanction_active": bool(loan.sanction_active),
+            "sanction_created_at": loan.sanction_created_at.isoformat() if loan.sanction_created_at else None,
+            "sanction_lifted_at": loan.sanction_lifted_at.isoformat() if loan.sanction_lifted_at else None,
             "items": items
         })
     return jsonify(result), 200
@@ -296,6 +302,112 @@ def return_loan(id):
     db.session.commit()
 
     return jsonify({"success": True, "message": "Préstamo devuelto exitosamente"}), 200
+
+
+def _require_admin():
+    """Devuelve (admin, None) o (None, (response, status)) si no es Admin."""
+    admin_id = get_jwt_identity()
+    admin = User.query.get(admin_id)
+    if not admin or not admin.role or admin.role.name != 'ADMIN':
+        return None, (jsonify({"error": "Solo un administrador puede realizar esta acción."}), 403)
+    return admin, None
+
+
+@loan_bp.route('/<int:id>/mark-not-returned', methods=['POST'])
+@jwt_required()
+def mark_loan_not_returned(id):
+    """El aprendiz nunca devolvió el elemento: cierra el préstamo como
+    NOT_RETURNED e impone una sanción que le bloquea nuevas reservas hasta
+    que un Admin la levante (ver enqueue_reservation)."""
+    admin, err = _require_admin()
+    if err:
+        return err
+
+    loan = Loan.query.get_or_404(id)
+    if loan.status not in ('ACTIVE', 'OVERDUE'):
+        return jsonify({"error": "Este préstamo ya está cerrado (devuelto o ya marcado como no devuelto)."}), 400
+
+    data = request.get_json() or {}
+    sanction_type = (data.get('sanction_type') or '').upper()
+    if sanction_type not in ('DAYS', 'CUSTOM'):
+        return jsonify({"error": "sanction_type debe ser 'DAYS' o 'CUSTOM'."}), 400
+
+    description = (data.get('sanction_description') or '').strip()
+    sanction_days = None
+    if sanction_type == 'DAYS':
+        try:
+            sanction_days = int(data.get('sanction_days'))
+        except (TypeError, ValueError):
+            return jsonify({"error": "sanction_days debe ser un número de días."}), 400
+        if sanction_days <= 0:
+            return jsonify({"error": "sanction_days debe ser mayor a 0."}), 400
+        if not description:
+            description = f"Suspensión de reservas por {sanction_days} día{'s' if sanction_days != 1 else ''} por no devolver el elemento."
+    elif not description:
+        return jsonify({"error": "Escribe una descripción para la sanción."}), 400
+
+    loan.status = 'NOT_RETURNED'
+    loan.sanction_type = sanction_type
+    loan.sanction_days = sanction_days
+    loan.sanction_description = description
+    loan.sanction_active = True
+    loan.sanction_created_at = datetime.now()
+    loan.sanction_lifted_at = None
+    loan.sanction_lifted_by = None
+
+    from ..models.audit_log import AuditLog
+    db.session.add(AuditLog(
+        user_id=admin.id, action="LOAN_NOT_RETURNED", entity="Loan", entity_id=str(loan.id),
+        details=f"Préstamo #{loan.id} marcado como NO DEVUELTO. Sanción: {description}"
+    ))
+    db.session.commit()
+
+    from ..services.reservation_queue import push_notification
+    push_notification(
+        loan.user_id, 'LOAN_SANCTION',
+        'Sanción aplicada',
+        f'Tu préstamo #{loan.id} se marcó como no devuelto. {description} '
+        'No podrás hacer nuevas reservas hasta que se levante la sanción.',
+        related_type='loan', related_id=loan.id,
+    )
+
+    return jsonify({"success": True, "message": "Préstamo marcado como no devuelto y sanción aplicada."}), 200
+
+
+@loan_bp.route('/<int:id>/lift-sanction', methods=['POST'])
+@jwt_required()
+def lift_loan_sanction(id):
+    """Levanta la sanción de un préstamo NOT_RETURNED: el usuario vuelve a
+    poder reservar. El préstamo queda como historial (no cambia su estado)."""
+    admin, err = _require_admin()
+    if err:
+        return err
+
+    loan = Loan.query.get_or_404(id)
+    if not loan.sanction_active:
+        return jsonify({"error": "Este préstamo no tiene una sanción activa."}), 400
+
+    loan.sanction_active = False
+    loan.sanction_lifted_at = datetime.now()
+    loan.sanction_lifted_by = admin.id
+
+    from ..models.audit_log import AuditLog
+    db.session.add(AuditLog(
+        user_id=admin.id, action="LOAN_SANCTION_LIFTED", entity="Loan", entity_id=str(loan.id),
+        details=f"Sanción del préstamo #{loan.id} levantada."
+    ))
+    db.session.commit()
+
+    from ..services.reservation_queue import push_notification
+    push_notification(
+        loan.user_id, 'LOAN_SANCTION_LIFTED',
+        'Sanción levantada',
+        f'Tu sanción por el préstamo #{loan.id} fue levantada. Ya puedes volver a hacer reservas.',
+        related_type='loan', related_id=loan.id,
+    )
+
+    return jsonify({"success": True, "message": "Sanción levantada."}), 200
+
 
 @loan_bp.route('/my', methods=['GET'])
 @jwt_required()
