@@ -131,7 +131,14 @@ def get_items():
     else:
         dep_id = own_dep_id if is_staff_scoped else request.args.get('dependency_id')
         if dep_id and dep_id not in ['ALL', '', 'undefined', 'null']:
-            query = query.join(Location, Item.location_id == Location.id).filter(Location.dependency_id == dep_id)
+            # OJO: se incluyen también los elementos cuya ubicación tiene
+            # dependency_id NULL ("compartida"/de antes de esta separación
+            # por áreas) — si no, TODO el inventario creado antes de esta
+            # función quedaba invisible para Bibliotecario/Almacenista (el
+            # Admin sí lo seguía viendo porque no aplica este filtro).
+            query = query.join(Location, Item.location_id == Location.id).filter(
+                or_(Location.dependency_id == dep_id, Location.dependency_id.is_(None))
+            )
 
     try:
         items = query.order_by(Item.id.desc()).all()
