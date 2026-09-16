@@ -12,6 +12,17 @@ class Config:
         'pool_pre_ping': True,
         'pool_recycle': 300,
     }
+    # pool_size/max_overflow solo aplican al pool real de Postgres (QueuePool)
+    # — SQLite (desarrollo local, sqlite:///biblioteca.db) usa StaticPool/
+    # NullPool y ni siquiera acepta esos argumentos, así que agregarlos
+    # incondicionalmente rompía el arranque en local.
+    # Con gunicorn en modo gthread (varios hilos por worker, ver Dockerfile)
+    # puede haber más de 5 hilos pidiendo una conexión a la vez dentro del
+    # mismo worker — el default de SQLAlchemy (pool_size=5) se quedaba corto
+    # y esos hilos esperaban en cola por una conexión libre.
+    if SQLALCHEMY_DATABASE_URI.startswith('postgresql'):
+        SQLALCHEMY_ENGINE_OPTIONS['pool_size'] = 10
+        SQLALCHEMY_ENGINE_OPTIONS['max_overflow'] = 10
     MAX_CONTENT_LENGTH             = 16 * 1024 * 1024  # Límite de 16MB para fotos
 
     JWT_SECRET_KEY                 = os.environ.get('JWT_SECRET_KEY')

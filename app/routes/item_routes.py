@@ -7,6 +7,7 @@ from ..models.user import User, Role
 from ..models.saved_item import SavedItem
 from ..models.audit_log import AuditLog
 from sqlalchemy import or_, String
+from sqlalchemy.orm import joinedload
 import json
 
 items_bp = Blueprint('items', __name__)
@@ -143,7 +144,14 @@ def get_items():
             )
 
     try:
-        items = query.order_by(Item.id.desc()).all()
+        # joinedload: serialize_item() lee item.category/.status_obj/.location
+        # por cada elemento — sin esto, SQLAlchemy hace una consulta aparte por
+        # cada categoría/estado/ubicación DISTINTOS que aparezcan en la lista
+        # (N+1). Con un catálogo de decenas de elementos, eso eran varias
+        # decenas de idas y vueltas extra a la base de datos en cada carga.
+        items = (query
+                 .options(joinedload(Item.category), joinedload(Item.status_obj), joinedload(Item.location))
+                 .order_by(Item.id.desc()).all())
 
         user_id = get_jwt_identity()
         saved_ids = set()
@@ -174,7 +182,9 @@ def get_saved_items():
     saved = (SavedItem.query.filter_by(user_id=user_id)
              .order_by(SavedItem.created_at.desc()).all())
     saved_ids = {s.item_id for s in saved}
-    items_by_id = {i.id: i for i in Item.query.filter(Item.id.in_(saved_ids), Item.is_deleted == False).all()}
+    items_by_id = {i.id: i for i in Item.query
+                   .options(joinedload(Item.category), joinedload(Item.status_obj), joinedload(Item.location))
+                   .filter(Item.id.in_(saved_ids), Item.is_deleted == False).all()}
     # Se respeta el orden de "guardado más reciente primero"; si un elemento
     # ya no existe (o fue dado de baja) se omite en silencio.
     ordered = [items_by_id[s.item_id] for s in saved if s.item_id in items_by_id]

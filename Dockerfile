@@ -41,4 +41,12 @@ COPY --from=frontend /build/dist ./app/static/dist
 EXPOSE 5000
 
 # wsgi:app levanta el túnel SSH (si hay credenciales) y hace la init/seed de BD.
-CMD ["bash", "-c", "gunicorn --bind 0.0.0.0:5000 --workers 2 wsgi:app"]
+# --workers 3 --threads 4 --worker-class gthread: con el worker sync por
+# defecto (y solo 2), cada request bloquea todo un worker hasta terminar
+# (consulta a la BD, llamada a Gemini, envío de correo...) — con el chat
+# interno, las notificaciones y el asistente haciendo sondeo cada pocos
+# segundos, era fácil saturar esos 2 workers y que el resto de peticiones
+# quedara en cola (la app se sentía lenta). gthread da 3×4=12 peticiones
+# I/O-bound en simultáneo con un costo de memoria mucho menor que sumar
+# más workers completos.
+CMD ["bash", "-c", "gunicorn --bind 0.0.0.0:5000 --workers 3 --threads 4 --worker-class gthread --timeout 120 wsgi:app"]
