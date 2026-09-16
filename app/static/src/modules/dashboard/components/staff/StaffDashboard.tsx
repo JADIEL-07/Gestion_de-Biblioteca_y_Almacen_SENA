@@ -10,7 +10,6 @@ import { StaffHome } from './StaffHome';
 import { ProfileOverlay } from '../admin/ProfileOverlay';
 import '../admin/AdminDashboard.css';
 import '../UserDashboard.css';
-import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from '../PersonalAssistant';
 import { NotificationsPage } from '../NotificationsPage';
 import { DashboardBg } from '../DashboardBg';
@@ -87,11 +86,8 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ user, onLogout, 
 
         <div className="topnav-right">
           <div className="topnav-links hidden-mobile">
-            <a href="#contact">
+            <a href="#" onClick={(e) => { e.preventDefault(); navigate('/contacto'); }}>
               <FiMail className="nav-icon" /> CONTACTO
-            </a>
-            <a href="#help">
-              <AnimatedRobotIcon className="nav-icon" /> ASISTENTE PERSONAL
             </a>
           </div>
 
