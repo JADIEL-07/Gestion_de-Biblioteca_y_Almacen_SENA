@@ -424,27 +424,27 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
           </div>
 
           {/* Escáner */}
-          <div style={{ background: 'var(--admin-bg-card, #1e293b)', borderRadius: '12px', border: '1px solid var(--admin-border-color, #334155)', padding: '1.75rem' }}>
-            <h2 style={{ margin: '0 0 0.25rem', color: 'var(--sena-green, #39A900)', fontSize: '1.1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ background: 'var(--admin-bg-card, #1e293b)', borderRadius: '12px', border: '1px solid var(--admin-border-color, #334155)', padding: '1.1rem 1.25rem' }}>
+            <h2 style={{ margin: '0 0 0.2rem', color: 'var(--sena-green, #39A900)', fontSize: '1rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <FiCamera /> Escáner rápido
             </h2>
-            <p style={{ margin: '0 0 1.5rem', color: 'var(--admin-text-muted, #64748b)', fontSize: '0.85rem' }}>
+            <p style={{ margin: '0 0 0.9rem', color: 'var(--admin-text-muted, #64748b)', fontSize: '0.82rem' }}>
               Escanea el código QR de la reserva o ingresa el token manualmente.
             </p>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
-              <button 
+            <div style={{ display: 'flex', gap: '0.85rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
                 type="button"
-                onClick={() => setScannerStarted(true)} 
+                onClick={() => setScannerStarted(true)}
                 className="btn-scan-hero"
                 title="Abrir cámara"
               >
                 <span className="scan-emoji" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <MdQrCodeScanner size={32} />
+                  <MdQrCodeScanner size={24} />
                 </span>
               </button>
-              
+
               <div style={{ flex: 1, minWidth: '280px' }}>
-                <form onSubmit={handleScanSubmit} style={{ display: 'flex', flexDirection: 'row', gap: '0.75rem', height: '60px' }}>
+                <form onSubmit={handleScanSubmit} style={{ display: 'flex', flexDirection: 'row', gap: '0.6rem', height: '46px' }}>
                   <div style={{ position: 'relative', flex: 1 }}>
                     <input
                       ref={scanInputRef}
@@ -455,21 +455,21 @@ export const StaffLoans: React.FC<{ user: any }> = ({ user }) => {
                       autoFocus
                       style={{
                         width: '100%', height: '100%', padding: '0 2.5rem 0 1rem',
-                        borderRadius: '12px', border: '1px solid var(--admin-border-color, #334155)',
+                        borderRadius: '10px', border: '1px solid var(--admin-border-color, #334155)',
                         background: 'var(--admin-bg, #0f172a)', color: 'var(--admin-text-primary, #f8fafc)',
-                        fontSize: '0.95rem', boxSizing: 'border-box', outline: 'none'
+                        fontSize: '0.9rem', boxSizing: 'border-box', outline: 'none'
                       }}
                     />
-                    <FiSearch size={16} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-muted, #64748b)' }} />
+                    <FiSearch size={15} style={{ position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--admin-text-muted, #64748b)' }} />
                   </div>
                   <button id="scan-form-submit" type="submit" style={{
-                    padding: '0 1.5rem',
+                    padding: '0 1.25rem',
                     background: 'var(--sena-green, #39A900)', color: 'white',
-                    border: 'none', borderRadius: '12px', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer',
-                    whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    border: 'none', borderRadius: '10px', fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer',
+                    whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.4rem',
                     boxShadow: '0 4px 12px rgba(57, 169, 0, 0.2)'
                   }}>
-                    <FiCheckCircle size={18} /> Procesar
+                    <FiCheckCircle size={16} /> Procesar
                   </button>
                 </form>
               </div>
