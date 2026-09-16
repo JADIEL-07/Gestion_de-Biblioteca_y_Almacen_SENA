@@ -1125,6 +1125,17 @@ body.has-impersonation-banner .dashboard-main-content {
     display: none;
   }
 
+  /* Mismo problema que .dashboard-topnav: este panel (drawer móvil) y su
+     fondo están anclados a top:70px de forma fija, sin contar el banner de
+     "viendo como". Con el banner activo el navbar se pinta más abajo, así
+     que este panel arrancaba antes (tapado tras el navbar desplazado) en
+     vez de justo debajo de él. */
+  body.has-impersonation-banner .dashboard-sidebar,
+  body.has-impersonation-banner .admin-sidebar,
+  body.has-impersonation-banner .sidebar-backdrop {
+    top: calc(70px + var(--impersonation-banner-height, 0px));
+  }
+
   /* El menú crece para empujar el pie abajo cuando sobra sitio; nunca se comprime. */
   .dashboard-sidebar .sidebar-menu,
   .admin-sidebar .admin-sidebar-menu {
