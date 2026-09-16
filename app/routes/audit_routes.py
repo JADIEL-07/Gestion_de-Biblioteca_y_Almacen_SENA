@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..models.audit_log import AuditLog
 from ..models.user import User
 from sqlalchemy import func, or_, String
@@ -8,9 +8,15 @@ audit_bp = Blueprint('audit', __name__)
 
 def admin_required(fn):
     def wrapper(*args, **kwargs):
-        claims = get_jwt()
-        role = str(claims.get('role', '')).upper()
-        if role not in ['ADMIN', 'ADMINISTRADOR']:
+        # El rol se valida contra la BD, no contra el claim "role" del JWT:
+        # ese claim se graba en el token al iniciar sesión y no se actualiza
+        # solo. Si un Admin le daba el rol ADMIN a alguien que ya tenía la
+        # sesión abierta, esa persona seguía cargando con el token viejo (con
+        # el rol anterior) y esta ruta la rechazaba con "Admin privileges
+        # required" aunque en la BD ya figurara como Administrador.
+        user_id = get_jwt_identity()
+        user = User.query.get(user_id)
+        if not user or not user.role or user.role.name.upper() not in ['ADMIN', 'ADMINISTRADOR']:
             return jsonify({"error": "Admin privileges required"}), 403
         return fn(*args, **kwargs)
     wrapper.__name__ = fn.__name__
