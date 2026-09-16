@@ -131,11 +131,15 @@ def log_change(target, action):
 # Redefinimos los listeners para pasar 'connection'
 def register_audit_listeners_v2():
     from ..models.user import User, Role
-    from ..models.item import Item
-    from ..models.loan import Loan
-    from ..models.reservation import Reservation
-    
-    models = [User, Role, Item, Loan, Reservation]
+
+    # Item, Loan y Reservation SALIERON de esta lista: ahora se auditan con
+    # llamadas manuales en sus propias rutas (ITEM_CREATED/UPDATED/DELETED,
+    # RESERVATION_CREATED/CANCELLED/APPROVED, LOAN_CREATED/RETURNED), que dan
+    # una acción con nombre propio, un entity_name resuelto correctamente y
+    # un detalle legible — en vez del volcado genérico de todas las columnas
+    # que hacía este listener, que además quedaba DUPLICADO con esas llamadas
+    # manuales (dos registros de auditoría por cada cambio).
+    models = [User, Role]
 
     for model in models:
         @event.listens_for(model, 'after_insert')

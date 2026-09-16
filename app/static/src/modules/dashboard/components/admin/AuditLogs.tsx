@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FiShield, FiRefreshCw, FiSearch, FiCalendar, FiUser, 
-  FiEye, FiFilter, FiActivity, FiGlobe, FiPlus
+import {
+  FiShield, FiRefreshCw, FiSearch, FiCalendar, FiUser,
+  FiEye, FiFilter, FiActivity, FiGlobe, FiPlus, FiTrash2
 } from 'react-icons/fi';
+import { CustomSelect } from './CustomSelect';
 import './AuditLogs.css';
 
 interface AuditLog {
@@ -21,6 +22,187 @@ interface AuditLog {
   details: string | null;
   created_at: string;
 }
+
+type ActionCategory = 'login' | 'insert' | 'update' | 'delete' | 'security';
+
+interface ActionMeta {
+  label: string;
+  category: ActionCategory;
+  describe: (log: AuditLog) => string;
+}
+
+const who = (log: AuditLog) => log.user || 'Un usuario del sistema';
+const named = (log: AuditLog) => log.entity_name ? `"${log.entity_name}"` : (log.entity_id ? `el registro #${log.entity_id}` : 'el registro');
+
+// Cada acción que puede quedar en audit_logs tiene aquí su propia etiqueta
+// (para el badge/pill) y su propia descripción narrativa (para el modal de
+// detalle) — antes esa descripción se adivinaba con unos pocos `includes()`
+// genéricos y la mayoría de acciones caían en un mensaje de relleno poco
+// concreto. El backend (ver ACTION_BUCKETS en audit_routes.py) usa las
+// MISMAS 5 categorías que `category` aquí — si se agrega una acción nueva
+// hay que sumarla en los dos lugares.
+const ACTION_META: Record<string, ActionMeta> = {
+  // ── Inicios de sesión ──────────────────────────────────────────────
+  LOGIN_SUCCESS: { label: 'Inicio de sesión', category: 'login',
+    describe: log => `${who(log)} inició sesión correctamente desde la IP ${log.ip}.` },
+  LOGIN_SUCCESS_2FA: { label: 'Inicio de sesión (2FA)', category: 'login',
+    describe: log => `${who(log)} completó la verificación en dos pasos e inició sesión desde la IP ${log.ip}.` },
+  LOGIN_SUCCESS_DEVICE: { label: 'Inicio de sesión (dispositivo nuevo)', category: 'login',
+    describe: log => `${who(log)} autorizó un dispositivo nuevo desde el enlace del correo e inició sesión desde la IP ${log.ip}.` },
+  LOGIN_FAILED: { label: 'Contraseña incorrecta', category: 'login',
+    describe: log => `Se intentó iniciar sesión con la contraseña incorrecta en la cuenta de ${who(log)}, desde la IP ${log.ip}.` },
+  LOGIN_FAILED_NO_USER: { label: 'Usuario inexistente', category: 'login',
+    describe: log => `Se intentó iniciar sesión con un número de documento que no existe en el sistema, desde la IP ${log.ip}.` },
+  LOGIN_ON_DELETED: { label: 'Intento sobre cuenta eliminada', category: 'login',
+    describe: log => `Se intentó iniciar sesión en la cuenta de ${who(log)}, que ya fue eliminada, desde la IP ${log.ip}.` },
+  LOGIN_BLOCKED_SHADOW_ACCOUNT: { label: 'Bloqueo: cuenta de prueba', category: 'login',
+    describe: log => `Se intentó iniciar sesión directamente en una cuenta "sombra" (de prueba, solo para el modo "Ver como otro rol") — el sistema lo bloqueó, desde la IP ${log.ip}.` },
+  LOGIN_INACTIVE: { label: 'Cuenta inactiva', category: 'login',
+    describe: log => `${who(log)} intentó iniciar sesión pero su cuenta está desactivada, desde la IP ${log.ip}.` },
+  LOGIN_BLOCKED_PERMANENT: { label: 'Cuenta bloqueada', category: 'login',
+    describe: log => `${who(log)} intentó iniciar sesión pero su cuenta está bloqueada por seguridad, desde la IP ${log.ip}.` },
+  LOGOUT: { label: 'Cierre de sesión', category: 'login',
+    describe: log => `${who(log)} cerró sesión.` },
+
+  // ── Creaciones ──────────────────────────────────────────────────────
+  ACCOUNT_VERIFIED_AND_CREATED: { label: 'Cuenta verificada y creada', category: 'insert',
+    describe: log => `${who(log)} verificó su correo y completó el registro de su cuenta.` },
+  ACCOUNT_PROMOTED_FROM_PENDING: { label: 'Registro pendiente rescatado', category: 'insert',
+    describe: log => `Se creó la cuenta de ${who(log)} a partir de un registro que había quedado pendiente, sin volver a pedir el código de verificación.` },
+  USER_CREATED: { label: 'Usuario creado', category: 'insert',
+    describe: log => `${who(log)} registró un nuevo usuario en el sistema.` },
+  ITEM_CREATED: { label: 'Elemento agregado', category: 'insert',
+    describe: log => `${who(log)} agregó ${named(log)} al inventario.` },
+  CATEGORY_CREATED: { label: 'Categoría creada', category: 'insert',
+    describe: log => `${who(log)} creó la categoría ${named(log)}.` },
+  LOCATION_CREATED: { label: 'Ubicación creada', category: 'insert',
+    describe: log => `${who(log)} creó la ubicación ${named(log)}.` },
+  RESERVATION_CREATED: { label: 'Reserva creada', category: 'insert',
+    describe: log => `${who(log)} reservó ${named(log)}.` },
+  MAINTENANCE_CREATED: { label: 'Reporte de mantenimiento', category: 'insert',
+    describe: log => `${who(log)} reportó una falla en ${named(log)} y lo envió a mantenimiento.` },
+  SPARE_PART_CREATED: { label: 'Solicitud de repuesto', category: 'insert',
+    describe: log => `${who(log)} solicitó un repuesto para ${named(log)}.` },
+  SALIDA_CREATED: { label: 'Salida registrada', category: 'insert',
+    describe: log => `${who(log)} registró una salida controlada de ${named(log)}.` },
+  LOAN_CREATED: { label: 'Préstamo creado', category: 'insert',
+    describe: log => `${who(log)} entregó en préstamo ${named(log)}.` },
+  INSERT: { label: 'Registro creado', category: 'insert',
+    describe: log => `Se creó un nuevo registro en "${log.entity}" (${named(log)}).` },
+
+  // ── Ediciones ───────────────────────────────────────────────────────
+  PROFILE_UPDATED: { label: 'Perfil actualizado', category: 'update',
+    describe: log => `${who(log)} actualizó los datos de su perfil personal.` },
+  PROFILE_IMAGE_UPDATED: { label: 'Foto de perfil actualizada', category: 'update',
+    describe: log => `${who(log)} actualizó su foto de perfil.` },
+  ROLE_CHANGED: { label: 'Rol cambiado', category: 'update',
+    describe: log => `${who(log)} cambió el rol de un usuario.` },
+  EMAIL_CHANGED: { label: 'Correo actualizado', category: 'update',
+    describe: log => `${who(log)} cambió el correo vinculado a su cuenta.` },
+  ITEM_UPDATED: { label: 'Elemento editado', category: 'update',
+    describe: log => `${who(log)} editó los datos de ${named(log)}.` },
+  CATEGORY_UPDATED: { label: 'Categoría editada', category: 'update',
+    describe: log => `${who(log)} editó la categoría ${named(log)}.` },
+  LOCATION_UPDATED: { label: 'Ubicación editada', category: 'update',
+    describe: log => `${who(log)} editó la ubicación ${named(log)}.` },
+  RESERVATION_APPROVED: { label: 'Reserva → Préstamo', category: 'update',
+    describe: log => `${who(log)} aprobó la reserva de ${named(log)} y generó un préstamo.` },
+  MAINTENANCE_STATUS_UPDATED: { label: 'Estado de mantenimiento', category: 'update',
+    describe: log => `${who(log)} cambió el estado del mantenimiento de ${named(log)}.` },
+  MAINTENANCE_COMPLETED: { label: 'Mantenimiento completado', category: 'update',
+    describe: log => `${who(log)} marcó como completado el mantenimiento de ${named(log)}.` },
+  SPARE_PART_RECEIVED: { label: 'Repuesto recibido', category: 'update',
+    describe: log => `${who(log)} marcó como recibido el repuesto de ${named(log)}.` },
+  USER_DEACTIVATED: { label: 'Usuario desactivado', category: 'update',
+    describe: log => `${who(log)} desactivó la cuenta de un usuario.` },
+  USER_REACTIVATED: { label: 'Usuario reactivado', category: 'update',
+    describe: log => `${who(log)} reactivó la cuenta de un usuario.` },
+  USER_UNBLOCKED: { label: 'Usuario desbloqueado', category: 'update',
+    describe: log => `${who(log)} desbloqueó manualmente una cuenta.` },
+  LOAN_RETURNED: { label: 'Préstamo devuelto', category: 'update',
+    describe: log => `${who(log)} registró la devolución de ${named(log)}.` },
+  LOAN_SANCTION_LIFTED: { label: 'Sanción levantada', category: 'update',
+    describe: log => `${who(log)} levantó la sanción asociada a un préstamo.` },
+  SALIDA_RETURNED: { label: 'Salida devuelta', category: 'update',
+    describe: log => `${who(log)} registró el regreso de una salida controlada.` },
+  SALIDA_CLOSED: { label: 'Salida cerrada', category: 'update',
+    describe: log => `${who(log)} cerró una salida controlada.` },
+  TOS_ACCEPTED: { label: 'Términos aceptados', category: 'update',
+    describe: log => `${who(log)} aceptó los Términos y Condiciones actualizados.` },
+  UPDATE: { label: 'Registro editado', category: 'update',
+    describe: log => `Se editó un registro en "${log.entity}" (${named(log)}).` },
+
+  // ── Eliminaciones ───────────────────────────────────────────────────
+  USER_HARD_DELETED: { label: 'Usuario eliminado', category: 'delete',
+    describe: log => `${who(log)} eliminó permanentemente la cuenta de un usuario y sus datos asociados.` },
+  ACCOUNT_DELETED: { label: 'Cuenta eliminada', category: 'delete',
+    describe: log => `${who(log)} eliminó su propia cuenta.` },
+  ITEM_DELETED: { label: 'Elemento eliminado', category: 'delete',
+    describe: log => `${who(log)} eliminó ${named(log)} del inventario (su historial de préstamos y reservas se conserva).` },
+  CATEGORY_DELETED: { label: 'Categoría eliminada', category: 'delete',
+    describe: log => `${who(log)} eliminó la categoría ${named(log)}.` },
+  LOCATION_DELETED: { label: 'Ubicación eliminada', category: 'delete',
+    describe: log => `${who(log)} eliminó la ubicación ${named(log)}.` },
+  RESERVATION_CANCELLED: { label: 'Reserva cancelada', category: 'delete',
+    describe: log => `${who(log)} canceló la reserva de ${named(log)}.` },
+  DELETE: { label: 'Registro eliminado', category: 'delete',
+    describe: log => `Se eliminó un registro de "${log.entity}" (${named(log)}).` },
+
+  // ── Seguridad / Bloqueos ────────────────────────────────────────────
+  USER_BLOCKED_AUTO: { label: 'Bloqueo automático', category: 'security',
+    describe: log => `El sistema bloqueó automáticamente la cuenta de ${who(log)} tras varios intentos fallidos de inicio de sesión.` },
+  CHANGE_PASSWORD_FAILED: { label: 'Cambio de contraseña fallido', category: 'security',
+    describe: log => `${who(log)} intentó cambiar su contraseña, pero la contraseña actual ingresada era incorrecta.` },
+  PASSWORD_RESET_REQUEST: { label: 'Recuperación solicitada', category: 'security',
+    describe: log => `Se solicitó un enlace de recuperación de contraseña para la cuenta de ${who(log)}.` },
+  PASSWORD_RESET_SUCCESS: { label: 'Contraseña recuperada', category: 'security',
+    describe: log => `${who(log)} restableció su contraseña usando el enlace de recuperación enviado por correo.` },
+  PASSWORD_CHANGED: { label: 'Contraseña cambiada', category: 'security',
+    describe: log => `${who(log)} cambió su contraseña desde Configuración.` },
+  PASSWORD_CHANGED_FORCED: { label: 'Cambio de contraseña forzado', category: 'security',
+    describe: log => `${who(log)} cambió su contraseña porque el sistema se lo exigió, tras una recuperación.` },
+  TRUSTED_DEVICE_FORGOTTEN: { label: 'Dispositivo olvidado', category: 'security',
+    describe: log => `${who(log)} eliminó un dispositivo de su lista de dispositivos de confianza.` },
+  TRUSTED_DEVICES_CLEARED: { label: 'Dispositivos borrados', category: 'security',
+    describe: log => `${who(log)} eliminó todos sus dispositivos de confianza; el próximo inicio de sesión en cada uno volverá a pedir autorización.` },
+  DEVICE_APPROVAL_SENT: { label: 'Correo de autorización enviado', category: 'security',
+    describe: log => `Se envió un correo a ${who(log)} para autorizar el inicio de sesión desde un dispositivo nuevo.` },
+  DEVICE_APPROVED: { label: 'Dispositivo autorizado', category: 'security',
+    describe: log => `${who(log)} autorizó un dispositivo nuevo desde el enlace enviado por correo.` },
+  '2FA_EMAIL_SENT': { label: 'Código 2FA enviado', category: 'security',
+    describe: log => `Se envió un código de verificación en dos pasos al correo de ${who(log)}.` },
+  '2FA_AUTHENTICATOR_GENERATED': { label: 'Authenticator generado', category: 'security',
+    describe: log => `${who(log)} generó (o regeneró) el código para vincular una app autenticadora (Google Authenticator u otra).` },
+  LOAN_NOT_RETURNED: { label: 'Préstamo no devuelto', category: 'security',
+    describe: log => `${who(log)} marcó un préstamo como no devuelto y aplicó la sanción correspondiente.` },
+};
+
+const IMPERSONATE_PREFIX = 'IMPERSONATE_START:';
+
+function actionMeta(action: string): ActionMeta {
+  if (action.startsWith(IMPERSONATE_PREFIX)) {
+    const role = action.slice(IMPERSONATE_PREFIX.length) || 'otro rol';
+    return {
+      label: 'Simulación de rol',
+      category: 'security',
+      describe: log => `${who(log)} entró en modo "Ver como" para probar el sistema como ${role}.`,
+    };
+  }
+  return ACTION_META[action] || {
+    label: action.replace(/_/g, ' '),
+    category: 'update',
+    describe: log => `Se registró la acción "${log.action}" sobre ${named(log)} en el módulo de ${log.entity}.`,
+  };
+}
+
+const ACTION_TYPE_OPTIONS = [
+  { id: 'ALL', name: 'Todas las acciones' },
+  { id: 'LOGIN', name: 'Inicios de sesión' },
+  { id: 'INSERT', name: 'Creaciones (Nuevos)' },
+  { id: 'UPDATE', name: 'Ediciones (Cambios)' },
+  { id: 'DELETE', name: 'Eliminaciones' },
+  { id: 'SECURITY', name: 'Seguridad / Bloqueos' },
+];
 
 export const AuditLogs: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -72,15 +254,8 @@ export const AuditLogs: React.FC = () => {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, startDate, endDate, actionType]);
 
-  const getActionClass = (action: string) => {
-    const act = action.toUpperCase();
-    if (act.includes('LOGIN')) return 'login';
-    if (act.includes('INSERT')) return 'insert';
-    if (act.includes('UPDATE')) return 'update';
-    if (act.includes('DELETE')) return 'delete';
-    if (act.includes('SECURITY')) return 'security';
-    return '';
-  };
+  const getActionClass = (action: string) => actionMeta(action).category;
+  const getActionLabel = (action: string) => actionMeta(action).label;
 
   // Ya no filtramos localmente porque el backend ya lo hace, 
   // pero mantenemos la variable para no romper el resto del componente
@@ -152,22 +327,13 @@ export const AuditLogs: React.FC = () => {
             </div>
           </div>
           <div className="filter-item type-filter">
-            <label>TIPO DE ACCIÓN</label>
-            <div className="input-with-icon">
-              <FiActivity />
-              <select 
-                className="audit-type-select"
-                value={actionType} 
-                onChange={(e) => setActionType(e.target.value)}
-              >
-                <option value="ALL">Todas las acciones</option>
-                <option value="LOGIN">Inicios de sesión</option>
-                <option value="INSERT">Creaciones (Nuevos)</option>
-                <option value="UPDATE">Ediciones (Cambios)</option>
-                <option value="DELETE">Eliminaciones</option>
-                <option value="SECURITY">Seguridad / Bloqueos</option>
-              </select>
-            </div>
+            <CustomSelect
+              label="TIPO DE ACCIÓN"
+              icon={<FiActivity />}
+              options={ACTION_TYPE_OPTIONS}
+              value={actionType}
+              onChange={(v) => setActionType(String(v))}
+            />
           </div>
           <div className="filter-item-actions">
             <button className="btn-reset-audit" onClick={() => {
@@ -223,8 +389,8 @@ export const AuditLogs: React.FC = () => {
                     </div>
                   </td>
                   <td className="col-center">
-                    <span className={`action-pill ${getActionClass(log.action)}`}>
-                      {log.action}
+                    <span className={`action-pill ${getActionClass(log.action)}`} title={log.action}>
+                      {getActionLabel(log.action)}
                     </span>
                   </td>
                   <td className="col-entity">
@@ -241,6 +407,9 @@ export const AuditLogs: React.FC = () => {
                               log.entity === 'loans' ? 'Préstamo' :
                               log.entity === 'reservations' ? 'Reserva' :
                               log.entity === 'maintenance' ? 'Mantenimiento' :
+                              log.entity === 'categories' ? 'Categoría' :
+                              log.entity === 'locations' ? 'Ubicación' :
+                              log.entity === 'spare_parts' ? 'Repuesto' :
                               log.entity.toUpperCase()
                             }</span>
                             <span className="entity-id-tag">ID: {log.entity_id || 'Null'}</span>
@@ -271,13 +440,14 @@ export const AuditLogs: React.FC = () => {
             <div className="modal-header-pro">
               <div className="header-status">
                 <span className={`status-icon-box ${getActionClass(selectedLog.action)}`}>
-                  {selectedLog.action.includes('INSERT') && <FiPlus />}
-                  {selectedLog.action.includes('UPDATE') && <FiRefreshCw />}
-                  {selectedLog.action.includes('DELETE') && <FiActivity />}
-                  {selectedLog.action.includes('LOGIN') && <FiUser />}
+                  {getActionClass(selectedLog.action) === 'insert' && <FiPlus />}
+                  {getActionClass(selectedLog.action) === 'update' && <FiRefreshCw />}
+                  {getActionClass(selectedLog.action) === 'delete' && <FiTrash2 />}
+                  {getActionClass(selectedLog.action) === 'login' && <FiUser />}
+                  {getActionClass(selectedLog.action) === 'security' && <FiShield />}
                 </span>
                 <div className="header-text">
-                  <h3>Detalle de {selectedLog.action}</h3>
+                  <h3>Detalle de {getActionLabel(selectedLog.action)}</h3>
                   <p>ID Transacción: #{selectedLog.id} • {new Date(selectedLog.created_at).toLocaleString()}</p>
                 </div>
               </div>
@@ -310,45 +480,11 @@ export const AuditLogs: React.FC = () => {
                 {/* NARRATIVA NATURAL ESPECÍFICA (Ahora integrada en el detalle) */}
                 <div className="audit-narrative-box">
                   <FiActivity className="narrative-icon" />
-                  <p>{(() => {
-                    const action = selectedLog.action.toUpperCase();
-                    const entityMap: Record<string, string> = {
-                      'items': 'un artículo del inventario',
-                      'users': 'un perfil de usuario',
-                      'loans': 'un registro de préstamo',
-                      'reservations': 'una reserva de material',
-                      'maintenance': 'un reporte de mantenimiento'
-                    };
-                    const entity = entityMap[selectedLog.entity] || `un registro en ${selectedLog.entity}`;
-                    const name = selectedLog.entity_name || `ID #${selectedLog.entity_id}`;
-
-                    if (action.includes('INSERT')) {
-                      return `El administrador ${selectedLog.user} ha registrado un elemento nuevo: "${name}" con el Identificador ID: ${selectedLog.entity_id}.`;
-                    }
-                    if (action.includes('UPDATE')) {
-                      return `Se realizó una actualización de datos en ${entity} ("${name}"). El administrador revisó y modificó atributos específicos para mantener la información al día.`;
-                    }
-                    if (action.includes('DELETE')) {
-                      return `Se ha procedido con la eliminación definitiva de ${entity} ("${name}"). Esta acción es irreversible y el recurso ya no forma parte del inventario activo.`;
-                    }
-                    if (action === 'LOGIN_SUCCESS' || action === 'LOGIN') {
-                      return `El usuario ${selectedLog.user} ha iniciado sesión en la plataforma de manera exitosa desde un dispositivo identificado.`;
-                    }
-                    if (action === 'LOGIN_FAILED') {
-                      return `ALERTA DE SEGURIDAD: Se registró un intento de acceso fallido a la cuenta de "${selectedLog.user}". El sistema ha denegado el ingreso para proteger la integridad del perfil.`;
-                    }
-                    if (action === 'LOGOUT') {
-                      return `El usuario ${selectedLog.user} ha finalizado su sesión de manera segura, cerrando el acceso activo al panel administrativo.`;
-                    }
-                    if (action.includes('SECURITY')) {
-                      return `ACCIÓN DE PROTECCIÓN: Se ha ejecutado un protocolo de seguridad sobre ${entity} ("${name}"). Esto ocurre generalmente por bloqueos preventivos tras múltiples errores.`;
-                    }
-                    return `Se registró la acción "${selectedLog.action}" sobre el recurso "${name}" en el módulo de ${selectedLog.entity}.`;
-                  })()}</p>
+                  <p>{actionMeta(selectedLog.action).describe(selectedLog)}</p>
                 </div>
 
                 {/* EXPLICACIÓN DETALLADA DE CAMBIOS (Resumen Narrativo Inteligente) */}
-                {selectedLog.details && !['LOGIN_SUCCESS', 'LOGIN_FAILED', 'LOGOUT', 'LOGIN'].includes(selectedLog.action.toUpperCase()) && (
+                {selectedLog.details && getActionClass(selectedLog.action) !== 'login' && (
                   <div className="smart-changes-narrative">
                     {(() => {
                       // 1. Diccionario de traducciones
@@ -358,10 +494,20 @@ export const AuditLogs: React.FC = () => {
                         'is_active': 'Estado de Activación',
                         'is_blocked': 'Estado de Bloqueo de Seguridad',
                         'role': 'Rol del Usuario',
-                        'name': 'Nombre Completo',
+                        'name': 'Nombre',
                         'email': 'Correo Electrónico',
                         'phone': 'Teléfono',
-                        'formation_ficha': 'Ficha de Formación'
+                        'formation_ficha': 'Ficha de Formación',
+                        'code': 'Código (QR/Barras)',
+                        'description': 'Descripción',
+                        'brand': 'Marca',
+                        'model': 'Modelo',
+                        'serial_number': 'Número de Serie',
+                        'stock': 'Stock',
+                        'physical_condition': 'Estado Físico',
+                        'status_id': 'Estado (ID)',
+                        'location_id': 'Ubicación (ID)',
+                        'category_id': 'Categoría (ID)',
                       };
 
                       // 2. Formateador ultra-seguro
@@ -399,8 +545,6 @@ export const AuditLogs: React.FC = () => {
                         }
 
                         // B. PROCESAR CAMBIOS (Diferenciando UPDATE de INSERT)
-                        const isInsert = selectedLog.action.toUpperCase().includes('INSERT');
-
                         if (rawData.old || rawData.new) {
                           // Caso Estándar: Objeto con old/new (UPDATE)
                           const keys = Array.from(new Set([...Object.keys(rawData.old || {}), ...Object.keys(rawData.new || {})]))

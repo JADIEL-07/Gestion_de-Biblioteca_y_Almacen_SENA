@@ -5,7 +5,9 @@ from ..models.item import Item, Category, Status, Location
 from ..models.movement import Notification
 from ..models.user import User, Role
 from ..models.saved_item import SavedItem
+from ..models.audit_log import AuditLog
 from sqlalchemy import or_, String
+import json
 
 items_bp = Blueprint('items', __name__)
 
@@ -354,6 +356,13 @@ def add_item():
         db.session.add(new_item)
         db.session.commit()
 
+        db.session.add(AuditLog(
+            user_id=requester.id if requester else None, action="ITEM_CREATED", entity="items",
+            entity_id=str(new_item.id), entity_name=new_item.name,
+            details=json.dumps({"Categoría": category.name, "Ubicación": location.name, "Código": new_item.code}),
+            ip=request.remote_addr,
+        ))
+
         staff_roles = Role.query.filter(Role.name.in_(['BIBLIOTECARIO', 'ALMACENISTA'])).all()
         staff_role_ids = [r.id for r in staff_roles]
         # Solo se avisa al staff de la MISMA área de servicio — si no, un
@@ -401,6 +410,12 @@ def update_item(id):
     data = request.json
     if not data:
         return jsonify({"error": "No se recibieron datos"}), 400
+
+    # Foto "antes" de los campos editables, para el registro de auditoría
+    # (se compara contra los valores después de aplicar los cambios).
+    _tracked_fields = ['name', 'code', 'description', 'brand', 'model', 'serial_number',
+                        'stock', 'physical_condition', 'status_id', 'location_id', 'category_id']
+    _before = {f: getattr(item, f) for f in _tracked_fields}
 
     requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
     if is_staff_scoped:
@@ -467,6 +482,21 @@ def update_item(id):
 
     try:
         db.session.commit()
+
+        _after = {f: getattr(item, f) for f in _tracked_fields}
+        _changed_old = {k: v for k, v in _before.items() if v != _after[k]}
+        if _changed_old:
+            db.session.add(AuditLog(
+                user_id=requester.id if requester else None, action="ITEM_UPDATED", entity="items",
+                entity_id=str(item.id), entity_name=item.name,
+                details=json.dumps({
+                    "old": _changed_old,
+                    "new": {k: _after[k] for k in _changed_old},
+                }),
+                ip=request.remote_addr,
+            ))
+            db.session.commit()
+
         return jsonify(serialize_item(item)), 200
     except Exception as e:
         db.session.rollback()
@@ -520,6 +550,10 @@ def delete_item(id):
     try:
         SavedItem.query.filter_by(item_id=id).delete()
         item.is_deleted = True
+        db.session.add(AuditLog(
+            user_id=requester.id if requester else None, action="ITEM_DELETED", entity="items",
+            entity_id=str(item.id), entity_name=item.name, ip=request.remote_addr,
+        ))
         db.session.commit()
         return jsonify({"message": f"Elemento '{item.name}' eliminado exitosamente"}), 200
     except Exception as e:
@@ -554,6 +588,11 @@ def add_category():
         new_cat = Category(name=data['name'], dependency_id=dependency_id)
         db.session.add(new_cat)
         db.session.commit()
+
+        db.session.add(AuditLog(
+            user_id=requester.id if requester else None, action="CATEGORY_CREATED", entity="categories",
+            entity_id=str(new_cat.id), entity_name=new_cat.name, ip=request.remote_addr,
+        ))
 
         staff_roles = Role.query.filter(Role.name.in_(['BIBLIOTECARIO', 'ALMACENISTA'])).all()
         staff_role_ids = [r.id for r in staff_roles]
@@ -595,7 +634,15 @@ def update_category(id):
         return jsonify({"error": "No puedes editar una categoría de otra área de servicio."}), 403
 
     try:
+        old_name = cat.name
         cat.name = data['name']
+        if old_name != cat.name:
+            db.session.add(AuditLog(
+                user_id=requester.id if requester else None, action="CATEGORY_UPDATED", entity="categories",
+                entity_id=str(cat.id), entity_name=cat.name,
+                details=json.dumps({"old": {"Nombre": old_name}, "new": {"Nombre": cat.name}}),
+                ip=request.remote_addr,
+            ))
         db.session.commit()
         return jsonify({"id": cat.id, "name": cat.name}), 200
     except Exception as e:
@@ -614,7 +661,12 @@ def delete_category(id):
     if is_staff_scoped and cat.dependency_id is not None and cat.dependency_id != own_dep_id:
         return jsonify({"error": "No puedes eliminar una categoría de otra área de servicio."}), 403
     try:
+        cat_name, cat_id = cat.name, cat.id
         db.session.delete(cat)
+        db.session.add(AuditLog(
+            user_id=requester.id if requester else None, action="CATEGORY_DELETED", entity="categories",
+            entity_id=str(cat_id), entity_name=cat_name, ip=request.remote_addr,
+        ))
         db.session.commit()
         return jsonify({"message": "Categoría eliminada"}), 200
     except Exception as e:
@@ -653,6 +705,11 @@ def add_location():
         )
         db.session.add(new_loc)
         db.session.commit()
+
+        db.session.add(AuditLog(
+            user_id=requester.id if requester else None, action="LOCATION_CREATED", entity="locations",
+            entity_id=str(new_loc.id), entity_name=new_loc.name, ip=request.remote_addr,
+        ))
 
         staff_roles = Role.query.filter(Role.name.in_(['BIBLIOTECARIO', 'ALMACENISTA'])).all()
         staff_role_ids = [r.id for r in staff_roles]
@@ -694,8 +751,17 @@ def update_location(id):
         return jsonify({"error": "No puedes editar una ubicación de otra área de servicio."}), 403
 
     try:
+        old_vals = {"Nombre": loc.name, "Tipo": loc.type}
         loc.name = data['name']
         if 'type' in data: loc.type = data['type']
+        new_vals = {"Nombre": loc.name, "Tipo": loc.type}
+        if old_vals != new_vals:
+            db.session.add(AuditLog(
+                user_id=requester.id if requester else None, action="LOCATION_UPDATED", entity="locations",
+                entity_id=str(loc.id), entity_name=loc.name,
+                details=json.dumps({"old": old_vals, "new": new_vals}),
+                ip=request.remote_addr,
+            ))
         db.session.commit()
         return jsonify({"id": loc.id, "name": loc.name}), 200
     except Exception as e:
@@ -714,7 +780,12 @@ def delete_location(id):
     if is_staff_scoped and loc.dependency_id is not None and loc.dependency_id != own_dep_id:
         return jsonify({"error": "No puedes eliminar una ubicación de otra área de servicio."}), 403
     try:
+        loc_name, loc_id = loc.name, loc.id
         db.session.delete(loc)
+        db.session.add(AuditLog(
+            user_id=requester.id if requester else None, action="LOCATION_DELETED", entity="locations",
+            entity_id=str(loc_id), entity_name=loc_name, ip=request.remote_addr,
+        ))
         db.session.commit()
         return jsonify({"message": "Ubicación eliminada"}), 200
     except Exception as e:

@@ -4,8 +4,10 @@ from ..extensions import db
 from ..models.loan import Loan, LoanDetail
 from ..models.item import Item
 from ..models.user import User, Role
+from ..models.audit_log import AuditLog
 from datetime import datetime, timedelta
 from sqlalchemy import func, or_, String
+import json
 
 loan_bp = Blueprint('loans', __name__)
 
@@ -199,6 +201,12 @@ def create_loan():
             f'{admin_name} realizó un préstamo de {items_str} a {user.name}.',
             related_type='loan', related_id=loan.id,
         )
+    db.session.add(AuditLog(
+        user_id=get_jwt_identity(), action="LOAN_CREATED", entity="loans",
+        entity_id=str(loan.id), entity_name=items_str,
+        details=json.dumps({"Prestado a": user.name, "Días de plazo": days}),
+        ip=request.remote_addr,
+    ))
     db.session.commit()
     return jsonify({"success": True, "message": "Préstamo creado exitosamente", "loan_id": loan.id}), 201
 
@@ -261,6 +269,12 @@ def create_loan_from_reservation():
         f'{admin_name} te aceptó el préstamo del {item.name}.',
         related_type='loan', related_id=loan.id,
     )
+    db.session.add(AuditLog(
+        user_id=get_jwt_identity(), action="LOAN_CREATED", entity="loans",
+        entity_id=str(loan.id), entity_name=item.name,
+        details=json.dumps({"Días de plazo": days, "Reserva de origen (token)": token}),
+        ip=request.remote_addr,
+    ))
     db.session.commit()
     return jsonify({"success": True, "message": "Préstamo creado desde reserva", "loan_id": loan.id}), 201
 
@@ -295,9 +309,19 @@ def return_loan(id):
     )
 
     # Multa si es tarde
-    if datetime.now() > loan.due_date:
+    late = datetime.now() > loan.due_date
+    if late:
         loan.fine_amount = 5000.0
 
+    item_names = ", ".join(
+        (Item.query.get(iid).name for iid in set(affected_items) if Item.query.get(iid))
+    )
+    db.session.add(AuditLog(
+        user_id=get_jwt_identity(), action="LOAN_RETURNED", entity="loans",
+        entity_id=str(loan.id), entity_name=item_names or None,
+        details=json.dumps({"Devuelto con retraso": late, "Multa aplicada": loan.fine_amount or 0}),
+        ip=request.remote_addr,
+    ))
     db.session.commit()
 
     # Promover la cola de cada ítem liberado

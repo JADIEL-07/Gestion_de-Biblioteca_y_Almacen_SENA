@@ -6,6 +6,48 @@ from sqlalchemy import func, or_, String
 
 audit_bp = Blueprint('audit', __name__)
 
+# Cada acción registrada en audit_logs cae en uno de estos 5 grupos — se usa
+# tanto para el filtro "Tipo de acción" como (reflejado) para el badge de
+# color en el frontend. Antes esto se adivinaba con `ilike('%INSERT%')` etc,
+# pero casi ninguna acción real se llama literalmente "INSERT"/"UPDATE"/
+# "DELETE" (se llaman ITEM_CREATED, USER_HARD_DELETED, etc.), así que la
+# mayoría quedaba fuera de los 5 filtros sin que se notara. Esta lista es
+# explícita para que cada acción nueva tenga que agregarse aquí a propósito.
+ACTION_BUCKETS = {
+    'LOGIN': [
+        'LOGIN_SUCCESS', 'LOGIN_SUCCESS_2FA', 'LOGIN_SUCCESS_DEVICE', 'LOGIN_FAILED',
+        'LOGIN_FAILED_NO_USER', 'LOGIN_ON_DELETED', 'LOGIN_BLOCKED_SHADOW_ACCOUNT',
+        'LOGIN_INACTIVE', 'LOGIN_BLOCKED_PERMANENT', 'LOGOUT',
+    ],
+    'INSERT': [
+        # 'INSERT' literal: todavía la produce el listener genérico para
+        # User/Role (ver app/utils/audit_listener.py).
+        'INSERT',
+        'ACCOUNT_VERIFIED_AND_CREATED', 'ACCOUNT_PROMOTED_FROM_PENDING', 'USER_CREATED',
+        'ITEM_CREATED', 'CATEGORY_CREATED', 'LOCATION_CREATED', 'RESERVATION_CREATED',
+        'MAINTENANCE_CREATED', 'SPARE_PART_CREATED', 'SALIDA_CREATED', 'LOAN_CREATED',
+    ],
+    'UPDATE': [
+        'UPDATE',
+        'PROFILE_UPDATED', 'PROFILE_IMAGE_UPDATED', 'ROLE_CHANGED', 'EMAIL_CHANGED',
+        'ITEM_UPDATED', 'CATEGORY_UPDATED', 'LOCATION_UPDATED', 'RESERVATION_APPROVED',
+        'MAINTENANCE_STATUS_UPDATED', 'MAINTENANCE_COMPLETED', 'SPARE_PART_RECEIVED',
+        'USER_DEACTIVATED', 'USER_REACTIVATED', 'USER_UNBLOCKED', 'LOAN_RETURNED',
+        'LOAN_SANCTION_LIFTED', 'SALIDA_RETURNED', 'SALIDA_CLOSED', 'TOS_ACCEPTED',
+    ],
+    'DELETE': [
+        'DELETE',
+        'USER_HARD_DELETED', 'ACCOUNT_DELETED', 'ITEM_DELETED', 'CATEGORY_DELETED',
+        'LOCATION_DELETED', 'RESERVATION_CANCELLED',
+    ],
+    'SECURITY': [
+        'USER_BLOCKED_AUTO', 'CHANGE_PASSWORD_FAILED', 'PASSWORD_RESET_REQUEST',
+        'PASSWORD_RESET_SUCCESS', 'PASSWORD_CHANGED', 'PASSWORD_CHANGED_FORCED',
+        'TRUSTED_DEVICE_FORGOTTEN', 'TRUSTED_DEVICES_CLEARED', 'DEVICE_APPROVAL_SENT',
+        'DEVICE_APPROVED', '2FA_EMAIL_SENT', '2FA_AUTHENTICATOR_GENERATED', 'LOAN_NOT_RETURNED',
+    ],
+}
+
 def admin_required(fn):
     def wrapper(*args, **kwargs):
         # El rol se valida contra la BD, no contra el claim "role" del JWT:
@@ -33,25 +75,17 @@ def get_audit_logs():
 
     query = AuditLog.query.outerjoin(User, AuditLog.user_id == User.id)
 
-    # Filtro por tipo de acción (agrupado)
+    # Filtro por tipo de acción (agrupado) — lista explícita (ver ACTION_BUCKETS
+    # arriba) en vez de adivinar por substring, más la excepción de
+    # IMPERSONATE_START:<rol>, que lleva un sufijo dinámico con el rol.
     if action_type and action_type not in ['ALL', '']:
-        if action_type == 'LOGIN':
-            query = query.filter(AuditLog.action.ilike('%LOGIN%'))
-        elif action_type == 'INSERT':
-            query = query.filter(AuditLog.action.ilike('%INSERT%'))
-        elif action_type == 'UPDATE':
-            query = query.filter(AuditLog.action.ilike('%UPDATE%'))
-        elif action_type == 'DELETE':
-            query = query.filter(AuditLog.action.ilike('%DELETE%'))
-        elif action_type == 'SECURITY':
-            query = query.filter(
-                or_(
-                    AuditLog.action.ilike('%BLOCK%'),
-                    AuditLog.action.ilike('%SECURITY%'),
-                    AuditLog.action.ilike('%PASSWORD%'),
-                    AuditLog.action.ilike('%RESET%')
-                )
-            )
+        if action_type == 'SECURITY':
+            query = query.filter(or_(
+                AuditLog.action.in_(ACTION_BUCKETS['SECURITY']),
+                AuditLog.action.ilike('IMPERSONATE_START:%'),
+            ))
+        elif action_type in ACTION_BUCKETS:
+            query = query.filter(AuditLog.action.in_(ACTION_BUCKETS[action_type]))
 
     # Búsqueda global
     if search:

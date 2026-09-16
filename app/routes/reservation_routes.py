@@ -5,9 +5,11 @@ from ..models.reservation import Reservation
 from ..models.user import User
 from ..models.item import Item
 from ..models.loan import Loan, LoanDetail
+from ..models.audit_log import AuditLog
 from ..services.reservation_queue import enqueue_reservation, push_notification
 from datetime import datetime, timedelta
 from sqlalchemy import func, text, or_, String
+import json
 
 reservation_bp = Blueprint('reservations', __name__)
 
@@ -41,6 +43,15 @@ def create_reservation():
     if err:
         return jsonify({"error": err}), 400
 
+    item = Item.query.get(item_id)
+    db.session.add(AuditLog(
+        user_id=user_id, action="RESERVATION_CREATED", entity="reservations",
+        entity_id=str(res.id), entity_name=item.name if item else None,
+        details=json.dumps({"Estado inicial": res.status}),
+        ip=request.remote_addr,
+    ))
+    db.session.commit()
+
     return jsonify({
         "success": True,
         "id": res.id,
@@ -61,6 +72,11 @@ def cancel_reservation(rid):
         return jsonify({"error": "Esta reserva no se puede cancelar"}), 400
     was_ready = res.status == 'READY'
     res.status = 'CANCELLED'
+    item = Item.query.get(res.item_id)
+    db.session.add(AuditLog(
+        user_id=user_id, action="RESERVATION_CANCELLED", entity="reservations",
+        entity_id=str(res.id), entity_name=item.name if item else None, ip=request.remote_addr,
+    ))
     db.session.commit()
     if was_ready:
         # Liberó un slot — promover al siguiente
@@ -201,6 +217,18 @@ def approve_reservation(rid):
         f'{admin_name} te aceptó el préstamo del {item.name}.',
         related_type='loan', related_id=loan.id,
     )
+    db.session.add(AuditLog(
+        user_id=get_jwt_identity(), action="RESERVATION_APPROVED", entity="reservations",
+        entity_id=str(res.id), entity_name=item.name,
+        details=json.dumps({"Préstamo generado": f"#{loan.id}", "Aprobado por": admin_user.name if admin_user else str(user_id)}),
+        ip=request.remote_addr,
+    ))
+    db.session.add(AuditLog(
+        user_id=get_jwt_identity(), action="LOAN_CREATED", entity="loans",
+        entity_id=str(loan.id), entity_name=item.name,
+        details=json.dumps({"Días de plazo": days, "Reserva de origen": f"#{res.id}"}),
+        ip=request.remote_addr,
+    ))
     db.session.commit()
     return jsonify({"success": True, "message": "Préstamo creado exitosamente", "loan_id": loan.id}), 201
 

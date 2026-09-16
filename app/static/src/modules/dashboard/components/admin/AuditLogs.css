@@ -302,6 +302,39 @@
     .audit-management { padding: 0.75rem; }
     .audit-table td, .audit-table th { padding: 0.6rem 0.5rem; font-size: 0.78rem; }
     .btn-refresh-audit span { font-size: 0.8rem; }
+
+    /* A este ancho, dos filtros por fila ya no caben sin recortarse (el
+       botón "Refrescar Log" y el campo "Hasta" quedaban tapados fuera de
+       la pantalla). Se apilan de a uno, a lo ancho completo. */
+    .audit-filters .filter-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .audit-filters .filter-item,
+    .audit-filters .filter-item.search {
+        flex: 1 1 auto;
+        min-width: 0;
+        width: 100%;
+    }
+    .btn-refresh-audit,
+    .btn-reset-audit {
+        width: 100%;
+    }
+
+    .modal-header-pro,
+    .modal-body-pro,
+    .modal-footer-pro {
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+    }
+    .modal-footer-pro {
+        justify-content: stretch;
+    }
+    .btn-close-modal {
+        width: 100%;
+        padding-left: 0;
+        padding-right: 0;
+    }
 }
 
 .btn-detail {

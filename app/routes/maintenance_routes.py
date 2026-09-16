@@ -5,8 +5,10 @@ from ..models.maintenance import Maintenance
 from ..models.item import Item, Status, Category
 from ..models.movement import Notification
 from ..models.user import User, Role
+from ..models.audit_log import AuditLog
 from sqlalchemy import func, or_, String
 from datetime import datetime
+import json
 
 maintenance_bp = Blueprint('maintenance', __name__)
 
@@ -126,6 +128,14 @@ def create_maintenance():
     db.session.add(new_m)
     db.session.commit()
 
+    db.session.add(AuditLog(
+        user_id=get_jwt_identity(), action="MAINTENANCE_CREATED", entity="maintenance",
+        entity_id=str(new_m.id), entity_name=item.name,
+        details=json.dumps({"Severidad": new_m.severity, "Tipo": new_m.maintenance_type}),
+        ip=request.remote_addr,
+    ))
+    db.session.commit()
+
     soporte_role = Role.query.filter(
         Role.name.in_(['SOPORTE_TECNICO', 'SOPORTE', 'SOPORTE TÉCNICO', 'SOPORTE TECNICO'])
     ).first()
@@ -157,7 +167,8 @@ def update_status(id):
     
     if new_status not in ['PENDING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']:
         return jsonify({"error": "Estado inválido"}), 400
-        
+
+    old_status = m.status
     m.status = new_status
     
     # Manage item status based on maintenance status
@@ -176,6 +187,12 @@ def update_status(id):
         if item and maint_status:
             item.status_id = maint_status.id
 
+    db.session.add(AuditLog(
+        user_id=get_jwt_identity(), action="MAINTENANCE_STATUS_UPDATED", entity="maintenance",
+        entity_id=str(m.id), entity_name=item.name if item else None,
+        details=json.dumps({"old": {"Estado": old_status}, "new": {"Estado": new_status}}),
+        ip=request.remote_addr,
+    ))
     db.session.commit()
     return jsonify({"success": True}), 200
 
@@ -197,7 +214,13 @@ def complete_maintenance(id):
     avail_status = Status.query.filter_by(name='AVAILABLE').first()
     if item and avail_status:
         item.status_id = avail_status.id
-        
+
+    db.session.add(AuditLog(
+        user_id=get_jwt_identity(), action="MAINTENANCE_COMPLETED", entity="maintenance",
+        entity_id=str(m.id), entity_name=item.name if item else None,
+        details=json.dumps({"Diagnóstico": m.diagnosis or "", "Solución": m.solution or "", "Costo": m.cost or 0}),
+        ip=request.remote_addr,
+    ))
     db.session.commit()
 
     # Se guarda DIRECTAMENTE en la BD como data URL (no como archivo en disco:

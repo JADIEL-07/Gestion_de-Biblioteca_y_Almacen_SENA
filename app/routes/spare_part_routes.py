@@ -4,7 +4,9 @@ from ..extensions import db
 from ..models.spare_part import SparePartRequest
 from ..models.item import Item
 from ..models.user import User
+from ..models.audit_log import AuditLog
 from datetime import datetime
+import json
 
 spare_part_bp = Blueprint('spare_parts', __name__)
 
@@ -83,7 +85,15 @@ def create_spare_part_request():
     
     db.session.add(new_req)
     db.session.commit()
-    
+
+    db.session.add(AuditLog(
+        user_id=user_id, action="SPARE_PART_CREATED", entity="spare_parts",
+        entity_id=str(new_req.id), entity_name=item.name,
+        details=json.dumps({"Motivo": reason, "Costo": cost, "Proveedor": supplier}),
+        ip=request.remote_addr,
+    ))
+    db.session.commit()
+
     return jsonify({"success": True, "message": "Solicitud de repuesto creada", "id": new_req.id}), 201
 
 @spare_part_bp.route('/<int:id>/receive', methods=['PUT'])
@@ -111,7 +121,13 @@ def receive_spare_part(id):
     req.status = 'RECEIVED'
     req.received_image = received_image
     req.received_at = datetime.utcnow()
-    
+
+    item = Item.query.get(req.item_id)
+    db.session.add(AuditLog(
+        user_id=user_id, action="SPARE_PART_RECEIVED", entity="spare_parts",
+        entity_id=str(req.id), entity_name=item.name if item else None,
+        ip=request.remote_addr,
+    ))
     db.session.commit()
-    
+
     return jsonify({"success": True, "message": "Repuesto marcado como recibido"}), 200
