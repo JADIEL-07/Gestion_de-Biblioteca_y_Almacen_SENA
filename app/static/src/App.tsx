@@ -268,12 +268,31 @@ function AppRoutes() {
   // Consulta el backend cada 25 s (y al volver a la pestaña). Si la sesión de
   // este dispositivo fue cerrada desde otro lado, apiFetch recibe 401, no puede
   // renovar y muestra la pantalla "sesión expirada" (5 s) antes de ir al inicio.
+  //
+  // De paso, el latido trae los datos actuales del usuario. Si un Admin le
+  // cambia el rol a alguien con sesión abierta, esa sesión seguía mostrando
+  // las opciones del rol viejo (localStorage solo se llena al iniciar sesión)
+  // hasta cerrar y volver a entrar — con esto se refresca sola en el
+  // siguiente latido y las rutas (que dependen de loggedUser.role) reaccionan.
   useEffect(() => {
     if (!loggedUser) return;
     let stopped = false;
     const ping = () => {
       if (stopped || document.hidden) return;
-      apiFetch('/api/v1/auth/session-check').catch(() => { /* apiFetch maneja el 401 */ });
+      apiFetch('/api/v1/auth/session-check')
+        .then(async (res) => {
+          if (!res.ok) return; // apiFetch ya maneja el 401 (sesión cerrada)
+          const data = await res.json().catch(() => null);
+          if (!data?.user) return;
+          setLoggedUser((prev: any) => {
+            if (!prev) return prev;
+            const merged = { ...prev, ...data.user };
+            if (JSON.stringify(merged) === JSON.stringify(prev)) return prev;
+            localStorage.setItem('user', JSON.stringify(merged));
+            return merged;
+          });
+        })
+        .catch(() => { /* apiFetch ya maneja el 401 */ });
     };
     const id = window.setInterval(ping, 25000);
     const onFocus = () => ping();

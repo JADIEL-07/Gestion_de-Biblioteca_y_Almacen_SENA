@@ -384,8 +384,19 @@ def pending_registration():
 @jwt_required()
 def session_check():
     """Latido: 200 si la sesión sigue viva; 401 (blocklist) si fue cerrada
-    desde otro dispositivo. Lo consulta el frontend cada pocos segundos."""
-    return jsonify({"ok": True}), 200
+    desde otro dispositivo. Lo consulta el frontend cada pocos segundos.
+
+    Devuelve también los datos actuales del usuario (sobre todo el rol):
+    si un Admin le cambia el rol a alguien que ya tiene sesión abierta, ese
+    cambio antes solo se veía reflejado en la tabla del Admin — la propia
+    sesión del usuario seguía usando el rol viejo (guardado en localStorage
+    desde el login) hasta que cerraba sesión y volvía a entrar. Con esto el
+    frontend detecta el cambio en el siguiente latido y refresca solo."""
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"ok": True}), 200
+    return jsonify({"ok": True, "user": AuthService._user_payload(user)}), 200
 
 
 @auth_bp.route('/sessions', methods=['GET'])
