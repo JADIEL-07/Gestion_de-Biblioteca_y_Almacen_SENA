@@ -239,26 +239,26 @@ export const ReservationManagement: React.FC = () => {
           <table className="res-table">
             <thead>
               <tr>
-                <th>ID</th>
+                <th className="col-center">ID</th>
                 <th>Usuario</th>
-                <th>Rol</th>
+                <th className="col-center">Rol</th>
                 <th>Elemento</th>
-                <th>F. Reserva</th>
-                <th>F. Límite</th>
-                <th>Estado</th>
+                <th className="col-center">F. Reserva</th>
+                <th className="col-center">F. Límite</th>
+                <th className="col-center">Estado</th>
                 <th>Procesado por</th>
               </tr>
             </thead>
             <tbody>
               {filteredReservations.map(res => (
                 <tr key={res.id}>
-                  <td><span className="id-badge">#{res.id}</span></td>
+                  <td className="col-center"><span className="id-badge">#{res.id}</span></td>
                   <td>{res.user_name}</td>
-                  <td><span className="role-badge">{res.user_role}</span></td>
+                  <td className="col-center"><span className="role-badge">{res.user_role}</span></td>
                   <td>{res.item_name}</td>
-                  <td className="res-date-cell">{new Date(res.reservation_date).toLocaleDateString()}</td>
-                  <td className="res-date-cell">{new Date(res.expiration_date).toLocaleDateString()}</td>
-                  <td>
+                  <td className="res-date-cell col-center">{new Date(res.reservation_date).toLocaleDateString()}</td>
+                  <td className="res-date-cell col-center">{new Date(res.expiration_date).toLocaleDateString()}</td>
+                  <td className="col-center">
                     <span className={`status-pill ${res.status.toLowerCase()}`}>
                       {res.status}
                     </span>

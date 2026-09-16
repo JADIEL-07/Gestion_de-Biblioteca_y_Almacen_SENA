@@ -167,6 +167,7 @@
 .col-brand { width: 150px; }
 .col-loc { width: 130px; }
 .col-stock { width: 80px; text-align: center !important; }
+.col-status { text-align: center !important; }
 
 .inventory-table td {
     padding: 1.2rem 1rem;

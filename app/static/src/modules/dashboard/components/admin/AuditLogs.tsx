@@ -182,13 +182,13 @@ export const AuditLogs: React.FC = () => {
         <table className="audit-table">
           <thead>
             <tr>
-              <th className="col-id">ID</th>
-              <th className="col-date">Fecha / Hora</th>
+              <th className="col-id col-center">ID</th>
+              <th className="col-date col-center">Fecha / Hora</th>
               <th>Usuario / Rol</th>
-              <th>Acción</th>
+              <th className="col-center">Acción</th>
               <th className="col-entity">Entidad / Recurso</th>
-              <th className="col-ip">IP Origen</th>
-              <th style={{ textAlign: 'center' }}>Detalles</th>
+              <th className="col-ip col-center">IP Origen</th>
+              <th className="col-center">Detalles</th>
             </tr>
           </thead>
           <tbody>
@@ -208,8 +208,8 @@ export const AuditLogs: React.FC = () => {
             ) : (
               filteredLogs.map(log => (
                 <tr key={log.id}>
-                  <td className="col-id"><span className="id-badge">#{log.id}</span></td>
-                  <td className="col-date">
+                  <td className="col-id col-center"><span className="id-badge">#{log.id}</span></td>
+                  <td className="col-date col-center">
                     <div className="audit-date-cell">
                       <strong>{new Date(log.created_at).toLocaleDateString()}</strong>
                       <small>{new Date(log.created_at).toLocaleTimeString()}</small>
@@ -222,7 +222,7 @@ export const AuditLogs: React.FC = () => {
                       <span className="u-id-label">ID: {log.user_id || '—'}</span>
                     </div>
                   </td>
-                  <td>
+                  <td className="col-center">
                     <span className={`action-pill ${getActionClass(log.action)}`}>
                       {log.action}
                     </span>

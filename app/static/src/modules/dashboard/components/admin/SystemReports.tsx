@@ -185,14 +185,14 @@ export const SystemReports: React.FC = () => {
         <table className="reports-table">
           <thead>
             <tr>
-              <th>ID</th>
+              <th className="col-center">ID</th>
               <th>Reportado por</th>
               <th>Soporte (Asignado)</th>
               <th>Descripción / Asunto</th>
-              <th>Gravedad</th>
-              <th>Fecha Reporte</th>
-              <th>Estado</th>
-              <th>Adjuntos</th>
+              <th className="col-center">Gravedad</th>
+              <th className="col-center">Fecha Reporte</th>
+              <th className="col-center">Estado</th>
+              <th className="col-center">Adjuntos</th>
             </tr>
           </thead>
           <tbody>
@@ -202,7 +202,7 @@ export const SystemReports: React.FC = () => {
               <tr><td colSpan={8} className="td-center">No hay reportes para los filtros seleccionados.</td></tr>
             ) : filteredReports.map(report => (
               <tr key={report.id}>
-                <td><span className="id-badge">#{report.id}</span></td>
+                <td className="col-center"><span className="id-badge">#{report.id}</span></td>
                 <td>
                   <div className="user-cell">
                     <FiUser className="cell-icon" />
@@ -221,21 +221,23 @@ export const SystemReports: React.FC = () => {
                     <p>{report.description}</p>
                   </div>
                 </td>
-                <td>
+                <td className="col-center">
                   <span className={`severity-pill ${getSeverityClass(report.severity)}`}>
                     {report.severity}
                   </span>
                 </td>
-                <td className="reports-date-cell">
-                  <FiClock className="small-icon" />
-                  {report.created_at ? new Date(report.created_at).toLocaleDateString() : '—'}
+                <td className="reports-date-cell col-center">
+                  <span className="reports-date-cell-inner">
+                    <FiClock className="small-icon" />
+                    {report.created_at ? new Date(report.created_at).toLocaleDateString() : '—'}
+                  </span>
                 </td>
-                <td>
+                <td className="col-center">
                   <span className={`status-tag ${(report.status || '').toLowerCase()}`}>
                     {report.status || '—'}
                   </span>
                 </td>
-                <td>
+                <td className="col-center">
                   {report.photo ? (
                     <img
                       src={report.photo}

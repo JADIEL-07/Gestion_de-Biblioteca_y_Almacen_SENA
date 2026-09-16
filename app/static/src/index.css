@@ -65,6 +65,19 @@ input[type="date"]::-webkit-calendar-picker-indicator {
 }
 
 /* ==========================================================================
+   UTILIDADES DE TABLA (compartidas por todas las tablas del panel Admin)
+   ========================================================================== */
+/* Centra el encabezado Y la celda de una columna (mismo className en el <th>
+   y en el <td> correspondiente). Con !important a propósito: cada tabla
+   define su propio "<x>-table th { text-align: left }" con la misma
+   especificidad, y como esta hoja se carga antes que el CSS de cada
+   dashboard (que llega después, al entrar a esa ruta), sin !important esa
+   regla ganaría por orden de carga y la columna nunca quedaría centrada. */
+.col-center {
+  text-align: center !important;
+}
+
+/* ==========================================================================
    NAVEGACIÓN (STICKY HEADER)
    ========================================================================== */
 .main-nav {

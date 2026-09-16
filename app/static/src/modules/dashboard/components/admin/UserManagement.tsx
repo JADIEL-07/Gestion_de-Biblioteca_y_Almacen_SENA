@@ -391,11 +391,11 @@ export const UserManagement: React.FC = () => {
           <thead>
             <tr>
               <th>Usuario</th>
-              <th>Rol</th>
-              <th>Estado</th>
-              <th>Último Acceso</th>
-              <th>Intentos Fallidos</th>
-              <th>Acciones</th>
+              <th className="col-center">Rol</th>
+              <th className="col-center">Estado</th>
+              <th className="col-center">Último Acceso</th>
+              <th className="col-center">Intentos Fallidos</th>
+              <th className="col-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -427,10 +427,10 @@ export const UserManagement: React.FC = () => {
                     </div>
                   </div>
                 </td>
-                <td>
+                <td className="col-center">
                   <span className={`role-badge ${user.role.toLowerCase()}`}>{user.role}</span>
                 </td>
-                <td>
+                <td className="col-center">
                   {user.is_blocked ? (
                     <span className="status-pill blocked">Bloqueado</span>
                   ) : user.is_active ? (
@@ -439,15 +439,15 @@ export const UserManagement: React.FC = () => {
                     <span className="status-pill inactive">Inactivo</span>
                   )}
                 </td>
-                <td className="user-date-cell">
+                <td className="user-date-cell col-center">
                   {user.last_login ? new Date(user.last_login).toLocaleString() : 'Nunca'}
                 </td>
-                <td>
+                <td className="col-center">
                   <span className={`attempts-badge ${user.failed_attempts > 0 ? 'warning' : ''}`}>
                     {user.failed_attempts}
                   </span>
                 </td>
-                <td>
+                <td className="col-center">
                   <div className="action-buttons">
                     <button className="btn-icon" onClick={() => handleToggleActive(user.id)} title={user.is_active ? "Desactivar" : "Activar"}>
                       <FiPower style={{ color: user.is_active ? '#ef4444' : '#39A900' }} />

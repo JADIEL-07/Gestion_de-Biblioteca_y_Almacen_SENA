@@ -279,7 +279,7 @@
 /* Nombre propio (no ".date-cell" a secas): ese nombre genérico también lo
    usan ReservationManagement.css y SystemReports.css con layouts distintos,
    y al empaquetarse juntos en el mismo bundle uno terminaba pisando al otro. */
-.audit-date-cell { display: flex; flex-direction: column; }
+.audit-date-cell { display: flex; flex-direction: column; align-items: center; }
 .audit-date-cell strong { font-size: 0.9rem; }
 .audit-date-cell small { font-size: 0.75rem; color: var(--admin-text-muted); }
 

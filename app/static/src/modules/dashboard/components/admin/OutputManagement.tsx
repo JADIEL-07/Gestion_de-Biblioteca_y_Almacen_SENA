@@ -228,12 +228,12 @@ export const OutputManagement: React.FC = () => {
           <thead>
             <tr>
               <th>Elemento</th>
-              <th>Tipo</th>
+              <th className="col-center">Tipo</th>
               <th>Destino / Motivo</th>
               <th>Responsable</th>
-              <th>Fechas</th>
-              <th>Estado</th>
-              <th>Acciones</th>
+              <th className="col-center">Fechas</th>
+              <th className="col-center">Estado</th>
+              <th className="col-center">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -249,7 +249,7 @@ export const OutputManagement: React.FC = () => {
                     <small style={{ color: '#64748b' }}>{output.item_code}</small>
                   </div>
                 </td>
-                <td>
+                <td className="col-center">
                   <span className={`type-badge type-${output.type.toLowerCase()}`}>
                     {getTypeLabel(output.type)}
                   </span>
@@ -266,8 +266,8 @@ export const OutputManagement: React.FC = () => {
                     <span>{output.user_name}</span>
                   </div>
                 </td>
-                <td>
-                  <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.8rem' }}>
+                <td className="col-center">
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: '0.8rem' }}>
                     <span>Salida: {new Date(output.created_at).toLocaleDateString()}</span>
                     {output.estimated_return_date && (
                       <span style={{ color: isDelayed(output) ? '#ef4444' : '#94a3b8' }}>
@@ -280,12 +280,12 @@ export const OutputManagement: React.FC = () => {
                     )}
                   </div>
                 </td>
-                <td>
+                <td className="col-center">
                   <span className={`status-pill status-${output.status.toLowerCase()}`}>
                     {getStatusLabel(output.status)}
                   </span>
                 </td>
-                <td>
+                <td className="col-center">
                   <div className="actions-cell">
                     {output.status === 'ACTIVE' && output.type !== 'DISPOSAL' && (
                       <button 

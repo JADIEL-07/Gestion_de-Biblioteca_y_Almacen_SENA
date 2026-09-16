@@ -213,12 +213,12 @@ export const AIKnowledgeManagement: React.FC = () => {
                 <tr>
                   <th>Pregunta</th>
                   <th>Respuesta</th>
-                  <th>Rol</th>
-                  <th>Origen</th>
-                  <th>Usos</th>
-                  <th>Feedback</th>
-                  <th>Actualizada</th>
-                  <th>Acciones</th>
+                  <th className="col-center">Rol</th>
+                  <th className="col-center">Origen</th>
+                  <th className="col-center">Usos</th>
+                  <th className="col-center">Feedback</th>
+                  <th className="col-center">Actualizada</th>
+                  <th className="col-center">Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -230,15 +230,15 @@ export const AIKnowledgeManagement: React.FC = () => {
                   <tr key={item.id} className={item.expired ? 'is-expired' : ''}>
                     <td data-label="Pregunta"><span className="aiknow-clamp">{item.query_text}</span></td>
                     <td data-label="Respuesta"><span className="aiknow-clamp">{item.response_text}</span></td>
-                    <td data-label="Rol">{item.role ? <span className="aiknow-role-badge">{item.role}</span> : <span className="aiknow-role-badge generic">Cualquiera</span>}</td>
-                    <td data-label="Origen"><span className={`aiknow-source-badge ${item.source}`}>{SOURCE_LABEL[item.source] || item.source}</span></td>
-                    <td data-label="Usos">{item.use_count}</td>
-                    <td data-label="Feedback"><span className="fb-pos">👍{item.positive_feedback}</span> <span className="fb-neg">👎{item.negative_feedback}</span></td>
-                    <td data-label="Actualizada">
+                    <td data-label="Rol" className="col-center">{item.role ? <span className="aiknow-role-badge">{item.role}</span> : <span className="aiknow-role-badge generic">Cualquiera</span>}</td>
+                    <td data-label="Origen" className="col-center"><span className={`aiknow-source-badge ${item.source}`}>{SOURCE_LABEL[item.source] || item.source}</span></td>
+                    <td data-label="Usos" className="col-center">{item.use_count}</td>
+                    <td data-label="Feedback" className="col-center"><span className="fb-pos">👍{item.positive_feedback}</span> <span className="fb-neg">👎{item.negative_feedback}</span></td>
+                    <td data-label="Actualizada" className="col-center">
                       {fmtDate(item.updated_at)}
                       {item.expired && <div className="aiknow-expired-tag"><FiAlertCircle size={12} /> Vencida</div>}
                     </td>
-                    <td data-label="Acciones">
+                    <td data-label="Acciones" className="col-center">
                       <div className="aiknow-row-actions">
                         <button className="btn-icon" title="Editar" onClick={() => openEdit(item)}><FiEdit2 /></button>
                         <button className="btn-icon danger" title="Eliminar" onClick={() => handleDelete(item.id)}><FiTrash2 /></button>
@@ -258,9 +258,9 @@ export const AIKnowledgeManagement: React.FC = () => {
             <thead>
               <tr>
                 <th>Pregunta</th>
-                <th>Rol</th>
-                <th>Fecha</th>
-                <th>Acciones</th>
+                <th className="col-center">Rol</th>
+                <th className="col-center">Fecha</th>
+                <th className="col-center">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -271,9 +271,9 @@ export const AIKnowledgeManagement: React.FC = () => {
               ) : unanswered.map(u => (
                 <tr key={u.id}>
                   <td data-label="Pregunta">{u.query_text}</td>
-                  <td data-label="Rol">{u.role ? <span className="aiknow-role-badge">{u.role}</span> : '—'}</td>
-                  <td data-label="Fecha">{fmtDate(u.created_at)}</td>
-                  <td data-label="Acciones">
+                  <td data-label="Rol" className="col-center">{u.role ? <span className="aiknow-role-badge">{u.role}</span> : '—'}</td>
+                  <td data-label="Fecha" className="col-center">{fmtDate(u.created_at)}</td>
+                  <td data-label="Acciones" className="col-center">
                     <div className="aiknow-row-actions">
                       <button className="btn-icon" title="Enseñar respuesta" onClick={() => openCreate(u.query_text)}><FiPlus /></button>
                       <button className="btn-icon" title="Marcar como resuelta" onClick={() => handleResolveUnanswered(u.id)}><FiCheckCircle /></button>

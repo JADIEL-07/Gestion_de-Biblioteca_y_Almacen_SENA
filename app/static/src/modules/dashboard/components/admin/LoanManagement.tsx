@@ -175,15 +175,15 @@ export const LoanManagement: React.FC = () => {
         <table className="loan-table">
           <thead>
             <tr>
-              <th>ID</th>
+              <th className="col-center">ID</th>
               <th>Responsable</th>
               <th>Aprendiz (Recibe)</th>
               <th>Elemento / Categoría</th>
-              <th>F. Préstamo</th>
-              <th>Entrega Real</th>
-              <th>Plazo</th>
-              <th>Estado</th>
-              <th>Multa</th>
+              <th className="col-center">F. Préstamo</th>
+              <th className="col-center">Entrega Real</th>
+              <th className="col-center">Plazo</th>
+              <th className="col-center">Estado</th>
+              <th className="col-center">Multa</th>
             </tr>
           </thead>
           <tbody>
@@ -201,7 +201,7 @@ export const LoanManagement: React.FC = () => {
             ) : (
               filteredLoans.map(loan => (
                 <tr key={loan.id}>
-                  <td><span className="id-badge">#{loan.id}</span></td>
+                  <td className="col-center"><span className="id-badge">#{loan.id}</span></td>
                   <td>
                     <div className="user-cell">
                       <FiUser className="cell-icon" />
@@ -234,19 +234,19 @@ export const LoanManagement: React.FC = () => {
                       </div>
                     ))}
                   </td>
-                  <td className="date-text">{new Date(loan.loan_date).toLocaleDateString()}<br/>{new Date(loan.loan_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                  <td className="date-text">
+                  <td className="date-text col-center">{new Date(loan.loan_date).toLocaleDateString()}<br/>{new Date(loan.loan_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                  <td className="date-text col-center">
                     {loan.return_date ? (
                       <>{new Date(loan.return_date).toLocaleDateString()}<br/>{new Date(loan.return_date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</>
                     ) : <span style={{opacity: 0.4}}>Pendiente</span>}
                   </td>
-                  <td>7 días</td>
-                  <td>
+                  <td className="col-center">7 días</td>
+                  <td className="col-center">
                     <span className={`status-pill ${loan.status.toLowerCase()}`}>
                       {loan.status === 'ACTIVE' ? 'ACTIVO' : loan.status === 'RETURNED' ? 'DEVUELTO' : 'VENCIDO'}
                     </span>
                   </td>
-                  <td>
+                  <td className="col-center">
                     <span className={`fine-badge ${loan.fine_amount > 0 ? 'has-fine' : ''}`}>
                       {loan.fine_amount > 0 ? `$${loan.fine_amount.toLocaleString()}` : 'No aplica'}
                     </span>

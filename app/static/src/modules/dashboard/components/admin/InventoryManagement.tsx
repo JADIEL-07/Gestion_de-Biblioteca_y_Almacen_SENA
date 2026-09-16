@@ -525,7 +525,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
             <th className="col-brand">Marca / Modelo</th>
             <th className="col-loc">Ubicación</th>
             <th className="col-stock">Stock</th>
-            <th>Estado</th>
+            <th className="col-status">Estado</th>
             <th style={{ textAlign: 'right' }}>Acciones</th>
           </tr></thead>
           <tbody>
@@ -555,7 +555,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                 <td className="col-brand"><div className="item-main-info"><strong>{item.brand || 'Genérico'}</strong><small>{item.model || 'N/A'}</small></div></td>
                 <td className="col-loc">{item.location_name}</td>
                 <td className="col-stock"><strong>{item.stock}</strong></td>
-                <td><span className={`status-pill-inv ${getStatusClass(item.status_name)}`}>{translateStatus(item.status_name)}</span></td>
+                <td className="col-status"><span className={`status-pill-inv ${getStatusClass(item.status_name)}`}>{translateStatus(item.status_name)}</span></td>
                 <td style={{ textAlign: 'right' }}>
                   <div className="actions-cell" style={{ justifyContent: 'flex-end' }}>
                     <div className="dropdown-wrapper" onClick={e => e.stopPropagation()}>

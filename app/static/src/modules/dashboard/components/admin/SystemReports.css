@@ -168,12 +168,22 @@
    usan ReservationManagement.css y AuditLogs.css con layouts distintos, y al
    empaquetarse juntos en el mismo bundle uno terminaba pisando al otro. */
 .reports-date-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
   white-space: nowrap;
   color: var(--admin-text-muted);
   font-size: 0.85rem;
+}
+
+/* El flex va en este span interno, NUNCA directo en el <td> (.reports-date-
+   -cell): un <td> con display:flex deja de comportarse como celda de tabla,
+   así que su alto ya no lo calculaba el navegador igual que el resto de la
+   fila y la línea divisoria (border-bottom) quedaba desalineada respecto a
+   las demás columnas. */
+.reports-date-cell-inner {
+  /* inline-flex (no flex): así el text-align:center del <td> sí lo centra
+     como un bloque en línea, en vez de estirarse a todo el ancho. */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .small-icon { font-size: 0.9rem; }
