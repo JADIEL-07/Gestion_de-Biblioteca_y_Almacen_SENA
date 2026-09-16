@@ -22,11 +22,12 @@
 }
 
 .confirm-dialog-wrap {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  max-width: 560px;
+  /* El wrap mide lo mismo que la tarjeta (no lo que ocupan tarjeta + chico
+     juntos), así el overlay centra la tarjeta en la pantalla y el chico
+     simplemente se asoma por fuera, a la derecha, sin desplazar el centro. */
+  position: relative;
   width: 100%;
+  max-width: 380px;
 }
 
 .confirm-dialog-card {
@@ -155,14 +156,19 @@
   background: #dc2626;
 }
 
-/* El mascota SENA "asoma" a la derecha de la tarjeta, como se pidió. */
+/* El mascota SENA "asoma" a la derecha de la tarjeta, como se pidió. Va
+   posicionado de forma absoluta respecto al wrap (que mide lo mismo que la
+   tarjeta) para que quede colgando fuera de ella sin afectar dónde se
+   centra la tarjeta. */
 .confirm-dialog-mascot {
+  position: absolute;
+  left: 100%;
+  bottom: -0.5rem;
+  margin-left: -1rem;
   height: 240px;
   width: auto;
   max-width: 180px;
   object-fit: contain;
-  margin-left: -1rem;
-  margin-bottom: -0.5rem;
   filter: drop-shadow(0 15px 25px rgba(0, 0, 0, 0.35));
   animation: confirm-mascot-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s both;
   pointer-events: none;
