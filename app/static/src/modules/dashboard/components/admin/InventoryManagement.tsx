@@ -319,7 +319,13 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
     } catch { alertDialog('Error de conexión'); }
   };
 
-  const getStatusClass = (s: string) => { const u = s.toUpperCase(); if (u.includes('DISPONIBLE') || u === 'EXCELENTE' || u === 'BUENO') return 'disponible'; if (u.includes('PRESTADO')) return 'prestado'; if (u.includes('MANTENIMIENTO') || u === 'REGULAR') return 'mantenimiento'; if (u.includes('DAÑADO') || u === 'MALO') return 'dañado'; return ''; };
+  // Los estados nacen en la BD en inglés (AVAILABLE, LOANED... ver Status en
+  // app/models/item.py) — esta función solo reconocía los nombres en
+  // español, así que translateStatus() mostraba el texto bien ("Disponible")
+  // pero no se le asignaba ninguna clase de color (mismo bug que en
+  // AprendizCatalog: la píldora de color solo se veía en los pocos
+  // elementos con el nombre de estado ya guardado en español).
+  const getStatusClass = (s: string) => { const u = s.toUpperCase(); if (u.includes('DISPONIBLE') || u.includes('AVAILABLE') || u === 'EXCELENTE' || u === 'BUENO') return 'disponible'; if (u.includes('PRESTADO') || u.includes('LOANED')) return 'prestado'; if (u.includes('MANTENIMIENTO') || u.includes('MAINTENANCE') || u === 'REGULAR') return 'mantenimiento'; if (u.includes('DAÑADO') || u.includes('DAMAGED') || u === 'MALO') return 'dañado'; return ''; };
   const getCatClass   = (c: string) => { const l = c.toLowerCase(); if (l.includes('libro')) return 'libro'; if (l.includes('equipo')) return 'equipo'; if (l.includes('herramienta')) return 'herramienta'; return ''; };
 
   const buildQRData = (item: Item) =>

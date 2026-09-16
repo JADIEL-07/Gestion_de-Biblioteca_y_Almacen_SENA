@@ -163,10 +163,17 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
   };
 
   const getStatusClass = (status: string) => {
+    // OJO: los estados nacen en la BD en inglés (AVAILABLE, LOANED, etc. —
+    // ver Status en app/models/item.py), pero esta función solo reconocía
+    // los nombres en español. translateStatus() y canReserve() sí cubrían
+    // ambos idiomas, así que el TEXTO salía bien ("Disponible") pero no se
+    // le asignaba ninguna clase de color — el badge quedaba como texto
+    // suelto en vez de la píldora verde/naranja/roja, y solo se veía bien
+    // en los pocos elementos con el nombre de estado ya en español.
     const s = status.toUpperCase();
-    if (s === 'DISPONIBLE') return 'status-available';
-    if (s === 'REGULAR' || s === 'EN MANTENIMIENTO' || s === 'LOANED' || s === 'PRESTADO' || s === 'OCUPADO') return 'status-warning';
-    if (s === 'DAÑADO') return 'status-unavailable';
+    if (s === 'DISPONIBLE' || s === 'AVAILABLE') return 'status-available';
+    if (s === 'REGULAR' || s === 'EN MANTENIMIENTO' || s === 'MAINTENANCE' || s === 'LOANED' || s === 'PRESTADO' || s === 'OCUPADO') return 'status-warning';
+    if (s === 'DAÑADO' || s === 'DAMAGED' || s === 'IN REPAIR' || s === 'EN REPARACION') return 'status-unavailable';
     return '';
   };
 
