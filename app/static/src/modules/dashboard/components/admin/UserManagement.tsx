@@ -546,15 +546,15 @@ export const UserManagement: React.FC = () => {
                     email: userForQR.email,
                     sys: "BIBLIOTECA_SENA"
                   })}
-                  size={200}
+                  size={170}
                   level="H"
                   includeMargin={true}
                   imageSettings={{
                     src: "/assets/images/icono-sena.png",
                     x: undefined,
                     y: undefined,
-                    height: 40,
-                    width: 40,
+                    height: 34,
+                    width: 34,
                     excavate: true,
                   }}
                 />
