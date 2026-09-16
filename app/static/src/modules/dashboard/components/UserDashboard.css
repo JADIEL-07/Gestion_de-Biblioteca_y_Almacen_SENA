@@ -328,7 +328,7 @@ body.has-impersonation-banner .dashboard-body {
    pie ("Cerrar sesión") siempre se alcanza: si el contenido cabe, el menú
    crece y empuja el pie abajo; si no, se scrollea todo el panel. Barra oculta. */
 .dashboard-sidebar {
-  width: 230px;
+  width: 254px;
   height: 100%;
   min-height: 0;
   padding: 0;

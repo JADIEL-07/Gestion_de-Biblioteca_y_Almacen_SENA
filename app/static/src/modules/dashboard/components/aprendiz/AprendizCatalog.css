@@ -483,6 +483,12 @@
 .modal-badge { color: var(--sena-green); font-weight: 800; font-size: 0.8rem; text-transform: uppercase; }
 .modal-header-info h2 { font-size: 1.8rem; font-weight: 800; margin: 0.25rem 0; color: var(--text-primary); }
 .modal-status { padding: 0.4rem 0.8rem; border-radius: 8px; font-size: 0.75rem; font-weight: 800; display: inline-block; color: white; }
+/* Le faltaba el color de fondo por estado (solo lo tenía la tarjeta del
+   catálogo, vía .status-badge-pro) — aquí se veía como texto blanco
+   suelto en vez de la píldora de color que sí tiene la tarjeta. */
+.modal-status.status-available { background: var(--sena-green); }
+.modal-status.status-warning { background: #f59e0b; }
+.modal-status.status-unavailable { background: #ef4444; }
 
 .modal-description h4 { color: var(--text-muted); text-transform: uppercase; font-size: 0.7rem; margin-bottom: 0.5rem; letter-spacing: 1px; }
 .modal-description p { color: var(--text-secondary); line-height: 1.5; font-size: 0.95rem; }

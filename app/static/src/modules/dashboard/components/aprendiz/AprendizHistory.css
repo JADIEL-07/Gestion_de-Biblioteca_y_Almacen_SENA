@@ -32,7 +32,11 @@
 
 .filter-group {
   display: flex;
-  align-items: center;
+  /* "flex-end" (no "center"): el grupo derecho mezcla campos de fecha (con
+     una etiqueta arriba, más altos) con el botón Exportar (sin etiqueta) —
+     con "center" el botón quedaba flotando más arriba que los inputs, en
+     vez de alinearse con ellos por abajo. */
+  align-items: flex-end;
   gap: 1rem;
   flex-wrap: wrap;
 }
