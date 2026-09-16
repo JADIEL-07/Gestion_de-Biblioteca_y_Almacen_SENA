@@ -185,6 +185,7 @@ def get_aprendiz_stats():
         
         # Calcular multas pendientes
         pending_fines = db.session.query(func.sum(Loan.fine_amount)).filter(Loan.user_id == user_id).scalar() or 0.0
+        fines_count = Loan.query.filter(Loan.user_id == user_id, Loan.fine_amount > 0).count()
         
         # 2. Préstamos Activos Detallados
         loans = Loan.query.filter(
@@ -242,7 +243,8 @@ def get_aprendiz_stats():
                 "loans": active_loans,
                 "reservations": active_reservations,
                 "overdue": overdue_loans,
-                "fines": pending_fines
+                "fines": pending_fines,
+                "fines_count": fines_count
             },
             "active_loans": active_loans_list,
             "reservations": res_list,

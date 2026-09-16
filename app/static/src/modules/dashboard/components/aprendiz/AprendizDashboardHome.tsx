@@ -43,10 +43,10 @@ export const AprendizDashboardHome: React.FC<DashboardHomeProps> = ({ user, onNa
   }, []);
 
   const summaryData = [
-    { id: 'active-loans', title: 'Préstamos activos', value: stats?.metrics?.loans || 0, icon: <FiBook />, color: 'var(--sena-green)' },
-    { id: 'active-res', title: 'Reservas activas', value: stats?.metrics?.reservations || 0, icon: <FiCalendar />, color: '#8b5cf6' },
-    { id: 'overdue', title: 'Préstamos vencidos', value: stats?.metrics?.overdue || 0, icon: <FiClock />, color: '#ef4444' },
-    { id: 'fines', title: 'Multas pendientes', value: `$${stats?.metrics?.fines || 0}`, icon: <FiAlertTriangle />, color: '#f59e0b' },
+    { id: 'active-loans', title: 'Préstamos activos', value: stats?.metrics?.loans || 0, icon: <FiBook />, color: 'var(--sena-green)', section: 'loans' },
+    { id: 'active-res', title: 'Reservas activas', value: stats?.metrics?.reservations || 0, icon: <FiCalendar />, color: '#8b5cf6', section: 'reservations' },
+    { id: 'overdue', title: 'Préstamos vencidos', value: stats?.metrics?.overdue || 0, icon: <FiClock />, color: '#ef4444', section: 'loans' },
+    { id: 'fines', title: 'Total de multas', value: stats?.metrics?.fines_count || 0, icon: <FiAlertTriangle />, color: '#f59e0b', section: 'loans' },
   ];
 
   const userName = (user.display_name || user.name || user.nombre || '').split(' ')[0] || 'Aprendiz';
@@ -82,7 +82,14 @@ export const AprendizDashboardHome: React.FC<DashboardHomeProps> = ({ user, onNa
             <h3>Mi resumen</h3>
             <div className="summary-grid">
               {summaryData.map(item => (
-                <div key={item.id} className="summary-card">
+                <div
+                  key={item.id}
+                  className="summary-card"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onNavigate(item.section)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onNavigate(item.section); } }}
+                >
                   <div className="summary-icon" style={{ color: item.color, backgroundColor: `${item.color}15` }}>
                     {item.icon}
                   </div>
