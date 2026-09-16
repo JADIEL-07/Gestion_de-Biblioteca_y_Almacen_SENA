@@ -129,6 +129,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     'ai-knowledge': 'Conocimiento del Asistente',
     notifications: 'Centro de Notificaciones',
     'team-chat': 'Chat Interno',
+    solicitudes: 'Solicitudes de Soporte',
   };
 
   return (
