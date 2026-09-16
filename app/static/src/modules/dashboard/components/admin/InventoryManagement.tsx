@@ -73,11 +73,12 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
   // servicio pertenece la categoría/ubicación que está creando.
   const [newEntryDependency, setNewEntryDependency] = useState('');
 
-  // Solo lo usa un Admin: al crear un elemento, primero elige el área de
-  // servicio y ESO determina qué categorías/ubicaciones puede ver y elegir
-  // — nunca las de la otra área. El staff no ve este selector porque su
-  // área ya es fija (fetchData ya le trae solo lo suyo en `filters`).
+  // Solo lo usa un Admin: al crear (o editar) un elemento, primero elige el
+  // área de servicio y ESO determina qué categorías/ubicaciones puede ver y
+  // elegir — nunca las de la otra área. El staff no ve este selector porque
+  // su área ya es fija (fetchData ya le trae solo lo suyo en `filters`).
   const [newItemDependency, setNewItemDependency] = useState('');
+  const [editItemDependency, setEditItemDependency] = useState('');
   const [scopedFilters, setScopedFilters] = useState<{ categories: FilterData['categories'], locations: FilterData['locations'] }>({ categories: [], locations: [] });
   const [loadingScopedFilters, setLoadingScopedFilters] = useState(false);
 
@@ -109,17 +110,18 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
   const token = () => localStorage.getItem('token');
   const depId = user?.dependency_id;
 
-  // Cuando un Admin elige el área de servicio en el formulario de "Nuevo
-  // Elemento", se piden SOLO las categorías/ubicaciones de esa área — así
-  // nunca ve mezcladas las de Biblioteca con las de Almacén al crear.
+  // Cuando un Admin elige el área de servicio en "Nuevo Elemento" o en
+  // "Editar Elemento", se piden SOLO las categorías/ubicaciones de esa
+  // área — así nunca ve mezcladas las de Biblioteca con las de Almacén.
+  const activeModalDependency = showAddModal ? newItemDependency : (editItem ? editItemDependency : '');
   useEffect(() => {
-    if (depId || !newItemDependency) { setScopedFilters({ categories: [], locations: [] }); return; }
+    if (depId || !activeModalDependency) { setScopedFilters({ categories: [], locations: [] }); return; }
     setLoadingScopedFilters(true);
-    fetch(`/api/v1/items/filters?dependency_id=${newItemDependency}`, { headers: { Authorization: `Bearer ${token()}` } })
+    fetch(`/api/v1/items/filters?dependency_id=${activeModalDependency}`, { headers: { Authorization: `Bearer ${token()}` } })
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (d) setScopedFilters({ categories: d.categories || [], locations: d.locations || [] }); })
       .finally(() => setLoadingScopedFilters(false));
-  }, [newItemDependency, depId]);
+  }, [activeModalDependency, depId]);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: 'new' | 'edit') => {
     const file = e.target.files?.[0];
@@ -265,6 +267,12 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
       nit: item.nit || '',
       physical_condition: item.physical_condition || 'EXCELENTE'
     });
+    // Pre-seleccionar el área de servicio actual del elemento (según su
+    // ubicación) para que el Admin ya vea sus categorías/ubicaciones — si
+    // el elemento es de datos viejos sin área asignada, se deja vacío y el
+    // formulario muestra la lista completa hasta que elija una.
+    const currentLoc = filters.locations.find(l => l.id === item.location_id);
+    setEditItemDependency(currentLoc?.dependency_id ? String(currentLoc.dependency_id) : '');
     setMenuOpenId(null);
   };
   const handleEdit = async (e: React.FormEvent) => {
@@ -284,10 +292,11 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
           physical_condition: editForm.physical_condition
         })
       });
-      if (res.ok) { 
-        alertDialog('Elemento actualizado exitosamente'); 
-        setEditItem(null); 
-        fetchData(); 
+      if (res.ok) {
+        alertDialog('Elemento actualizado exitosamente');
+        setEditItem(null);
+        setEditItemDependency('');
+        fetchData();
       }
       else { 
         const err = await res.json().catch(() => ({ error: 'Error al procesar la respuesta del servidor' }));
@@ -692,22 +701,41 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
           <div className="inv-modal" onClick={e => e.stopPropagation()}>
             <div className="inv-modal-header">
               <h3><FiEdit2 /> Editar Elemento — {editItem.name}</h3>
-              <button className="btn-close" onClick={() => { stopCamera(); setEditItem(null); }}><FiX /></button>
+              <button className="btn-close" onClick={() => { stopCamera(); setEditItem(null); setEditItemDependency(''); }}><FiX /></button>
             </div>
             <form onSubmit={handleEdit} className="inv-form">
               <div className="form-grid">
                 <div className="form-group"><label>Nombre</label><input required type="text" value={editForm.name} onChange={e => setEditForm({ ...editForm, name: e.target.value })} /></div>
                 <div className="form-group"><label>Código / Referencia</label><input type="text" value={editForm.code} onChange={e => setEditForm({ ...editForm, code: e.target.value })} placeholder="Auto-generado si se deja vacío" /></div>
+
+                {/* Igual que en "Nuevo Elemento": un Admin elige primero el
+                    área y eso acota las categorías/ubicaciones a elegir. Se
+                    precarga con el área actual del elemento; si es un
+                    elemento antiguo sin área asignada, queda vacío y se ven
+                    todas las categorías/ubicaciones hasta que elija una. */}
+                {!depId && (
+                  <div className="form-group full-width">
+                    <CustomSelect
+                      label="Área de Servicio"
+                      options={filters.dependencies || []}
+                      value={editItemDependency}
+                      onChange={val => {
+                        setEditItemDependency(String(val));
+                        setEditForm({ ...editForm, category_id: '', location_id: '' });
+                      }}
+                    />
+                  </div>
+                )}
                 <div className="form-group">
-                  <CustomSelect 
+                  <CustomSelect
                     label="Categoría"
-                    options={filters.categories || []}
+                    options={(depId ? filters.categories : (editItemDependency ? scopedFilters.categories : filters.categories)) || []}
                     value={editForm.category_id}
                     onChange={val => setEditForm({ ...editForm, category_id: String(val) })}
                   />
                 </div>
                 <div className="form-group">
-                  <CustomSelect 
+                  <CustomSelect
                     label="Estado"
                     options={filters.statuses || []}
                     value={editForm.status_id}
@@ -715,7 +743,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                   />
                 </div>
                 <div className="form-group">
-                  <CustomSelect 
+                  <CustomSelect
                     label="Condición Física"
                     options={CONDITION_OPTIONS}
                     value={editForm.physical_condition}
@@ -723,9 +751,9 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                   />
                 </div>
                 <div className="form-group">
-                  <CustomSelect 
+                  <CustomSelect
                     label="Ubicación"
-                    options={filters.locations || []}
+                    options={(depId ? filters.locations : (editItemDependency ? scopedFilters.locations : filters.locations)) || []}
                     value={editForm.location_id}
                     onChange={val => setEditForm({ ...editForm, location_id: String(val) })}
                   />
@@ -765,7 +793,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                 </div>
               </div>
               <div className="form-actions">
-                <button type="button" className="btn-cancel" onClick={() => { stopCamera(); setEditItem(null); }}>Cancelar</button>
+                <button type="button" className="btn-cancel" onClick={() => { stopCamera(); setEditItem(null); setEditItemDependency(''); }}>Cancelar</button>
                 <button type="submit" className="btn-submit"><FiSave /> Guardar Cambios</button>
               </div>
             </form>

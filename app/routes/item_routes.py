@@ -397,7 +397,38 @@ def update_item(id):
         if not current_loc or (current_loc.dependency_id is not None and current_loc.dependency_id != own_dep_id):
             return jsonify({"error": "No puedes editar un elemento de otra área de servicio."}), 403
 
-    # Actualizar solo los campos enviados
+    # Si se está tocando la ubicación y/o la categoría, se validan JUNTAS
+    # antes de aplicar nada: deben terminar perteneciendo a la misma área de
+    # servicio entre sí (y, si es staff, a la suya propia). Así la edición
+    # no se puede usar como atajo para dejar un elemento con, por ejemplo,
+    # la ubicación de Biblioteca y la categoría de Almacén.
+    touching_location = 'location_id' in data and data['location_id']
+    touching_category = 'category_id' in data and data['category_id']
+    if touching_location or touching_category:
+        new_loc_id = int(data['location_id']) if touching_location else item.location_id
+        new_cat_id = int(data['category_id']) if touching_category else item.category_id
+
+        loc = Location.query.get(new_loc_id)
+        if not loc:
+            return jsonify({"error": "La ubicación seleccionada no existe."}), 400
+        cat = Category.query.get(new_cat_id)
+        if not cat:
+            return jsonify({"error": "La categoría seleccionada no existe."}), 400
+
+        if is_staff_scoped:
+            if loc.dependency_id is not None and loc.dependency_id != own_dep_id:
+                return jsonify({"error": "No puedes mover este elemento a una ubicación de otra área de servicio."}), 403
+            if cat.dependency_id is not None and cat.dependency_id != own_dep_id:
+                return jsonify({"error": "No puedes asignar una categoría de otra área de servicio."}), 403
+
+        # Si ambas tienen área asignada (no son "compartidas"), deben coincidir.
+        if loc.dependency_id is not None and cat.dependency_id is not None and loc.dependency_id != cat.dependency_id:
+            return jsonify({"error": "La ubicación y la categoría elegidas pertenecen a áreas de servicio distintas."}), 400
+
+        item.location_id = new_loc_id
+        item.category_id = new_cat_id
+
+    # Actualizar el resto de los campos enviados
     if 'name' in data:       item.name        = data['name']
     if 'code' in data and data['code'].strip(): item.code = data['code'].strip()
     if 'description' in data: item.description = data['description']
@@ -408,23 +439,9 @@ def update_item(id):
     if 'stock' in data:      item.stock       = int(data['stock'])
     if 'image_url' in data:  item.image_url   = save_image(data['image_url'])
     if 'physical_condition' in data: item.physical_condition = data['physical_condition'] or None
-    if 'category_id' in data and data['category_id']:
-        new_cat_id = int(data['category_id'])
-        if is_staff_scoped:
-            cat = Category.query.get(new_cat_id)
-            if not cat or (cat.dependency_id is not None and cat.dependency_id != own_dep_id):
-                return jsonify({"error": "No puedes asignar una categoría de otra área de servicio."}), 403
-        item.category_id = new_cat_id
     if 'status_id' in data and data['status_id']:
         item.status_id   = int(data['status_id'])
-    if 'location_id' in data and data['location_id']:
-        new_loc_id = int(data['location_id'])
-        if is_staff_scoped:
-            loc = Location.query.get(new_loc_id)
-            if not loc or (loc.dependency_id is not None and loc.dependency_id != own_dep_id):
-                return jsonify({"error": "No puedes mover este elemento a una ubicación de otra área de servicio."}), 403
-        item.location_id = new_loc_id
-    
+
     # Nuevos campos faltantes
     if 'acquisition_date' in data and data['acquisition_date']:
         from datetime import datetime
