@@ -64,7 +64,7 @@ def is_item_available_for_loan(item):
 def enqueue_reservation(user_id, item_id, admin_id=None):
     """Crea una reserva. Si hay stock libre la deja READY; si no, QUEUED."""
     item = Item.query.get(item_id)
-    if not item:
+    if not item or item.is_deleted:
         return None, "Ítem no encontrado"
 
     # Sanción activa (préstamo NOT_RETURNED sin levantar): bloquea cualquier

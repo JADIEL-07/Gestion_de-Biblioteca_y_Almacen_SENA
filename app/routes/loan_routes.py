@@ -143,7 +143,7 @@ def create_loan():
     item_names = []
     for item_id in item_ids:
         item = Item.query.get(item_id)
-        if not item:
+        if not item or item.is_deleted:
             db.session.rollback()
             return jsonify({"error": f"Ítem {item_id} no existe"}), 404
         item_names.append(item.name)

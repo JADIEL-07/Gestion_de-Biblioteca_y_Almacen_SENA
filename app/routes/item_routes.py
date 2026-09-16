@@ -85,7 +85,11 @@ def get_items():
     stat_id = request.args.get('status_id')
     loc_id = request.args.get('location_id')
 
-    query = Item.query
+    # Los elementos dados de baja (soft delete) no se listan más, pero sus
+    # filas siguen existiendo en la BD — así el historial de préstamos,
+    # reservas y mantenimiento que los referencia se sigue viendo con su
+    # nombre real en vez de "Ítem eliminado".
+    query = Item.query.filter(Item.is_deleted == False)
 
     # Búsqueda global
     if search:
@@ -161,9 +165,9 @@ def get_saved_items():
     saved = (SavedItem.query.filter_by(user_id=user_id)
              .order_by(SavedItem.created_at.desc()).all())
     saved_ids = {s.item_id for s in saved}
-    items_by_id = {i.id: i for i in Item.query.filter(Item.id.in_(saved_ids)).all()}
+    items_by_id = {i.id: i for i in Item.query.filter(Item.id.in_(saved_ids), Item.is_deleted == False).all()}
     # Se respeta el orden de "guardado más reciente primero"; si un elemento
-    # ya no existe (fue borrado del inventario), se omite en silencio.
+    # ya no existe (o fue dado de baja) se omite en silencio.
     ordered = [items_by_id[s.item_id] for s in saved if s.item_id in items_by_id]
     return jsonify([serialize_item(i, saved_ids) for i in ordered])
 
@@ -484,15 +488,37 @@ def delete_item(id):
         loc = Location.query.get(item.location_id)
         if not loc or (loc.dependency_id is not None and loc.dependency_id != own_dep_id):
             return jsonify({"error": "No puedes eliminar un elemento de otra área de servicio."}), 403
+
+    # Esto SÍ debe bloquear el borrado: hay un compromiso vigente con
+    # alguien (lo tiene prestado o está en cola para reclamarlo).
+    from ..models.loan import Loan, LoanDetail
+    from ..models.reservation import Reservation
+    active_loan = (db.session.query(LoanDetail)
+                   .join(Loan, LoanDetail.loan_id == Loan.id)
+                   .filter(LoanDetail.item_id == id, Loan.status.in_(['ACTIVE', 'OVERDUE', 'NOT_RETURNED']))
+                   .first())
+    if active_loan:
+        return jsonify({"error": "No se puede eliminar: el elemento tiene un préstamo activo o no devuelto."}), 400
+    active_reservation = Reservation.query.filter(
+        Reservation.item_id == id, Reservation.status.in_(['QUEUED', 'READY'])
+    ).first()
+    if active_reservation:
+        return jsonify({"error": "No se puede eliminar: el elemento tiene una reserva en curso."}), 400
+
+    # Baja lógica (soft delete), NO borrado físico: la fila del elemento se
+    # queda en la BD marcada is_deleted=True, así el historial de préstamos,
+    # reservas, mantenimiento y movimientos que ya lo referencian se
+    # conserva intacto (con su nombre real) — antes fallaba con un error de
+    # llave foránea justo por eso, aunque el elemento estuviera "Disponible".
     try:
         SavedItem.query.filter_by(item_id=id).delete()
-        db.session.delete(item)
+        item.is_deleted = True
         db.session.commit()
         return jsonify({"message": f"Elemento '{item.name}' eliminado exitosamente"}), 200
     except Exception as e:
         db.session.rollback()
         print(f"[ERROR] delete_item: {e}")
-        return jsonify({"error": "No se puede eliminar este elemento (puede tener préstamos o reservas asociadas)"}), 400
+        return jsonify({"error": "No se pudo eliminar el elemento."}), 400
 # --- CATEGORIES CRUD ---
 @items_bp.route('/categories', methods=['POST'])
 @jwt_required()
