@@ -208,6 +208,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     return () => clearInterval(interval);
   }, [isGuest]);
 
+  // Referencia siempre actualizada de threads, para leerla desde pollTicketMessages
+  // (más abajo) sin tener que recrear su intervalo cada vez que llega un mensaje.
+  const threadsRef = useRef<ChatThread[]>(threads);
+  useEffect(() => { threadsRef.current = threads; }, [threads]);
+
   // Cuando hay ticket activo, hacer polling de mensajes del soporte para mostrarlos en el chat
   useEffect(() => {
     if (!activeTicket || isGuest) return;
@@ -227,6 +232,14 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
         const msgs: any[] = data.messages || [];
         const newSupportMsgs = msgs.filter((m: any) => !m.is_mine && !seenSupportMsgIds.has(m.id));
         if (newSupportMsgs.length === 0) return;
+        // El hilo que originó el ticket puede no estar cargado todavía en memoria
+        // (carrera con la carga inicial del historial vía /assistant/threads, que
+        // es una llamada aparte y más pesada que esta). Si se marcaran estos
+        // mensajes como "vistos" sin haber podido guardarlos en ningún hilo, se
+        // perderían para siempre en esta sesión — es la causa de que, al volver
+        // a entrar al asistente tras haberlo dejado, la conversación con Soporte
+        // apareciera incompleta o vacía. Mejor reintentar en el próximo sondeo.
+        if (!threadsRef.current.some(t => t.id === ticketThreadId)) return;
         setSeenSupportMsgIds(prev => {
           const next = new Set(prev);
           newSupportMsgs.forEach((m: any) => next.add(m.id));
@@ -279,11 +292,6 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
       setActiveThreadId(activeTicket.source_thread_id);
     }
   }, [activeTicket, threads, activeThreadId]);
-
-  // Referencia siempre actualizada de threads, para leerla desde el poll de
-  // abajo sin tener que recrear su intervalo cada vez que llega un mensaje.
-  const threadsRef = useRef<ChatThread[]>(threads);
-  useEffect(() => { threadsRef.current = threads; }, [threads]);
 
   // En cuanto Soporte cierra el ticket, el asistente pregunta si sirvió de
   // ayuda (en el mismo hilo, como un mensaje normal del bot, con sus propios
