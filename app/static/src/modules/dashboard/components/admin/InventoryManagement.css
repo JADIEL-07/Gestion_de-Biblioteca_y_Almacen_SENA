@@ -443,6 +443,14 @@
 
 .form-group.full-width { grid-column: span 2; }
 
+/* Aviso bajo Categoría/Ubicación cuando el Admin todavía no eligió el
+   área de servicio (ver selector "Área de Servicio" del formulario). */
+.field-hint {
+    font-size: 0.72rem;
+    color: var(--admin-text-muted);
+    font-style: italic;
+}
+
 .form-group label {
     font-size: 0.75rem;
     font-weight: 700;

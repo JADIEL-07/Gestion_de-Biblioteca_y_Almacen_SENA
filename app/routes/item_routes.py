@@ -9,6 +9,35 @@ from sqlalchemy import or_, String
 
 items_bp = Blueprint('items', __name__)
 
+# Roles cuyo inventario queda "encerrado" en su propia área de servicio
+# (Biblioteca/Almacén): nunca ven ni pueden tocar elementos, categorías o
+# ubicaciones de la otra área, sin importar qué les mande el cliente.
+STAFF_INVENTORY_ROLES = ('BIBLIOTECARIO', 'ALMACENISTA')
+
+
+def _requester_scope():
+    """(usuario, nombre_de_rol, is_staff_scoped, own_dependency_id) del JWT
+    actual. Con optional=True en la ruta, uid puede venir vacío (invitado)."""
+    uid = get_jwt_identity()
+    if not uid:
+        return None, '', False, None
+    user = User.query.get(uid)
+    if not user:
+        return None, '', False, None
+    role_name = (user.role.name if user.role else '').strip().upper()
+    is_staff_scoped = role_name in STAFF_INVENTORY_ROLES
+    return user, role_name, is_staff_scoped, user.dependency_id
+
+
+def _pick_default(model, dependency_id):
+    """Elige un valor por defecto (Location o Category) para cuando no se
+    especifica uno: primero de esa misma área, si no hay ninguna, uno
+    "compartido" (dependency_id NULL, de datos anteriores a esta
+    separación), y en último caso cualquiera."""
+    return (model.query.filter_by(dependency_id=dependency_id).first()
+            or model.query.filter_by(dependency_id=None).first()
+            or model.query.first())
+
 
 def _full_media_url(path):
     """Normaliza rutas de media a una ruta RELATIVA ('/uploads/...').
@@ -84,10 +113,21 @@ def get_items():
     if loc_id and loc_id not in ['ALL', '', 'undefined', 'null']:
         query = query.filter(Item.location_id == loc_id)
         
-    # Filtro de seguridad/separación por Dependencia (Biblioteca vs Almacén)
-    dep_id = request.args.get('dependency_id')
-    if dep_id and dep_id not in ['ALL', '', 'undefined', 'null']:
-        query = query.join(Location, Item.location_id == Location.id).filter(Location.dependency_id == dep_id)
+    # Filtro de seguridad/separación por Dependencia (Biblioteca vs Almacén).
+    # A un Bibliotecario/Almacenista esto NO se lo dejamos elegir: se fuerza
+    # siempre a su propia área, sin importar qué dependency_id mande el
+    # cliente (así nunca ve, ni con la consola del navegador, el inventario
+    # de la otra área). Para Admin/Aprendiz/invitado se respeta el filtro
+    # opcional que manden (o ninguno = ven de todas las áreas).
+    requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
+    if is_staff_scoped and not own_dep_id:
+        # Cuenta de staff sin área de servicio asignada: por seguridad no ve
+        # nada (mejor eso a verlo "todo" por accidente).
+        query = query.filter(Item.id < 0)
+    else:
+        dep_id = own_dep_id if is_staff_scoped else request.args.get('dependency_id')
+        if dep_id and dep_id not in ['ALL', '', 'undefined', 'null']:
+            query = query.join(Location, Item.location_id == Location.id).filter(Location.dependency_id == dep_id)
 
     try:
         items = query.order_by(Item.id.desc()).all()
@@ -144,21 +184,34 @@ def toggle_save_item(id):
     return jsonify({"saved": True}), 201
 
 @items_bp.route('/filters', methods=['GET'])
+@jwt_required(optional=True)
 def get_item_filters():
-    dep_id = request.args.get('dependency_id')
+    # Mismo forzado que en GET /items/: un Bibliotecario/Almacenista jamás
+    # recibe las ubicaciones/categorías de la otra área, sin importar qué
+    # dependency_id venga en la URL.
+    requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
+    dep_id = own_dep_id if is_staff_scoped else request.args.get('dependency_id')
     try:
         from ..models.dependency import Dependency
-        categories = Category.query.all()
         statuses = Status.query.all()
         dependencies = Dependency.query.all()
-        
+
+        cat_query = Category.query
         loc_query = Location.query
         if dep_id and dep_id not in ['ALL', '', 'undefined', 'null']:
-            loc_query = loc_query.filter(Location.dependency_id == dep_id)
+            # Se incluyen también las de dependency_id NULL (categorías/
+            # ubicaciones "compartidas" de antes de esta separación).
+            cat_query = cat_query.filter(or_(Category.dependency_id == dep_id, Category.dependency_id.is_(None)))
+            loc_query = loc_query.filter(or_(Location.dependency_id == dep_id, Location.dependency_id.is_(None)))
+        elif is_staff_scoped:
+            # Staff sin área asignada: no ve ninguna (ver mismo criterio en GET /items/).
+            cat_query = cat_query.filter(Category.id < 0)
+            loc_query = loc_query.filter(Location.id < 0)
+        categories = cat_query.all()
         locations = loc_query.all()
-        
+
         return jsonify({
-            "categories": [{"id": c.id, "name": c.name} for c in categories],
+            "categories": [{"id": c.id, "name": c.name, "dependency_id": c.dependency_id} for c in categories],
             "statuses": [{"id": s.id, "name": s.name} for s in statuses],
             "locations": [{"id": l.id, "name": l.name, "dependency_id": l.dependency_id} for l in locations],
             "dependencies": [{"id": d.id, "name": d.name} for d in dependencies]
@@ -203,9 +256,24 @@ def add_item():
     if not data:
         return jsonify({"error": "No se recibieron datos"}), 400
 
-    # ... (resto de validaciones)
-    category_id = data.get('category_id')
-    # ...
+    # ── Área de servicio (regla de separación Biblioteca/Almacén) ──
+    # Un Bibliotecario/Almacenista SIEMPRE crea en su propia área — se
+    # ignora cualquier dependency_id que venga en el body. Un Admin (u otro
+    # rol con acceso) debe indicarlo explícitamente: es quien elige en qué
+    # área de servicio se crea el elemento.
+    requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
+    if is_staff_scoped:
+        dependency_id = own_dep_id
+        if not dependency_id:
+            return jsonify({"error": "Tu cuenta no tiene un área de servicio asignada. Contacta a un administrador."}), 400
+    else:
+        try:
+            dependency_id = int(data.get('dependency_id')) if data.get('dependency_id') not in (None, '', 'ALL') else None
+        except (TypeError, ValueError):
+            dependency_id = None
+        if not dependency_id:
+            return jsonify({"error": "Selecciona el área de servicio donde se creará el elemento."}), 400
+
     # Handle category_id with safe conversion
     raw_category_id = data.get('category_id')
     try:
@@ -213,8 +281,8 @@ def add_item():
     except (TypeError, ValueError):
         category_id = None
     if not category_id:
-        default_cat = Category.query.filter_by(name='GENERAL').first() or Category.query.first()
-        category_id = default_cat.id if default_cat else 1
+        default_cat = _pick_default(Category, dependency_id)
+        category_id = default_cat.id if default_cat else None
 
     # Handle location_id with safe conversion
     raw_location_id = data.get('location_id')
@@ -223,8 +291,21 @@ def add_item():
     except (TypeError, ValueError):
         location_id = None
     if not location_id:
-        default_loc = Location.query.filter_by(name='ALMACEN GENERAL').first() or Location.query.first()
-        location_id = default_loc.id if default_loc else 1
+        default_loc = _pick_default(Location, dependency_id)
+        location_id = default_loc.id if default_loc else None
+
+    # La ubicación y la categoría elegidas (o las que se acaban de resolver
+    # por defecto) tienen que pertenecer a esa misma área de servicio — así
+    # ni siquiera manipulando la petición se puede colar un elemento en la
+    # ubicación/categoría de la otra área. Se acepta dependency_id NULL
+    # (categorías/ubicaciones "compartidas" de antes de esta separación).
+    location = Location.query.get(location_id) if location_id else None
+    if not location or (location.dependency_id is not None and location.dependency_id != dependency_id):
+        return jsonify({"error": "La ubicación seleccionada no pertenece al área de servicio elegida."}), 400
+
+    category = Category.query.get(category_id) if category_id else None
+    if not category or (category.dependency_id is not None and category.dependency_id != dependency_id):
+        return jsonify({"error": "La categoría seleccionada no pertenece al área de servicio elegida."}), 400
 
     item_code = data.get('code') or data.get('codigo')
     if not item_code:
@@ -264,8 +345,11 @@ def add_item():
 
         staff_roles = Role.query.filter(Role.name.in_(['BIBLIOTECARIO', 'ALMACENISTA'])).all()
         staff_role_ids = [r.id for r in staff_roles]
+        # Solo se avisa al staff de la MISMA área de servicio — si no, un
+        # Bibliotecario terminaba enterándose de altas del Almacén y viceversa.
         staff_users = User.query.filter(
             User.role_id.in_(staff_role_ids),
+            User.dependency_id == dependency_id,
             User.is_deleted == False,
             User.is_active == True,
         ).all()
@@ -307,6 +391,12 @@ def update_item(id):
     if not data:
         return jsonify({"error": "No se recibieron datos"}), 400
 
+    requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
+    if is_staff_scoped:
+        current_loc = Location.query.get(item.location_id)
+        if not current_loc or (current_loc.dependency_id is not None and current_loc.dependency_id != own_dep_id):
+            return jsonify({"error": "No puedes editar un elemento de otra área de servicio."}), 403
+
     # Actualizar solo los campos enviados
     if 'name' in data:       item.name        = data['name']
     if 'code' in data and data['code'].strip(): item.code = data['code'].strip()
@@ -319,11 +409,21 @@ def update_item(id):
     if 'image_url' in data:  item.image_url   = save_image(data['image_url'])
     if 'physical_condition' in data: item.physical_condition = data['physical_condition'] or None
     if 'category_id' in data and data['category_id']:
-        item.category_id = int(data['category_id'])
+        new_cat_id = int(data['category_id'])
+        if is_staff_scoped:
+            cat = Category.query.get(new_cat_id)
+            if not cat or (cat.dependency_id is not None and cat.dependency_id != own_dep_id):
+                return jsonify({"error": "No puedes asignar una categoría de otra área de servicio."}), 403
+        item.category_id = new_cat_id
     if 'status_id' in data and data['status_id']:
         item.status_id   = int(data['status_id'])
     if 'location_id' in data and data['location_id']:
-        item.location_id = int(data['location_id'])
+        new_loc_id = int(data['location_id'])
+        if is_staff_scoped:
+            loc = Location.query.get(new_loc_id)
+            if not loc or (loc.dependency_id is not None and loc.dependency_id != own_dep_id):
+                return jsonify({"error": "No puedes mover este elemento a una ubicación de otra área de servicio."}), 403
+        item.location_id = new_loc_id
     
     # Nuevos campos faltantes
     if 'acquisition_date' in data and data['acquisition_date']:
@@ -362,6 +462,11 @@ def update_item(id):
 @jwt_required()
 def delete_item(id):
     item = Item.query.get_or_404(id)
+    requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
+    if is_staff_scoped:
+        loc = Location.query.get(item.location_id)
+        if not loc or (loc.dependency_id is not None and loc.dependency_id != own_dep_id):
+            return jsonify({"error": "No puedes eliminar un elemento de otra área de servicio."}), 403
     try:
         SavedItem.query.filter_by(item_id=id).delete()
         db.session.delete(item)
@@ -379,8 +484,24 @@ def add_category():
     print(f"[DEBUG] add_category data: {data}")
     if not data or not data.get('name'):
         return jsonify({"error": "Nombre de categoría requerido"}), 400
+
+    # Misma regla que al crear un elemento: staff -> su propia área, sin
+    # opción a elegir; cualquier otro rol (Admin) tiene que indicarla.
+    requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
+    if is_staff_scoped:
+        dependency_id = own_dep_id
+        if not dependency_id:
+            return jsonify({"error": "Tu cuenta no tiene un área de servicio asignada. Contacta a un administrador."}), 400
+    else:
+        try:
+            dependency_id = int(data.get('dependency_id')) if data.get('dependency_id') not in (None, '', 'ALL') else None
+        except (TypeError, ValueError):
+            dependency_id = None
+        if not dependency_id:
+            return jsonify({"error": "Selecciona a qué área de servicio pertenece esta categoría."}), 400
+
     try:
-        new_cat = Category(name=data['name'])
+        new_cat = Category(name=data['name'], dependency_id=dependency_id)
         db.session.add(new_cat)
         db.session.commit()
 
@@ -388,6 +509,7 @@ def add_category():
         staff_role_ids = [r.id for r in staff_roles]
         staff_users = User.query.filter(
             User.role_id.in_(staff_role_ids),
+            User.dependency_id == dependency_id,
             User.is_deleted == False,
             User.is_active == True,
         ).all()
@@ -401,7 +523,7 @@ def add_category():
             ))
         db.session.commit()
 
-        return jsonify({"id": new_cat.id, "name": new_cat.name}), 201
+        return jsonify({"id": new_cat.id, "name": new_cat.name, "dependency_id": new_cat.dependency_id}), 201
     except Exception as e:
         db.session.rollback()
         error_msg = str(e)
@@ -417,6 +539,11 @@ def update_category(id):
     data = request.json
     if not data or not data.get('name'):
         return jsonify({"error": "Nombre de categoría requerido"}), 400
+
+    requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
+    if is_staff_scoped and cat.dependency_id is not None and cat.dependency_id != own_dep_id:
+        return jsonify({"error": "No puedes editar una categoría de otra área de servicio."}), 403
+
     try:
         cat.name = data['name']
         db.session.commit()
@@ -433,6 +560,9 @@ def update_category(id):
 @jwt_required()
 def delete_category(id):
     cat = Category.query.get_or_404(id)
+    requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
+    if is_staff_scoped and cat.dependency_id is not None and cat.dependency_id != own_dep_id:
+        return jsonify({"error": "No puedes eliminar una categoría de otra área de servicio."}), 403
     try:
         db.session.delete(cat)
         db.session.commit()
@@ -449,11 +579,27 @@ def add_location():
     print(f"[DEBUG] add_location data: {data}")
     if not data or not data.get('name'):
         return jsonify({"error": "Nombre de ubicación requerido"}), 400
+
+    # Misma regla: staff -> su propia área (se ignora lo que mande el
+    # cliente); Admin/otro rol -> tiene que indicarla.
+    requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
+    if is_staff_scoped:
+        dependency_id = own_dep_id
+        if not dependency_id:
+            return jsonify({"error": "Tu cuenta no tiene un área de servicio asignada. Contacta a un administrador."}), 400
+    else:
+        try:
+            dependency_id = int(data.get('dependency_id')) if data.get('dependency_id') not in (None, '', 'ALL') else None
+        except (TypeError, ValueError):
+            dependency_id = None
+        if not dependency_id:
+            return jsonify({"error": "Selecciona a qué área de servicio pertenece esta ubicación."}), 400
+
     try:
         new_loc = Location(
-            name=data['name'], 
+            name=data['name'],
             type=data.get('type', 'internal'),
-            dependency_id=data.get('dependency_id')
+            dependency_id=dependency_id
         )
         db.session.add(new_loc)
         db.session.commit()
@@ -462,6 +608,7 @@ def add_location():
         staff_role_ids = [r.id for r in staff_roles]
         staff_users = User.query.filter(
             User.role_id.in_(staff_role_ids),
+            User.dependency_id == dependency_id,
             User.is_deleted == False,
             User.is_active == True,
         ).all()
@@ -475,7 +622,7 @@ def add_location():
             ))
         db.session.commit()
 
-        return jsonify({"id": new_loc.id, "name": new_loc.name}), 201
+        return jsonify({"id": new_loc.id, "name": new_loc.name, "dependency_id": new_loc.dependency_id}), 201
     except Exception as e:
         db.session.rollback()
         error_msg = str(e)
@@ -491,6 +638,11 @@ def update_location(id):
     data = request.json
     if not data or not data.get('name'):
         return jsonify({"error": "Nombre de ubicación requerido"}), 400
+
+    requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
+    if is_staff_scoped and loc.dependency_id is not None and loc.dependency_id != own_dep_id:
+        return jsonify({"error": "No puedes editar una ubicación de otra área de servicio."}), 403
+
     try:
         loc.name = data['name']
         if 'type' in data: loc.type = data['type']
@@ -508,6 +660,9 @@ def update_location(id):
 @jwt_required()
 def delete_location(id):
     loc = Location.query.get_or_404(id)
+    requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
+    if is_staff_scoped and loc.dependency_id is not None and loc.dependency_id != own_dep_id:
+        return jsonify({"error": "No puedes eliminar una ubicación de otra área de servicio."}), 403
     try:
         db.session.delete(loc)
         db.session.commit()

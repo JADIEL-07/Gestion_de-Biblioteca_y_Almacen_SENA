@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   FiHome, FiBox, FiBookOpen, FiSettings, FiHelpCircle,
-  FiLogOut, FiMenu, FiEdit3
+  FiLogOut, FiMenu, FiEdit3, FiMapPin, FiLayers
 } from 'react-icons/fi';
 import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 
@@ -23,9 +23,15 @@ export const StaffSidebar: React.FC<StaffSidebarProps> = ({
   const depName = user?.dependency_name || user?.dependency_obj?.name || '';
 
   const mainItems = [
-    { id: 'home',      label: 'Inicio',                icon: <FiHome /> },
-    { id: 'inventory', label: 'Mi Inventario',          icon: <FiBox /> },
-    { id: 'loans',     label: 'Préstamos & Reservas',   icon: <FiBookOpen /> },
+    { id: 'home',       label: 'Inicio',                icon: <FiHome /> },
+    { id: 'inventory',  label: 'Mi Inventario',          icon: <FiBox /> },
+    // Atajos directos a Categorías/Ubicaciones — reutilizan la misma tabla
+    // de InventoryManagement que ya usa el Admin, con activeTab fijo y
+    // siempre acotada al área de servicio propia (lo hace el backend, no
+    // es solo de interfaz).
+    { id: 'categories', label: 'Categorías',             icon: <FiLayers /> },
+    { id: 'locations',  label: 'Ubicaciones',            icon: <FiMapPin /> },
+    { id: 'loans',      label: 'Préstamos & Reservas',   icon: <FiBookOpen /> },
   ];
 
   const bottomItems = [

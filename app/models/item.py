@@ -5,6 +5,10 @@ class Category(db.Model):
     __tablename__ = 'categories'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
+    # A qué área de servicio (Biblioteca/Almacén) pertenece — igual que
+    # Location.dependency_id. Nullable para no romper categorías ya
+    # existentes creadas antes de esta separación.
+    dependency_id = db.Column(db.Integer, db.ForeignKey('dependencies.id'), nullable=True)
     items = db.relationship('Item', backref='category', lazy=True)
 
 class Location(db.Model):

@@ -131,9 +131,11 @@ export const StaffDashboard: React.FC<StaffDashboardProps> = ({ user, onLogout, 
 
         <main className="dashboard-main-content">
           <div className="content-container">
-            {activeSection === 'home'      && <StaffHome user={user} />}
-            {activeSection === 'inventory' && <InventoryManagement user={user} />}
-            {activeSection === 'loans'     && <StaffLoans user={user} />}
+            {activeSection === 'home'       && <StaffHome user={user} />}
+            {activeSection === 'inventory'  && <InventoryManagement user={user} />}
+            {activeSection === 'categories' && <InventoryManagement user={user} activeTab="categories" />}
+            {activeSection === 'locations'  && <InventoryManagement user={user} activeTab="locations" />}
+            {activeSection === 'loans'      && <StaffLoans user={user} />}
             {activeSection === 'config'    && <UserConfig user={user} onUserUpdate={onUserUpdate} />}
             {activeSection === 'help'      && <PersonalAssistant user={user} />}
             {activeSection === 'notifications' && <NotificationsPage />}

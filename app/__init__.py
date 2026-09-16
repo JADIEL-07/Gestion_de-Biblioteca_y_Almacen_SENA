@@ -75,6 +75,10 @@ def _apply_runtime_migrations():
         "ALTER TABLE loans ADD COLUMN IF NOT EXISTS sanction_created_at TIMESTAMP",
         "ALTER TABLE loans ADD COLUMN IF NOT EXISTS sanction_lifted_at TIMESTAMP",
         "ALTER TABLE loans ADD COLUMN IF NOT EXISTS sanction_lifted_by VARCHAR(50)",
+        # Separación de inventario por área de servicio (Biblioteca/Almacén):
+        # las categorías ahora también pertenecen a una dependencia, igual
+        # que las ubicaciones.
+        "ALTER TABLE categories ADD COLUMN IF NOT EXISTS dependency_id INTEGER",
     ]
     for stmt in column_migrations:
         try:
