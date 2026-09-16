@@ -542,23 +542,39 @@ def chat_ai():
         return jsonify({"error": "El mensaje no puede estar vacío"}), 400
         
     # --- SISTEMA DE CACHÉ BÁSICO ---
-    # Solo cacheamos si no hay archivos adjuntos
+    # Solo cacheamos si no hay archivos adjuntos. Este caché existe para
+    # absorber un doble clic o un reintento de red que dispare la MISMA
+    # petición dos veces seguidas — no para "recordar" la conversación.
+    #
+    # Antes: clave global (compartida por TODOS los usuarios a la vez) con
+    # 5 minutos de vigencia. Eso causaba justo lo que se reportó: si el
+    # usuario repetía o reformulaba una pregunta parecida a una anterior
+    # (por ejemplo, porque la respuesta no le sirvió y quería que se la
+    # ampliara) y el conteo de mensajes previos coincidía, se le devolvía
+    # la respuesta vieja tal cual en vez de generar una nueva — y encima
+    # esa colisión podía venir de la pregunta de OTRA persona en el sistema.
+    #
+    # Ahora: la clave incluye al usuario (ya no se pisan entre personas) y
+    # la vigencia baja a unos segundos — suficiente para el doble clic/
+    # reintento, pero no para bloquear una repregunta legítima.
     from flask import current_app
     import time
-    
+
+    DUPLICATE_REQUEST_WINDOW_SECONDS = 8
+
     cache_key = None
     if not media:
         cache_store = current_app.config.setdefault('BOT_CACHE', {})
-        # Clave basada en la pregunta y cantidad de mensajes previos
-        cache_key = f"cache_{user_query.strip().lower()}_{len(history)}"
-        
+        cache_owner = str(get_jwt_identity() or 'guest')
+        cache_key = f"cache_{cache_owner}_{user_query.strip().lower()}_{len(history)}"
+
         if cache_key in cache_store:
             cached_data, timestamp = cache_store[cache_key]
-            if time.time() - timestamp < 300:  # 5 minutos de vigencia
-                print(f"Sirviendo respuesta desde CACHÉ: {cache_key}")
+            if time.time() - timestamp < DUPLICATE_REQUEST_WINDOW_SECONDS:
+                print(f"Sirviendo respuesta desde CACHÉ (posible doble envío): {cache_key}")
                 return jsonify(cached_data)
     # -------------------------------
-        
+
     # 1. Obtener la identidad del usuario actual
     user_id = get_jwt_identity()
     user = None
