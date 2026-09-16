@@ -16,7 +16,8 @@ def admin_required(fn):
         # required" aunque en la BD ya figurara como Administrador.
         user_id = get_jwt_identity()
         user = User.query.get(user_id)
-        if not user or not user.role or user.role.name.upper() not in ['ADMIN', 'ADMINISTRADOR']:
+        role_name = (user.role.name if user and user.role else '').strip().upper()
+        if role_name not in ('ADMIN', 'ADMINISTRADOR'):
             return jsonify({"error": "Admin privileges required"}), 403
         return fn(*args, **kwargs)
     wrapper.__name__ = fn.__name__
