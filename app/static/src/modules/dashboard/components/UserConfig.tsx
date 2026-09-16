@@ -230,7 +230,7 @@ const PersonalInfoPanel: React.FC<{
               name="display_name"
               value={form.display_name}
               onChange={handleChange}
-              placeholder="Ej: Jadi"
+              placeholder="Ej: Stith"
               maxLength={100}
             />
             <span className="card-hint">Así te saludará la aplicación y así te llamará en tus correos. Es solo una vista personal: no cambia tu nombre registrado ni lo que ve el personal de Soporte.</span>

@@ -8,6 +8,18 @@
   gap: 2rem;
   max-width: 1200px;
   margin: 0 auto;
+  /* Alto acotado al espacio visible (navbar 70px + padding vertical 2rem+2rem
+     de .dashboard-main-content) para que el menú de opciones y el contenido
+     de cada opción hagan SU PROPIO scroll interno, en vez de que la página
+     entera se desplace arrastrando ambos juntos. */
+  height: calc(100vh - 70px - 4rem);
+  height: calc(100dvh - 70px - 4rem);
+  overflow: hidden;
+}
+
+body.has-impersonation-banner .user-config-container {
+  height: calc(100vh - 70px - 4rem - var(--impersonation-banner-height, 0px));
+  height: calc(100dvh - 70px - 4rem - var(--impersonation-banner-height, 0px));
 }
 
 /* ── THEME VARIABLES ── */
@@ -53,6 +65,22 @@
   border-radius: 14px;
   padding: 1.25rem 0.75rem;
   box-shadow: 0 0 0 1px var(--uc-green-glow), 0 4px 12px rgba(0,0,0,0.08);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--uc-sena-green) transparent;
+}
+
+.config-sidebar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.config-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.config-sidebar::-webkit-scrollbar-thumb {
+  background-color: var(--uc-sena-green);
+  border-radius: 999px;
 }
 
 .config-sidebar-header {
@@ -212,6 +240,15 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  overflow-y: auto;
+  /* Scroll propio (independiente del menú) pero sin barra visible. */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.config-main-content::-webkit-scrollbar {
+  display: none;
 }
 
 .config-section-header {
@@ -721,14 +758,24 @@
 
 /* ── RESPONSIVE ── */
 @media (max-width: 900px) {
-  .user-config-container {
+  .user-config-container,
+  body.has-impersonation-banner .user-config-container {
     flex-direction: column;
+    /* En móvil se apilan menú + contenido: vuelve al scroll natural de la
+       página en vez del split de dos paneles independientes (pensado para
+       escritorio, donde ambos son visibles a la vez lado a lado). */
+    height: auto;
+    overflow: visible;
   }
   .config-sidebar {
     width: 100%;
     border-right: none;
     border-bottom: 1px solid var(--uc-border);
     padding-bottom: 1.5rem;
+    overflow-y: visible;
+  }
+  .config-main-content {
+    overflow-y: visible;
   }
   .qr-block { grid-template-columns: 1fr; }
   .qr-placeholder { margin: 0 auto; }
