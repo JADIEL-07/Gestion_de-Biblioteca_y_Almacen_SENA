@@ -474,6 +474,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                   </div>
                 )}
                 <div className="form-actions">
+                  <button type="button" className="btn-cancel" onClick={() => { setShowAddLoc(false); setEditLoc(null); setNewEntryDependency(''); }}>Cancelar</button>
                   <button type="submit" className="btn-submit">Guardar</button>
                 </div>
               </form>
@@ -556,6 +557,7 @@ export const InventoryManagement: React.FC<InventoryProps> = ({ activeTab = 'tab
                   </div>
                 )}
                 <div className="form-actions">
+                  <button type="button" className="btn-cancel" onClick={() => { setShowAddCat(false); setEditCat(null); setNewEntryDependency(''); }}>Cancelar</button>
                   <button type="submit" className="btn-submit">Guardar</button>
                 </div>
               </form>
