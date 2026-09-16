@@ -46,12 +46,19 @@
   gap: 0.85rem;
   position: relative;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
-  transition: transform 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
 
 .staff-kpi-card:hover {
   transform: translateY(-2px);
+  border-color: var(--sena-green, #39a900);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.staff-kpi-card:focus-visible {
+  outline: 2px solid var(--sena-green, #39a900);
+  outline-offset: 2px;
 }
 
 .staff-kpi-card-content {
@@ -92,22 +99,6 @@
   display: flex;
   align-items: center;
   gap: 0.2rem;
-}
-
-.staff-kpi-subtext.link {
-  color: var(--admin-text-muted, #94a3b8);
-  cursor: pointer;
-  font-weight: 600;
-  text-decoration: none;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.2rem;
-  transition: color 0.2s;
-}
-
-.staff-kpi-subtext.link:hover {
-  color: var(--sena-green, #39a900);
 }
 
 .staff-kpi-subtext.green {

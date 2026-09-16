@@ -25,6 +25,7 @@ export const StaffHome: React.FC<StaffHomeProps> = ({ user }) => {
   // Determinar rol para redirección
   const isAlmacenista = (user?.role?.name || user?.rol?.nombre || '').toUpperCase().includes('ALMACENISTA');
   const loansPath = isAlmacenista ? '/almacenista/loans' : '/bibliotecario/loans';
+  const inventoryPath = isAlmacenista ? '/almacenista/inventory' : '/bibliotecario/inventory';
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -277,7 +278,13 @@ export const StaffHome: React.FC<StaffHomeProps> = ({ user }) => {
       {/* TOP KPI ROW (EXACTLY AS IN SCREENSHOT) */}
       <div className="staff-kpi-row">
         {/* Card 1: Total de elementos */}
-        <div className="staff-kpi-card">
+        <div
+          className="staff-kpi-card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate(inventoryPath)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(inventoryPath); } }}
+        >
           <div className="staff-kpi-icon-box" style={{ color: '#22c55e', background: 'rgba(34, 197, 94, 0.12)' }}>
             <FiBox />
           </div>
@@ -291,7 +298,13 @@ export const StaffHome: React.FC<StaffHomeProps> = ({ user }) => {
         </div>
 
         {/* Card 2: Disponibles */}
-        <div className="staff-kpi-card">
+        <div
+          className="staff-kpi-card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate(inventoryPath)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(inventoryPath); } }}
+        >
           <div className="staff-kpi-icon-box" style={{ color: '#22c55e', background: 'rgba(34, 197, 94, 0.12)' }}>
             <FiCheckCircle />
           </div>
@@ -305,7 +318,13 @@ export const StaffHome: React.FC<StaffHomeProps> = ({ user }) => {
         </div>
 
         {/* Card 3: Prestados */}
-        <div className="staff-kpi-card">
+        <div
+          className="staff-kpi-card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate(inventoryPath)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(inventoryPath); } }}
+        >
           <div className="staff-kpi-icon-box" style={{ color: '#f59e0b', background: 'rgba(245, 158, 11, 0.12)' }}>
             <FiBook />
           </div>
@@ -319,30 +338,36 @@ export const StaffHome: React.FC<StaffHomeProps> = ({ user }) => {
         </div>
 
         {/* Card 4: Préstamos activos */}
-        <div className="staff-kpi-card">
+        <div
+          className="staff-kpi-card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate(loansPath)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(loansPath); } }}
+        >
           <div className="staff-kpi-icon-box" style={{ color: '#3b82f6', background: 'rgba(59, 130, 246, 0.12)' }}>
             <FiClock />
           </div>
           <div className="staff-kpi-card-content">
             <span className="staff-kpi-label">Préstamos activos</span>
             <span className="staff-kpi-value" style={{ color: '#3b82f6' }}>{activosCount + retrasadosCount}</span>
-            <span className="staff-kpi-subtext link" onClick={() => navigate(loansPath)}>
-              Ver detalles ＞
-            </span>
           </div>
         </div>
 
         {/* Card 5: Reservas pendientes */}
-        <div className="staff-kpi-card">
+        <div
+          className="staff-kpi-card"
+          role="button"
+          tabIndex={0}
+          onClick={() => navigate(loansPath)}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); navigate(loansPath); } }}
+        >
           <div className="staff-kpi-icon-box" style={{ color: '#a855f7', background: 'rgba(168, 85, 247, 0.12)' }}>
             <FiCalendar />
           </div>
           <div className="staff-kpi-card-content">
             <span className="staff-kpi-label">Reservas pendientes</span>
             <span className="staff-kpi-value" style={{ color: '#a855f7' }}>{myReservationsCount}</span>
-            <span className="staff-kpi-subtext link" onClick={() => navigate(loansPath)}>
-              Ver detalles ＞
-            </span>
           </div>
         </div>
       </div>

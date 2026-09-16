@@ -382,7 +382,7 @@ body:not(.theme-light) .stepper-btn-base {
    APLICACIÓN DE LOS ESTILOS DE ACCESIBILIDAD AL DOM
    ─────────────────────────────────────────────────────────── */
 
-body.accessibility-high-contrast #root > div:not(.accessibility-widget-container) {
+body.accessibility-high-contrast #root > div:not(.accessibility-widget-container):not(.impersonation-banner) {
   filter: contrast(130%) saturate(140%) brightness(90%);
 }
 
