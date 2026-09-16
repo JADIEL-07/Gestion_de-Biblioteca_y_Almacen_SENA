@@ -422,7 +422,7 @@ export const AprendizCatalog: React.FC<AprendizCatalogProps> = ({ isGuest = fals
                           level={"H"}
                           includeMargin={true}
                           imageSettings={{
-                            src: "https://upload.wikimedia.org/wikipedia/commons/8/83/Sena_Colombia_logo.svg",
+                            src: "/assets/images/icono-sena.png",
                             x: undefined,
                             y: undefined,
                             height: 45,

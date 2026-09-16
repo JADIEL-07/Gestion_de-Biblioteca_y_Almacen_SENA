@@ -550,7 +550,7 @@ export const UserManagement: React.FC = () => {
                   level="H"
                   includeMargin={true}
                   imageSettings={{
-                    src: "https://upload.wikimedia.org/wikipedia/commons/f/f6/Logo_SENA.svg",
+                    src: "/assets/images/icono-sena.png",
                     x: undefined,
                     y: undefined,
                     height: 40,
