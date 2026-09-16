@@ -68,7 +68,19 @@ export const UserManagement: React.FC = () => {
     image_url: ''
   });
 
+  // Cada llamada a fetchData() tiene un número de secuencia. Como el buscador
+  // dispara un fetch por cada tecla (más abajo) y las acciones (activar/
+  // desactivar, desbloquear, etc.) disparan otro al terminar, dos peticiones
+  // GET podían quedar "en vuelo" a la vez y resolver en desorden: una más
+  // vieja (de antes de la acción) llegaba DESPUÉS que la fresca y pisaba el
+  // estado recién actualizado, mostrando otra vez el dato anterior (esto es
+  // justo lo que se vio en la exposición: un usuario desactivado que en la
+  // tabla seguía apareciendo como activo). Se descarta cualquier respuesta
+  // que ya no sea la de la última petición disparada.
+  const fetchSeq = React.useRef(0);
+
   const fetchData = async () => {
+    const seq = ++fetchSeq.current;
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -86,12 +98,13 @@ export const UserManagement: React.FC = () => {
       const uData = await uRes.json();
       const sData = await sRes.json();
 
+      if (seq !== fetchSeq.current) return; // ya hay una petición más nueva en curso/resuelta
       setUsers(Array.isArray(uData) ? uData : []);
       setStats(sData);
     } catch (error) {
       console.error('Error:', error);
     } finally {
-      setLoading(false);
+      if (seq === fetchSeq.current) setLoading(false);
     }
   };
 
@@ -101,7 +114,13 @@ export const UserManagement: React.FC = () => {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
-      if (response.ok) fetchData();
+      const data = await response.json().catch(() => ({}));
+      if (response.ok) {
+        // Refleja el cambio en la tabla al instante (no depende de que el
+        // refetch le gane la carrera a una petición vieja todavía en vuelo).
+        setUsers(prev => prev.map(u => u.id === id ? { ...u, is_active: data.is_active } : u));
+        fetchData();
+      }
     } catch (error) { console.error(error); }
   };
 
@@ -111,7 +130,10 @@ export const UserManagement: React.FC = () => {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
-      if (response.ok) fetchData();
+      if (response.ok) {
+        setUsers(prev => prev.map(u => u.id === id ? { ...u, is_blocked: false, failed_attempts: 0 } : u));
+        fetchData();
+      }
     } catch (error) { console.error(error); }
   };
 
@@ -162,8 +184,14 @@ export const UserManagement: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchData();
-    fetchRolesAndDeps();
+    // Debounce: sin esto, cada tecla escrita en el buscador disparaba su
+    // propio fetch, multiplicando las peticiones en vuelo y la chance de que
+    // alguna resolviera fuera de orden.
+    const t = setTimeout(() => {
+      fetchData();
+      fetchRolesAndDeps();
+    }, 350);
+    return () => clearTimeout(t);
   }, [searchTerm]);
 
   // Camera Functions

@@ -76,6 +76,7 @@ def _hard_delete_user(user):
 
     # 3) Registros propios del usuario
     for sql, table in [
+        ("DELETE FROM trusted_devices WHERE user_id = :uid", 'trusted_devices'),
         ("DELETE FROM user_preferences WHERE user_id = :uid", 'user_preferences'),
         ("DELETE FROM email_change_tokens WHERE user_id = :uid", 'email_change_tokens'),
         ("DELETE FROM verification_codes WHERE user_id = :uid", 'verification_codes'),
@@ -94,6 +95,15 @@ def _hard_delete_user(user):
         ("DELETE FROM audit_logs WHERE user_id = :uid", 'audit_logs'),
     ]:
         run(sql, table, uid=uid)
+
+    # Los usuarios "sombra" (creados por "Ver como otro rol") apuntan de vuelta
+    # al Admin real vía shadow_owner_id: si se borra a ese Admin sin soltar
+    # antes esa referencia, es el mismo tipo de error de FK que trusted_devices.
+    run("UPDATE users SET shadow_owner_id = NULL WHERE shadow_owner_id = :uid", 'users', uid=uid)
+    # Retroalimentación/consultas de la IA: son del conocimiento general, no
+    # exclusivas del usuario, así que se desvinculan en vez de borrarse.
+    run("UPDATE ai_response_feedback SET user_id = NULL WHERE user_id = :uid", 'ai_response_feedback', uid=uid)
+    run("UPDATE ai_unanswered_queries SET user_id = NULL WHERE user_id = :uid", 'ai_unanswered_queries', uid=uid)
 
     if email:
         run("DELETE FROM pending_registrations WHERE lower(email) = lower(:em)",
