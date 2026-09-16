@@ -91,13 +91,15 @@ export const StaffChat: React.FC<StaffChatProps> = ({ user }) => {
         {/* SIDEBAR DE CONTACTOS */}
         <aside className="staff-chat-sidebar">
           <div className="staff-chat-search">
-            <FiSearch size={14} />
-            <input
-              type="text"
-              placeholder="Buscar contacto..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <div className="staff-chat-search-box">
+              <FiSearch size={14} />
+              <input
+                type="text"
+                placeholder="Buscar contacto..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
           </div>
 
           <div className="staff-chat-contacts">

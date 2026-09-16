@@ -21,6 +21,7 @@ import '../UserDashboard.css';
 import { AnimatedRobotIcon } from '../../../../components/ui/AnimatedRobotIcon';
 import { PersonalAssistant } from '../PersonalAssistant';
 import { SoporteSolicitudes } from '../soporte/SoporteSolicitudes';
+import { StaffChat } from '../../../shared/StaffChat';
 import { NotificationsPage } from '../NotificationsPage';
 import { DashboardBg } from '../DashboardBg';
 
@@ -127,6 +128,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
     help: 'Asistente Personal',
     'ai-knowledge': 'Conocimiento del Asistente',
     notifications: 'Centro de Notificaciones',
+    'team-chat': 'Chat Interno',
   };
 
   return (
@@ -251,6 +253,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ user, onLogout, 
             {activeSection === 'help' && <PersonalAssistant user={user} />}
             {activeSection === 'ai-knowledge' && <AIKnowledgeManagement />}
             {activeSection === 'solicitudes' && <SoporteSolicitudes user={user} />}
+            {activeSection === 'team-chat' && <StaffChat user={user} />}
             {activeSection === 'notifications' && <NotificationsPage />}
             {!sectionTitle[activeSection] && (
               <div className="placeholder-view">

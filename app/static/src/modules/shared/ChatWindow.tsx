@@ -77,6 +77,16 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   }, [endpoint, onMessagesUpdate]);
 
+  // Al cambiar de conversación (endpoint distinto) hay que limpiar lo anterior
+  // ANTES de pedir lo nuevo: si no, mientras llega la respuesta se ven un
+  // instante los mensajes de la conversación previa como si fueran de esta.
+  useEffect(() => {
+    setMessages([]);
+    setLoading(true);
+    setError(null);
+    lastMessageCountRef.current = 0;
+  }, [endpoint]);
+
   // Carga inicial + polling
   useEffect(() => {
     fetchMessages();

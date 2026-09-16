@@ -66,6 +66,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
 
   const adminBottomItems = [
     { id: 'solicitudes', label: 'Solicitudes', icon: <FiHeadphones /> },
+    { id: 'team-chat', label: 'Chat Interno', icon: <FiUsers /> },
     { id: 'config', label: 'Configuración', icon: <FiSettings /> },
     { id: 'audit', label: 'Auditoría', icon: <FiShield /> },
     { id: 'help', label: 'Asistente personal', icon: <AnimatedRobotIcon /> },
