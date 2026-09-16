@@ -930,6 +930,19 @@
   transform: translateY(-1px);
 }
 
+/* Con un ticket de Soporte en curso no se abren conversaciones nuevas
+   (ver comentario en PersonalAssistant.tsx) */
+.new-chat-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+.new-chat-btn:disabled:hover {
+  background: transparent;
+  border-style: dashed;
+  color: var(--text-primary);
+}
+
 .threads-list {
   display: flex;
   flex-direction: column;
@@ -984,6 +997,17 @@
 .thread-item-wrapper.active {
   background: var(--sena-green-light);
   border-color: rgba(57, 169, 0, 0.25);
+}
+
+/* Con Soporte atendiendo, el resto del historial queda "de adorno": se ve
+   pero no se puede abrir, para no perder de vista el hilo con el ticket. */
+.thread-item-wrapper.locked {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.thread-item-wrapper.locked:hover {
+  background: transparent;
+  border-color: transparent;
 }
 
 .thread-item-left {
@@ -1046,6 +1070,15 @@
   opacity: 1;
   color: #ef4444;
   background: rgba(239, 68, 68, 0.1);
+}
+
+.delete-thread-btn:disabled {
+  cursor: not-allowed;
+}
+.thread-item-wrapper:hover .delete-thread-btn:disabled:hover {
+  opacity: 0.7;
+  color: var(--text-muted);
+  background: transparent;
 }
 
 /* Responsiveness */

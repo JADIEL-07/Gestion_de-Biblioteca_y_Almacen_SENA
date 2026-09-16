@@ -97,7 +97,7 @@ interface Message {
   sender: 'user' | 'bot';
   text: string;
   timestamp: string;
-  type?: 'text' | 'loans' | 'help' | 'rules' | 'navigate' | 'confirm_action';
+  type?: 'text' | 'loans' | 'help' | 'rules' | 'navigate' | 'confirm_action' | 'support_feedback';
   metadata?: any;
   media?: { data: string, mimeType: string, type: 'image' | 'audio', preview: string };
   suggestSupport?: boolean;
@@ -114,6 +114,8 @@ interface Message {
   source?: string;          // 'own-ai' = vino de una respuesta ya aprendida
   learnedId?: number;
   feedbackGiven?: 'up' | 'down';
+  // type === 'support_feedback': encuesta "¿te sirvió Soporte?" tras cerrar un ticket
+  supportFeedbackGiven?: 'yes' | 'no';
 }
 
 interface ChatThread {
@@ -133,8 +135,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   const [inputText, setInputText] = useState('');
   const [escalating, setEscalating] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
-  const [activeTicket, setActiveTicket] = useState<{id: number, subject: string, assigned_name: string} | null>(null);
+  const [activeTicket, setActiveTicket] = useState<{id: number, subject: string, assigned_name: string, source_thread_id?: string | null} | null>(null);
   const [seenSupportMsgIds, setSeenSupportMsgIds] = useState<Set<number>>(new Set());
+  // IDs de tickets para los que ya se insertó la encuesta "¿te sirvió Soporte?"
+  // en esta sesión, para no repetirla en cada poll mientras el usuario no responde.
+  const injectedFeedbackTicketIds = useRef<Set<number>>(new Set());
 
   const currentRole = (user as any)?.role?.name || (user as any)?.rol?.nombre || '';
   // Roles que pueden escalar al equipo de Soporte desde el asistente.
@@ -206,6 +211,11 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   // Cuando hay ticket activo, hacer polling de mensajes del soporte para mostrarlos en el chat
   useEffect(() => {
     if (!activeTicket || isGuest) return;
+    // Los mensajes de Soporte van SIEMPRE al hilo que originó el ticket, nunca
+    // al que esté activo en ese momento — si no, un hilo nuevo que se haya
+    // abierto mientras tanto (ver el efecto de más abajo que ya lo evita,
+    // pero por robustez se cubre también aquí) se quedaría con los mensajes.
+    const ticketThreadId = activeTicket.source_thread_id || activeThreadId;
     const pollTicketMessages = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -223,7 +233,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
           return next;
         });
         setThreads(prev => prev.map(t => {
-          if (t.id !== activeThreadId) return t;
+          if (t.id !== ticketThreadId) return t;
           const existingIds = new Set(t.messages.map(m => m.id));
           const toAdd: Message[] = newSupportMsgs
             .filter((sm: any) => !existingIds.has(`support_${sm.id}`))
@@ -240,14 +250,85 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
                 : undefined,
             }));
           if (toAdd.length === 0) return t;
-          return { ...t, messages: [...t.messages, ...toAdd], updatedAt: new Date().toISOString() };
+          const updated = { ...t, messages: [...t.messages, ...toAdd], updatedAt: new Date().toISOString() };
+          savedThread = updated;
+          return updated;
         }));
+        // Persistir los mensajes de Soporte en el hilo guardado — si no, al
+        // cerrar el ticket y recargar la página, esos mensajes desaparecían
+        // (solo quedaban en memoria mientras el ticket seguía activo).
+        if (savedThread) apiSaveThread(savedThread);
       } catch {}
     };
+    let savedThread: ChatThread | null = null;
     pollTicketMessages();
     const interval = setInterval(pollTicketMessages, 8000); // cada 8s para reducir carga
     return () => clearInterval(interval);
   }, [activeTicket, activeThreadId, isGuest]);
+
+  // Mientras haya un ticket con Soporte en curso, la conversación activa NO
+  // puede ser otra que la que lo originó: si el asistente se recarga o se
+  // vuelve a abrir mientras Soporte atiende, antes se armaba un hilo nuevo
+  // como activo y cualquier mensaje que el usuario escribiera ahí lo
+  // respondía la IA en vez de la persona de Soporte. Apenas se detecta el
+  // ticket, se "clava" el hilo activo al que lo originó.
+  useEffect(() => {
+    if (!activeTicket || !activeTicket.source_thread_id) return;
+    if (activeTicket.source_thread_id === activeThreadId) return;
+    if (threads.some(t => t.id === activeTicket.source_thread_id)) {
+      setActiveThreadId(activeTicket.source_thread_id);
+    }
+  }, [activeTicket, threads, activeThreadId]);
+
+  // Referencia siempre actualizada de threads, para leerla desde el poll de
+  // abajo sin tener que recrear su intervalo cada vez que llega un mensaje.
+  const threadsRef = useRef<ChatThread[]>(threads);
+  useEffect(() => { threadsRef.current = threads; }, [threads]);
+
+  // En cuanto Soporte cierra el ticket, el asistente pregunta si sirvió de
+  // ayuda (en el mismo hilo, como un mensaje normal del bot, con sus propios
+  // botones). Se sondea aparte del ticket activo porque, para cuando el
+  // frontend nota que ya no hay ticket IN_PROGRESS, ya no tiene el id a mano.
+  useEffect(() => {
+    if (isGuest) return;
+    const pollPendingFeedback = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch('/api/v1/chat/tickets/pending-feedback', {
+          headers: token ? { Authorization: `Bearer ${token}` } : {}
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const pending = data.pending_ticket;
+        if (!pending || !pending.source_thread_id) return;
+        if (injectedFeedbackTicketIds.current.has(pending.id)) return;
+
+        const thread = threadsRef.current.find(t => t.id === pending.source_thread_id);
+        if (!thread) return; // el hilo aún no cargó; se reintenta en el próximo poll
+
+        injectedFeedbackTicketIds.current.add(pending.id);
+        const already = thread.messages.some(
+          (m) => m.type === 'support_feedback' && m.metadata?.ticketId === pending.id
+        );
+        if (already) return; // ya se había insertado antes (p. ej. en una sesión previa)
+
+        const feedbackMsg: Message = {
+          id: `support_feedback_${pending.id}`,
+          sender: 'bot',
+          text: `${pending.assigned_name} marcó tu solicitud de Soporte como resuelta. ¿Te sirvió la ayuda que recibiste?`,
+          timestamp: new Date().toISOString(),
+          type: 'support_feedback',
+          metadata: { ticketId: pending.id },
+        };
+        const updatedThread = { ...thread, messages: [...thread.messages, feedbackMsg], updatedAt: new Date().toISOString() };
+        setThreads(prev => prev.map(t => (t.id === thread.id ? updatedThread : t)));
+        apiSaveThread(updatedThread);
+      } catch {}
+    };
+    pollPendingFeedback();
+    const interval = setInterval(pollPendingFeedback, 15000);
+    return () => clearInterval(interval);
+  }, [isGuest]);
 
   // Cargar threads desde la API (persistidos por cuenta). El saludo inicial
   // ya NO se pide al backend: la conversación nueva arranca sin mensajes, y
@@ -386,6 +467,12 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   const activeThread = threads.find(t => t.id === activeThreadId);
   const messages = activeThread ? activeThread.messages : [];
 
+  // Mientras Soporte está atendiendo un ticket, no se puede abrir otra
+  // conversación (nueva o del historial) ni borrar la que originó el ticket
+  // — es justo la causa del bug reportado: al abrir/crear otro hilo, la IA
+  // terminaba respondiendo mensajes que en realidad eran para Soporte.
+  const lockedThreadId = activeTicket?.source_thread_id || null;
+
   // Título de la pantalla vacía: uno nuevo cada vez que cambia a una
   // conversación sin mensajes (no en cada tecla que se escribe).
   const emptyStateTitle = useMemo(
@@ -394,6 +481,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
   );
 
   const handleCreateNewChat = () => {
+    if (lockedThreadId) return; // Soporte activo: no se abren conversaciones nuevas
     const newId = 'thread_' + Date.now();
     const newThread: ChatThread = {
       id: newId,
@@ -409,6 +497,7 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
 
   const handleDeleteChat = (e: React.MouseEvent, threadId: string) => {
     e.stopPropagation();
+    if (threadId === lockedThreadId) return; // no se borra el hilo de un ticket en curso
     apiDeleteThread(threadId);
     const filtered = threads.filter(t => t.id !== threadId);
 
@@ -747,6 +836,33 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
     }
   };
 
+  // Respuesta a la encuesta "¿te sirvió Soporte?" que se inserta al cerrar
+  // un ticket (mensaje type === 'support_feedback', ver poll más arriba).
+  const handleSupportFeedback = async (msg: Message, useful: boolean) => {
+    const ticketId = msg.metadata?.ticketId;
+    const updatedThreads = threads.map((t) => ({
+      ...t,
+      messages: t.messages.map((m) =>
+        m.id === msg.id ? { ...m, supportFeedbackGiven: (useful ? 'yes' : 'no') as 'yes' | 'no' } : m
+      ),
+    }));
+    setThreads(updatedThreads);
+    const changedThread = updatedThreads.find((t) => t.messages.some((m) => m.id === msg.id));
+    if (changedThread) saveThreadsToStorage(updatedThreads, changedThread);
+
+    if (!ticketId) return;
+    try {
+      const authToken = getToken();
+      await fetch(`/api/v1/chat/tickets/${ticketId}/satisfaction`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
+        body: JSON.stringify({ useful }),
+      });
+    } catch (err) {
+      console.error('Error enviando la encuesta de soporte:', err);
+    }
+  };
+
   const clearChat = () => {
     if (!activeThreadId) return;
     const cleared = { id: activeThreadId, title: 'Nueva conversación', messages: [], updatedAt: new Date().toISOString() };
@@ -789,18 +905,26 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
         {/* CHAT HISTORY SIDEBAR (ChatGPT Style) — no aplica a cuentas sin historial */}
         {!noHistoryRole && (
         <div className={`chat-history-sidebar ${isSidebarOpen ? 'open' : 'collapsed'}`}>
-          <button className="new-chat-btn" onClick={handleCreateNewChat}>
+          <button
+            className="new-chat-btn"
+            onClick={handleCreateNewChat}
+            disabled={!!lockedThreadId}
+            title={lockedThreadId ? 'Termina tu conversación con Soporte para abrir una nueva' : undefined}
+          >
             <FiPlus size={16} />
             <span>Nueva conversación</span>
           </button>
 
           <div className="threads-list">
             <div className="sidebar-group-title">Historial de chats</div>
-            {threads.map((t) => (
+            {threads.map((t) => {
+              const isLockedOut = !!lockedThreadId && t.id !== lockedThreadId;
+              return (
               <div
                 key={t.id}
-                className={`thread-item-wrapper ${t.id === activeThreadId ? 'active' : ''}`}
-                onClick={() => setActiveThreadId(t.id)}
+                className={`thread-item-wrapper ${t.id === activeThreadId ? 'active' : ''} ${isLockedOut ? 'locked' : ''}`}
+                onClick={() => { if (!isLockedOut) setActiveThreadId(t.id); }}
+                title={isLockedOut ? 'Termina tu conversación con Soporte para ver otros chats' : undefined}
               >
                 <div className="thread-item-left">
                   <FiMessageSquare size={14} className="thread-icon" />
@@ -810,11 +934,13 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
                   className="delete-thread-btn"
                   onClick={(e) => handleDeleteChat(e, t.id)}
                   title="Eliminar conversación"
+                  disabled={t.id === lockedThreadId}
                 >
                   <FiTrash2 size={13} />
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
         )}
@@ -923,11 +1049,34 @@ export const PersonalAssistant: React.FC<PersonalAssistantProps> = ({ user }) =>
                     </div>
                   )}
 
+                  {/* ENCUESTA "¿TE SIRVIÓ SOPORTE?" — se inserta sola en cuanto
+                      Soporte cierra el ticket (ver poll de pending-feedback) */}
+                  {msg.type === 'support_feedback' && (
+                    msg.supportFeedbackGiven ? (
+                      <div className="learned-feedback-done">
+                        {msg.supportFeedbackGiven === 'yes'
+                          ? '¡Qué bueno! Me alegra que Soporte haya resuelto tu caso.'
+                          : 'Gracias por contarme. Le llegará esta observación al equipo de Soporte.'}
+                      </div>
+                    ) : (
+                      <div className="learned-feedback-box">
+                        <span>¿Fue de ayuda el soporte que recibiste?</span>
+                        <button className="learned-feedback-btn" onClick={() => handleSupportFeedback(msg, true)} title="Sí, me ayudó">
+                          <FiThumbsUp size={14} />
+                        </button>
+                        <button className="learned-feedback-btn" onClick={() => handleSupportFeedback(msg, false)} title="No mucho">
+                          <FiThumbsDown size={14} />
+                        </button>
+                      </div>
+                    )
+                  )}
+
                   {/* RETROALIMENTACIÓN: bajo cualquier respuesta de texto del bot
-                      (no en las de Soporte humano, ni en navegación/confirmación,
-                      que ya tienen su propia acción). Requiere sesión iniciada. */}
+                      (no en las de Soporte humano, ni en navegación/confirmación/
+                      la encuesta de arriba, que ya tienen su propia acción).
+                      Requiere sesión iniciada. */}
                   {msg.sender === 'bot' && !isGuest && !msg.isFromSupport &&
-                   msg.type !== 'navigate' && msg.type !== 'confirm_action' && (
+                   msg.type !== 'navigate' && msg.type !== 'confirm_action' && msg.type !== 'support_feedback' && (
                     msg.feedbackGiven ? (
                       <div className="learned-feedback-done">
                         {msg.feedbackGiven === 'up' ? '¡Gracias por confirmar que sirvió!' : 'Gracias, lo tendré en cuenta.'}

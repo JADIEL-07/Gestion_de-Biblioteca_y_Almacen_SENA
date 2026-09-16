@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy import or_, and_, func
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from ..extensions import db
 from ..models.ticket import Ticket
@@ -597,6 +597,64 @@ def accept_ticket(ticket_id):
         'ticket_id': ticket.id,
         'assigned_to': user.id,
         'assigned_name': user.name,
+    }), 200
+
+
+@chat_bp.route('/tickets/<int:ticket_id>/satisfaction', methods=['POST'])
+@jwt_required()
+def set_ticket_satisfaction(ticket_id):
+    """El aprendiz responde la encuesta rápida que el asistente le hace en
+    cuanto Soporte cierra su ticket ('¿te sirvió la ayuda?')."""
+    user_id = get_jwt_identity()
+    ticket = Ticket.query.filter_by(id=ticket_id, is_deleted=False).first()
+    if not ticket:
+        return jsonify({'error': 'Ticket no encontrado'}), 404
+    if ticket.user_id != user_id:
+        return jsonify({'error': 'No tienes permiso sobre este ticket.'}), 403
+    if ticket.status != 'CLOSED':
+        return jsonify({'error': 'El ticket todavía no está cerrado.'}), 400
+
+    data = request.get_json() or {}
+    useful = data.get('useful')
+    if useful is None:
+        return jsonify({'error': "Falta el campo 'useful'."}), 400
+
+    ticket.satisfaction = 'useful' if useful else 'not_useful'
+    db.session.commit()
+    return jsonify({'success': True, 'satisfaction': ticket.satisfaction}), 200
+
+
+@chat_bp.route('/tickets/pending-feedback', methods=['GET'])
+@jwt_required(optional=True)
+def get_pending_feedback_ticket():
+    """Ticket ya CLOSED del usuario que todavía no respondió la encuesta
+    ('¿te sirvió Soporte?'). El asistente la pregunta apenas Soporte cierra
+    el caso; se limita a los cerrados recientemente para no resucitar casos
+    viejos si el aprendiz nunca volvió a abrir el chat en su momento."""
+    user_id = get_jwt_identity()
+    if not user_id:
+        return jsonify({'pending_ticket': None}), 200
+
+    cutoff = datetime.utcnow() - timedelta(days=3)
+    ticket = Ticket.query.filter(
+        Ticket.user_id == user_id,
+        Ticket.status == 'CLOSED',
+        Ticket.satisfaction.is_(None),
+        Ticket.is_deleted == False,
+        Ticket.closed_at.isnot(None),
+        Ticket.closed_at >= cutoff,
+    ).order_by(Ticket.closed_at.desc()).first()
+
+    if not ticket:
+        return jsonify({'pending_ticket': None}), 200
+
+    assignee = User.query.get(ticket.assigned_to) if ticket.assigned_to else None
+    return jsonify({
+        'pending_ticket': {
+            'id': ticket.id,
+            'assigned_name': assignee.name if assignee else 'Soporte',
+            'source_thread_id': ticket.source_thread_id,
+        }
     }), 200
 
 

@@ -63,6 +63,9 @@ def _apply_runtime_migrations():
         # antes se descartaban silenciosamente, nunca llegaban a Soporte.
         "ALTER TABLE ticket_messages ADD COLUMN IF NOT EXISTS media_url TEXT",
         "ALTER TABLE ticket_messages ADD COLUMN IF NOT EXISTS media_type VARCHAR(20)",
+        # Encuesta rápida ("¿te sirvió Soporte?") que el asistente pregunta en
+        # cuanto Soporte cierra el ticket.
+        "ALTER TABLE tickets ADD COLUMN IF NOT EXISTS satisfaction VARCHAR(20)",
     ]
     for stmt in column_migrations:
         try:
