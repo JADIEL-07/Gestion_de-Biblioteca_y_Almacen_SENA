@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FiUsers, FiMessageSquare, FiSearch } from 'react-icons/fi';
+import { FiUsers, FiMessageSquare, FiSearch, FiArrowLeft } from 'react-icons/fi';
 import { ChatWindow } from './ChatWindow';
 import './StaffChat.css';
 
@@ -87,7 +87,7 @@ export const StaffChat: React.FC<StaffChatProps> = ({ user }) => {
         </div>
       </div>
 
-      <div className="staff-chat-body">
+      <div className={`staff-chat-body ${selectedContact ? 'has-selected' : ''}`}>
         {/* SIDEBAR DE CONTACTOS */}
         <aside className="staff-chat-sidebar">
           <div className="staff-chat-search">
@@ -150,14 +150,23 @@ export const StaffChat: React.FC<StaffChatProps> = ({ user }) => {
         {/* PANEL DE CHAT */}
         <main className="staff-chat-main">
           {selectedContact ? (
-            <ChatWindow
-              endpoint={`/api/v1/chat/staff/messages/${selectedContact.id}`}
-              title={selectedContact.name}
-              subtitle={roleLabel(selectedContact.role)}
-              emptyMessage="Aún no hay mensajes. Saluda para empezar."
-              pollingMs={3000}
-              onMessagesUpdate={() => fetchContacts()}
-            />
+            <>
+              <button
+                type="button"
+                className="staff-chat-back-btn"
+                onClick={() => setSelectedContact(null)}
+              >
+                <FiArrowLeft /> Volver a contactos
+              </button>
+              <ChatWindow
+                endpoint={`/api/v1/chat/staff/messages/${selectedContact.id}`}
+                title={selectedContact.name}
+                subtitle={roleLabel(selectedContact.role)}
+                emptyMessage="Aún no hay mensajes. Saluda para empezar."
+                pollingMs={3000}
+                onMessagesUpdate={() => fetchContacts()}
+              />
+            </>
           ) : (
             <div className="staff-chat-placeholder">
               <FiMessageSquare size={64} />

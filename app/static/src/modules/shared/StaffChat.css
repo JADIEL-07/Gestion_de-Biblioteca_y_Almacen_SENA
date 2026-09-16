@@ -243,6 +243,25 @@ body.has-impersonation-banner .staff-chat-container {
   min-height: 0;
 }
 
+/* Botón "Volver" del panel de chat en móvil (ver media query de abajo):
+   oculto en escritorio, donde la lista y la conversación se ven a la vez. */
+.staff-chat-back-btn {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  align-self: flex-start;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, var(--admin-border-color, #334155));
+  background: var(--bg-card, var(--admin-card-bg, #1e293b));
+  color: var(--text-primary, var(--admin-text-primary, #f8fafc));
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .staff-chat-placeholder {
   display: flex;
   flex-direction: column;
@@ -315,13 +334,46 @@ body.has-impersonation-banner .staff-chat-container {
   background: #f1f5f9;
 }
 
-/* ── Mobile ── */
+/* ── Mobile ──
+   En pantallas chicas no hay espacio para ver la lista de contactos Y la
+   conversación a la vez sin que una de las dos quede recortada (con la
+   lista repartiéndose la altura, el panel de chat se quedaba con muy
+   pocos píxeles y su contenido — mensajes, campo de escribir — se perdía
+   fuera del contenedor). En vez de repartir la altura, se muestra UNA
+   pantalla a la vez, como cualquier app de chat: la lista completa, o al
+   tocar un contacto, la conversación completa con un botón para volver. */
 @media (max-width: 900px) {
   .staff-chat-body {
     grid-template-columns: 1fr;
-    grid-template-rows: 280px 1fr;
+    grid-template-rows: 1fr;
   }
+
   .staff-chat-sidebar {
-    max-height: 280px;
+    max-height: none;
+  }
+
+  .staff-chat-main {
+    display: none;
+  }
+
+  .staff-chat-body.has-selected .staff-chat-sidebar {
+    display: none;
+  }
+
+  .staff-chat-body.has-selected .staff-chat-main {
+    display: flex;
+  }
+
+  .staff-chat-back-btn {
+    display: inline-flex;
+  }
+
+  /* ChatWindow trae su propio height:100% (pensado para paneles donde es
+     el único contenido); aquí comparte columna con el botón "Volver", así
+     que debe ceder el sobrante en vez de asumir el 100% del panel. */
+  .staff-chat-main .chat-window-container {
+    height: auto;
+    min-height: 0;
+    flex: 1;
   }
 }
