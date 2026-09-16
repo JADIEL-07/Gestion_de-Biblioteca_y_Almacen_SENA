@@ -755,6 +755,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                 <FiUser className="input-icon" />
                 <input
                   type="text"
+                  name={isRegister ? 'name' : 'username'}
+                  autoComplete={isRegister ? 'name' : 'username'}
                   className="clean-input"
                   spellCheck={false}
                   placeholder={isRegister ? 'Ej. Juan Pérez' : 'Ingresa tu documento'}
@@ -772,6 +774,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                   <label className="input-label">Tipo</label>
                   <select
                     className="clean-select"
+                    name="document-type"
+                    autoComplete="off"
                     value={documentType}
                     onChange={(e) => setDocumentType(e.target.value)}
                   >
@@ -788,6 +792,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                     <input
                       type="text"
                       inputMode="numeric"
+                      name="document-number"
+                      autoComplete="off"
                       className="clean-input"
                       spellCheck={false}
                       placeholder="Ej. 1098..."
@@ -808,6 +814,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                   <FiMail className="input-icon" />
                   <input
                     type="email"
+                    name="email"
+                    autoComplete="email"
                     className="clean-input"
                     spellCheck={false}
                     placeholder="usuario@mi.sena.edu.co"
@@ -828,6 +836,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                   <input
                     type="tel"
                     inputMode="tel"
+                    name="phone"
+                    autoComplete="tel"
                     maxLength={13}
                     className="clean-input"
                     spellCheck={false}
@@ -847,6 +857,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({ mode, onLoginSuccess }) =>
                 <FiLock className="input-icon" />
                 <input
                   type={showPassword ? "text" : "password"}
+                  name="password"
+                  autoComplete={isRegister ? 'new-password' : 'current-password'}
                   className="clean-input password-input"
                   spellCheck={false}
                   placeholder="Tu contraseña"
