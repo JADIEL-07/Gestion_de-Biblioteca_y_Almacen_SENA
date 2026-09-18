@@ -12,4 +12,4 @@ class AuditLog(db.Model):
     ip = db.Column(db.String(45), nullable=True)
     user_agent = db.Column(db.String(255), nullable=True)
     details = db.Column(db.Text, nullable=True) # JSON o string con cambios
-    created_at = db.Column(db.DateTime, default=datetime.now)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

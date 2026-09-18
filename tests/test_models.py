@@ -465,7 +465,6 @@ class TestNotificationsAndAudit(ModelTestCase):
         with self.assertRaises(IntegrityError):
             db.session.commit()
 
-    @unittest.expectedFailure  # hallazgo conocido: AuditLog usa datetime.now (hora local)
     def test_audit_log_timestamp_is_utc_like_other_models(self):
         # AuditLog usa datetime.now (hora local); el resto de modelos, utcnow.
         a = AuditLog(action="X"); db.session.add(a); db.session.commit()
