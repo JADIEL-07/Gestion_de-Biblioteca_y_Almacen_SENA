@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
+from ..utils.permissions import role_required, ADMIN, ALL_STAFF
 from ..models.maintenance import Maintenance
 from ..models.item import Item, Status, Category
 from ..models.movement import Notification
@@ -28,7 +29,7 @@ def _full_media_url(path):
     return path
 
 @maintenance_bp.route('/', methods=['GET'])
-@jwt_required()
+@role_required(*ALL_STAFF)
 def get_maintenances():
     search = request.args.get('search', '')
     start_date = request.args.get('startDate', '')
@@ -100,11 +101,16 @@ def get_maintenances():
     return jsonify(result), 200
 
 @maintenance_bp.route('/', methods=['POST'])
-@jwt_required()
+@role_required(*ALL_STAFF)
 def create_maintenance():
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     item_id = data.get('item_id')
-    
+    description = (data.get('description') or '').strip()
+    if not item_id:
+        return jsonify({"error": "El elemento es obligatorio."}), 400
+    if not description:
+        return jsonify({"error": "La descripción de la falla es obligatoria."}), 400
+
     item = Item.query.get_or_404(item_id)
     
     # Bloquear equipo
@@ -119,7 +125,7 @@ def create_maintenance():
     new_m = Maintenance(
         item_id=item_id,
         reported_by=get_jwt_identity(),
-        failure_description=data.get('description'),
+        failure_description=description,
         severity=data.get('severity', 'LOW'),
         maintenance_type=data.get('type', 'CORRECTIVE'),
         status='PENDING'
@@ -159,7 +165,7 @@ def create_maintenance():
     return jsonify({"success": True, "id": new_m.id}), 201
 
 @maintenance_bp.route('/<int:id>/status', methods=['PUT'])
-@jwt_required()
+@role_required(*ALL_STAFF)
 def update_status(id):
     m = Maintenance.query.get_or_404(id)
     data = request.get_json()
@@ -197,7 +203,7 @@ def update_status(id):
     return jsonify({"success": True}), 200
 
 @maintenance_bp.route('/<int:id>/complete', methods=['POST'])
-@jwt_required()
+@role_required(*ALL_STAFF)
 def complete_maintenance(id):
     m = Maintenance.query.get_or_404(id)
     data = request.get_json()

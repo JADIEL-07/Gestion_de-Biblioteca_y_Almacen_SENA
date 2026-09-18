@@ -530,6 +530,73 @@ class TestRoleMatrix(RouteCase):
         self.assertEqual(self.c.post("/api/v1/loans/from_reservation", headers=self.H(staff), json={"token": res["token"]}).status_code, 201)
 
 
+    def test_maintenance_outputs_dashboard_denied_to_apprentices(self):
+        item = self.stocked_item(self.dep_bib)
+        h = self.H(self.make())
+        checks = [
+            ("get", "/api/v1/maintenance/", None), ("post", "/api/v1/maintenance/", {"item_id": item.id, "description": "x"}),
+            ("put", "/api/v1/maintenance/1/status", {"status": "IN_PROGRESS"}), ("post", "/api/v1/maintenance/1/complete", {}),
+            ("get", "/api/v1/outputs/", None), ("post", "/api/v1/outputs/", {"item_id": item.id, "tipo_salida": "DISPOSAL"}),
+            ("patch", "/api/v1/outputs/1/return", {}), ("patch", "/api/v1/outputs/1/close", {}),
+            ("get", "/api/v1/dashboard/stats", None),
+        ]
+        for method, url, body in checks:
+            r = getattr(self.c, method)(url, headers=h, json=body) if body is not None else getattr(self.c, method)(url, headers=h)
+            self.assertEqual(r.status_code, 403, url)
+        from app.models import Maintenance, ItemOutput
+        self.assertEqual(Maintenance.query.count(), 0)
+        self.assertEqual(ItemOutput.query.count(), 0)
+        self.assertEqual(Item.query.get(item.id).status_obj.name, "AVAILABLE")
+
+    def test_maintenance_and_outputs_allowed_for_staff(self):
+        item = self.stocked_item(self.dep_bib)
+        for role in ("ADMIN", "SOPORTE", "BIBLIOTECARIO", "ALMACENISTA"):
+            h = self.H(self.make(role))
+            self.assertEqual(self.c.get("/api/v1/maintenance/", headers=h).status_code, 200, role)
+            self.assertEqual(self.c.get("/api/v1/outputs/", headers=h).status_code, 200, role)
+        r = self.c.post("/api/v1/maintenance/", headers=self.H(self.make("SOPORTE")), json={"item_id": item.id, "description": "no enciende"})
+        self.assertEqual(r.status_code, 201, r.get_json())
+
+    def test_dashboard_stats_admin_only_but_apprentice_own_stats_ok(self):
+        for role in ("SOPORTE", "BIBLIOTECARIO", "ALMACENISTA", "APRENDIZ"):
+            self.assertEqual(self.c.get("/api/v1/dashboard/stats", headers=self.H(self.make(role))).status_code, 403, role)
+        self.assertEqual(self.c.get("/api/v1/dashboard/stats", headers=self.H(self.make("ADMIN"))).status_code, 200)
+        self.assertEqual(self.c.get("/api/v1/dashboard/aprendiz/stats", headers=self.H(self.make())).status_code, 200)
+
+    def test_maintenance_create_validates_instead_of_crashing(self):
+        h = self.H(self.make("SOPORTE")); item = self.stocked_item(self.dep_bib)
+        self.assertEqual(self.c.post("/api/v1/maintenance/", headers=h, json={}).status_code, 400)
+        self.assertEqual(self.c.post("/api/v1/maintenance/", headers=h, json={"item_id": item.id}).status_code, 400)
+        self.assertEqual(self.c.post("/api/v1/maintenance/", headers=h, json={"item_id": item.id, "description": "  "}).status_code, 400)
+        self.assertEqual(self.c.post("/api/v1/maintenance/", headers=h, json={"item_id": 9999, "description": "x"}).status_code, 404)
+
+    def test_errors_do_not_leak_internals(self):
+        import unittest.mock as mock
+        h = self.H(self.make("ADMIN"))
+        with mock.patch("app.routes.dashboard_routes.Loan") as boom:
+            boom.query.filter.side_effect = RuntimeError("SECRETO: SELECT * FROM users")
+            boom.query.filter_by.side_effect = RuntimeError("SECRETO: SELECT * FROM users")
+            boom.query.count.side_effect = RuntimeError("SECRETO: SELECT * FROM users")
+            r = self.c.get("/api/v1/dashboard/stats", headers=h)
+        self.assertEqual(r.status_code, 500)
+        self.assertNotIn("SECRETO", r.get_data(as_text=True))
+        self.assertNotIn("SELECT", r.get_data(as_text=True))
+
+    def test_unhandled_exception_returns_generic_json(self):
+        import unittest.mock as mock
+        h = self.H(self.make())
+        with mock.patch("app.routes.notification_routes.Notification") as boom:
+            boom.query.filter_by.side_effect = RuntimeError("SECRETO: password=abc")
+            r = self.c.get("/api/v1/notifications/unread-count", headers=h)
+        self.assertEqual(r.status_code, 500)
+        self.assertNotIn("SECRETO", r.get_data(as_text=True))
+
+    def test_http_errors_keep_their_status(self):
+        r = self.c.post("/api/v1/auth/login", data="no-es-json", content_type="application/json")
+        self.assertEqual(r.status_code, 400)
+        self.assertNotIn("Traceback", r.get_data(as_text=True))
+
+
 class TestSupportChatRoutes(RouteCase):
     def setUp(self):
         super().setUp()

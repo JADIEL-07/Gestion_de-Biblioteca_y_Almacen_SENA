@@ -389,14 +389,19 @@ def create_app():
 
     @app.errorhandler(500)
     def handle_500(e):
-        return jsonify({"error": "Internal server error", "detail": str(e)}), 500
+        print("ERROR 500:", e)
+        return jsonify({"error": "Internal server error"}), 500
 
     @app.errorhandler(Exception)
     def handle_exception(e):
         import traceback
+        from werkzeug.exceptions import HTTPException
+        if isinstance(e, HTTPException):
+            # 400/401/403/413... conservan su código y su texto estándar
+            return jsonify({"error": e.description or e.name}), e.code
         print("EXCEPCION NO CAPTURADA:", traceback.format_exc())
         if request.path.startswith('/api/'):
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": "Error interno del servidor."}), 500
         return jsonify({"error": "Unexpected error"}), 500
 
     @app.route('/')

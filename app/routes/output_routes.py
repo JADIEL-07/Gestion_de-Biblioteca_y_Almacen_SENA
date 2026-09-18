@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
+from ..utils.permissions import role_required, ADMIN, ALL_STAFF
 from ..models.item_output import ItemOutput, OutputType, OutputStatus
 from ..models.item import Item, Status
 from ..models.user import User
@@ -19,7 +20,7 @@ def get_status_id(name):
     return status.id
 
 @output_bp.route('/', methods=['GET'])
-@jwt_required()
+@role_required(*ALL_STAFF)
 def get_outputs():
     search = request.args.get('search', '')
     status_filter = request.args.get('status', 'ALL')
@@ -44,7 +45,7 @@ def get_outputs():
     return jsonify([o.to_dict() for o in outputs]), 200
 
 @output_bp.route('/', methods=['POST'])
-@jwt_required()
+@role_required(*ALL_STAFF)
 def create_output():
     data = request.get_json()
     item_id = data.get('item_id')
@@ -115,10 +116,11 @@ def create_output():
         return jsonify({"success": True, "message": "Salida registrada exitosamente", "data": new_output.to_dict()}), 201
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Error al procesar la salida: {str(e)}"}), 500
+        print(f"[ERROR] create_output: {e}")
+        return jsonify({"error": "Error al procesar la salida."}), 500
 
 @output_bp.route('/<int:id>/return', methods=['PATCH'])
-@jwt_required()
+@role_required(*ALL_STAFF)
 def register_return(id):
     output = ItemOutput.query.get_or_404(id)
     data = request.get_json()
@@ -153,7 +155,7 @@ def register_return(id):
     return jsonify({"success": True, "message": "Retorno registrado exitosamente"}), 200
 
 @output_bp.route('/<int:id>/close', methods=['PATCH'])
-@jwt_required()
+@role_required(*ALL_STAFF)
 def close_output(id):
     output = ItemOutput.query.get_or_404(id)
     

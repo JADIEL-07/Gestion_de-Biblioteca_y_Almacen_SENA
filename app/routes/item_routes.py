@@ -182,7 +182,7 @@ def get_items():
         return jsonify([serialize_item(i, saved_ids) for i in items])
     except Exception as e:
         print(f"[ERROR] get_items: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "No se pudieron cargar los elementos."}), 500
 
 
 @items_bp.route('/saved', methods=['GET'])

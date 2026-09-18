@@ -9,6 +9,7 @@ from ..models.audit_log import AuditLog
 from sqlalchemy import func, desc
 from datetime import datetime, timedelta
 from ..extensions import db
+from ..utils.permissions import role_required, ADMIN, ALL_STAFF
 
 dashboard_bp = Blueprint('dashboard', __name__)
 
@@ -37,7 +38,7 @@ def _full_media_url(path):
     return path
 
 @dashboard_bp.route('/stats', methods=['GET'])
-@jwt_required()
+@role_required(ADMIN)
 def get_dashboard_stats():
     try:
         # 1. Metri-Kpis Principales - Conteo directo y robusto
@@ -158,7 +159,7 @@ def get_dashboard_stats():
         })
     except Exception as e:
         print(f"[ERROR] dashboard_stats: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "No se pudieron cargar las estadísticas."}), 500
 
 @dashboard_bp.route('/aprendiz/stats', methods=['GET'])
 @jwt_required()
@@ -252,4 +253,4 @@ def get_aprendiz_stats():
         })
     except Exception as e:
         print(f"[ERROR] aprendiz_stats: {e}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "No se pudieron cargar tus estadísticas."}), 500
