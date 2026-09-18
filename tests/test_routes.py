@@ -165,7 +165,6 @@ class TestItemRoutes(RouteCase):
         self.assertTrue(j["locations"])
         self.assertTrue(all(l["dependency_id"] in (self.dep_bib.id, None) for l in j["locations"]))
 
-    @unittest.expectedFailure  # HALLAZGO conocido, ver informe
     def test_aprendiz_cannot_create_item(self):
         ap, base = self.make(), self.stocked_item(self.dep_bib)
         r = self.c.post("/api/v1/items/", headers=self.H(ap), json={
@@ -234,7 +233,6 @@ class TestLoanRoutes(RouteCase):
         self.assertEqual(Loan.query.count(), 0)
         self.assertEqual(Item.query.get(self.item.id).status_obj.name, "AVAILABLE")
 
-    @unittest.expectedFailure  # HALLAZGO conocido, ver informe
     def test_aprendiz_cannot_create_loans(self):
         r = self.lend(headers=self.H(self.ap))
         self.assertEqual(r.status_code, 403, "un aprendiz no debería poder crear préstamos")
@@ -257,13 +255,11 @@ class TestLoanRoutes(RouteCase):
     def test_return_unknown_loan_404(self):
         self.assertEqual(self.c.post("/api/v1/loans/999/return", json={}, headers=self.H(self.staff)).status_code, 404)
 
-    @unittest.expectedFailure  # HALLAZGO conocido, ver informe
     def test_aprendiz_cannot_return_loans(self):
         lid = self.lend().get_json()["loan_id"]
         r = self.c.post(f"/api/v1/loans/{lid}/return", json={}, headers=self.H(self.ap))
         self.assertEqual(r.status_code, 403, "un aprendiz no debería poder marcar devoluciones")
 
-    @unittest.expectedFailure  # HALLAZGO conocido, ver informe
     def test_returning_twice_is_rejected(self):
         lid = self.lend().get_json()["loan_id"]
         self.c.post(f"/api/v1/loans/{lid}/return", json={}, headers=self.H(self.staff))
@@ -427,7 +423,6 @@ class TestUserRoutes(RouteCase):
         self.assertEqual(j["email"], u.email)
         self.assertNotIn("password", j)
 
-    @unittest.expectedFailure  # HALLAZGO conocido, ver informe
     def test_aprendiz_cannot_list_users(self):
         r = self.c.get("/api/v1/users_mgmt/", headers=self.H(self.make()))
         self.assertEqual(r.status_code, 403, "un aprendiz no debería listar usuarios")
@@ -436,14 +431,12 @@ class TestUserRoutes(RouteCase):
         r = self.c.get("/api/v1/users_mgmt/", headers=self.H(self.make("ADMIN")))
         self.assertEqual(r.status_code, 200)
 
-    @unittest.expectedFailure  # HALLAZGO conocido, ver informe
     def test_aprendiz_cannot_create_user(self):
         self.role("ADMIN")
         r = self.c.post("/api/v1/users_mgmt/", headers=self.H(self.make()),
                         json={"id": "777", "name": "n", "email": "n@t.com", "password": "Xx123456!", "role": "ADMIN"})
         self.assertEqual(r.status_code, 403, "un aprendiz no debería crear usuarios")
 
-    @unittest.expectedFailure  # HALLAZGO conocido, ver informe
     def test_aprendiz_cannot_change_roles(self):
         ap, victim = self.make(), self.make()
         self.role("ADMIN")
@@ -451,7 +444,6 @@ class TestUserRoutes(RouteCase):
                         json={"role": "ADMIN"})
         self.assertEqual(r.status_code, 403, "escalada de privilegios: un aprendiz cambió un rol")
 
-    @unittest.expectedFailure  # HALLAZGO conocido, ver informe
     def test_aprendiz_cannot_delete_or_deactivate_others(self):
         ap, victim = self.make(), self.make()
         self.assertEqual(self.c.delete(f"/api/v1/users_mgmt/{victim.id}", headers=self.H(ap)).status_code, 403)
@@ -465,6 +457,77 @@ class TestUserRoutes(RouteCase):
         self.role("ADMIN")
         r = self.c.get("/api/v1/users_mgmt/roles", headers=self.H(self.make("ADMIN")))
         self.assertEqual(r.status_code, 200)
+
+
+class TestRoleMatrix(RouteCase):
+    """Cada rol solo puede llamar lo que le corresponde."""
+
+    def test_loan_list_is_staff_only(self):
+        for role, code in [("APRENDIZ", 403), ("SOPORTE", 403), ("BIBLIOTECARIO", 200), ("ALMACENISTA", 200), ("ADMIN", 200)]:
+            r = self.c.get("/api/v1/loans/", headers=self.H(self.make(role)))
+            self.assertEqual(r.status_code, code, role)
+
+    def test_user_admin_endpoints_are_admin_only(self):
+        victim = self.make()
+        self.role("APRENDIZ")
+        calls = [("get", "/api/v1/users_mgmt/"), ("get", "/api/v1/users_mgmt/stats"),
+                 ("get", f"/api/v1/users_mgmt/{victim.id}/detail"),
+                 ("post", f"/api/v1/users_mgmt/{victim.id}/unblock")]
+        for role in ("SOPORTE", "BIBLIOTECARIO", "ALMACENISTA", "APRENDIZ"):
+            h = self.H(self.make(role))
+            for method, url in calls:
+                self.assertEqual(getattr(self.c, method)(url, headers=h).status_code, 403, (role, url))
+        admin = self.H(self.make("ADMIN"))
+        for method, url in calls:
+            self.assertEqual(getattr(self.c, method)(url, headers=admin).status_code, 200, url)
+
+    def test_admin_can_manage_users(self):
+        admin = self.make("ADMIN"); self.role("APRENDIZ"); victim = self.make()
+        h = self.H(admin)
+        r = self.c.post("/api/v1/users_mgmt/", headers=h,
+                        json={"id": "888", "name": "Nuevo", "email": "nuevo@t.com", "password": "Xx123456!", "role": "APRENDIZ"})
+        self.assertEqual(r.status_code, 201, r.get_json())
+        self.assertEqual(self.c.post(f"/api/v1/users_mgmt/{victim.id}/toggle-active", headers=h).status_code, 200)
+        self.assertFalse(User.query.get(victim.id).is_active)
+        self.role("BIBLIOTECARIO")
+        self.assertEqual(self.c.post(f"/api/v1/users_mgmt/{victim.id}/change-role", headers=h, json={"role": "BIBLIOTECARIO"}).status_code, 200)
+        self.assertEqual(User.query.get(victim.id).role.name, "BIBLIOTECARIO")
+
+    def test_inventory_mutations_allowed_for_staff_denied_for_others(self):
+        base = self.stocked_item(self.dep_bib)
+        for role in ("APRENDIZ", "SOPORTE"):
+            h = self.H(self.make(role))
+            self.assertEqual(self.c.post("/api/v1/items/categories", headers=h, json={"name": "zz"}).status_code, 403, role)
+            self.assertEqual(self.c.post("/api/v1/items/locations", headers=h, json={"name": "zz"}).status_code, 403, role)
+            self.assertEqual(self.c.put(f"/api/v1/items/{base.id}", headers=h, json={"name": "hack"}).status_code, 403, role)
+            self.assertEqual(self.c.delete(f"/api/v1/items/{base.id}", headers=h).status_code, 403, role)
+        self.assertEqual(Item.query.get(base.id).name, base.name)
+        self.assertFalse(Item.query.get(base.id).is_deleted)
+        bib = self.make("BIBLIOTECARIO", dependency_id=self.dep_bib.id)
+        r = self.c.post("/api/v1/items/categories", headers=self.H(bib), json={"name": "Nueva cat"})
+        self.assertEqual(r.status_code, 201, r.get_json())
+        r = self.c.post("/api/v1/items/locations", headers=self.H(bib), json={"name": "Nueva loc"})
+        self.assertEqual(r.status_code, 201, r.get_json())
+
+    def test_admin_can_create_item(self):
+        base = self.stocked_item(self.dep_bib)
+        r = self.c.post("/api/v1/items/", headers=self.H(self.make("ADMIN")), json={
+            "name": "y", "code": "zz9", "dependency_id": self.dep_bib.id,
+            "category_id": base.category_id, "location_id": base.location_id, "status_id": base.status_id})
+        self.assertEqual(r.status_code, 201, r.get_json())
+
+    def test_loan_actions_denied_for_support_and_aprendiz(self):
+        staff = self.make("BIBLIOTECARIO", dependency_id=self.dep_bib.id)
+        item = self.stocked_item(self.dep_bib); target = self.make()
+        for role in ("APRENDIZ", "SOPORTE"):
+            r = self.c.post("/api/v1/loans/", headers=self.H(self.make(role)), json={"user_id": target.id, "item_ids": [item.id]})
+            self.assertEqual(r.status_code, 403, role)
+        self.assertEqual(Loan.query.count(), 0)
+        res = self.c.post("/api/v1/reservations/", json={"item_id": item.id}, headers=self.H(target)).get_json()
+        r = self.c.post("/api/v1/loans/from_reservation", headers=self.H(target), json={"token": res["token"]})
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(Reservation.query.get(res["id"]).status, "READY")
+        self.assertEqual(self.c.post("/api/v1/loans/from_reservation", headers=self.H(staff), json={"token": res["token"]}).status_code, 201)
 
 
 class TestSupportChatRoutes(RouteCase):

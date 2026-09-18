@@ -2,6 +2,7 @@ from datetime import datetime
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
+from ..utils.permissions import role_required, ADMIN, INVENTORY_STAFF
 from ..models.user import User, Role
 from ..models.movement import Notification
 from ..models.loan import Loan
@@ -151,7 +152,7 @@ def delete_user(id):
 
 
 @user_bp.route('/', methods=['GET'])
-@jwt_required()
+@role_required(ADMIN)
 def get_users():
     search = request.args.get('search', '')
     # Las cuentas "sombra" (creadas por un Admin para navegar como otro rol)
@@ -191,7 +192,7 @@ def get_users():
     return jsonify(result), 200
 
 @user_bp.route('/stats', methods=['GET'])
-@jwt_required()
+@role_required(ADMIN)
 def get_user_stats():
     not_shadow = User.shadow_owner_id.is_(None)
     total = User.query.filter_by(is_deleted=False).filter(not_shadow).count()
@@ -213,7 +214,7 @@ def get_user_stats():
     }), 200
 
 @user_bp.route('/<string:id>/toggle-active', methods=['POST'])
-@jwt_required()
+@role_required(ADMIN)
 def toggle_user_active(id):
     user = User.query.get_or_404(id)
     user.is_active = not user.is_active
@@ -226,7 +227,7 @@ def toggle_user_active(id):
     return jsonify({"success": True, "is_active": user.is_active}), 200
 
 @user_bp.route('/<string:id>/unblock', methods=['POST'])
-@jwt_required()
+@role_required(ADMIN)
 def unblock_user(id):
     user = User.query.get_or_404(id)
     user.is_blocked = False
@@ -239,7 +240,7 @@ def unblock_user(id):
     return jsonify({"success": True}), 200
 
 @user_bp.route('/<string:id>/change-role', methods=['POST'])
-@jwt_required()
+@role_required(ADMIN)
 def change_user_role(id):
     data = request.get_json()
     new_role_name = data.get('role')
@@ -257,7 +258,7 @@ def change_user_role(id):
     return jsonify({"success": True}), 200
 
 @user_bp.route('/<string:id>/detail', methods=['GET'])
-@jwt_required()
+@role_required(ADMIN)
 def get_user_detail(id):
     user = User.query.get_or_404(id)
     
@@ -286,7 +287,7 @@ def get_user_detail(id):
         } for l in logs]
     }), 200
 @user_bp.route('/', methods=['POST'])
-@jwt_required()
+@role_required(ADMIN)
 def create_user():
     data = request.get_json()
 

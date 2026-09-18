@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
+from ..utils.permissions import role_required, ADMIN, INVENTORY_STAFF
 from ..models.loan import Loan, LoanDetail
 from ..models.item import Item
 from ..models.user import User, Role
@@ -27,7 +28,7 @@ def _full_media_url(path):
     return path
 
 @loan_bp.route('/', methods=['GET'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def get_loans():
     search = request.args.get('search', '')
     start_date = request.args.get('startDate', '')
@@ -114,7 +115,7 @@ def get_loans():
     return jsonify(result), 200
 
 @loan_bp.route('/', methods=['POST'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def create_loan():
     data = request.get_json()
     user_id = data.get('user_id')
@@ -211,7 +212,7 @@ def create_loan():
     return jsonify({"success": True, "message": "Préstamo creado exitosamente", "loan_id": loan.id}), 201
 
 @loan_bp.route('/from_reservation', methods=['POST'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def create_loan_from_reservation():
     data = request.get_json()
     token = data.get('token')
@@ -280,9 +281,11 @@ def create_loan_from_reservation():
 
 
 @loan_bp.route('/<int:id>/return', methods=['POST'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def return_loan(id):
     loan = Loan.query.get_or_404(id)
+    if loan.status == 'RETURNED':
+        return jsonify({"error": "Este préstamo ya fue devuelto."}), 400
     data = request.get_json() or {}
 
     loan.return_date = datetime.now()

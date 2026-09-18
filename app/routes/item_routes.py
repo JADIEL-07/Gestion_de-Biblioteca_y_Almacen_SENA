@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..extensions import db
+from ..utils.permissions import role_required, ADMIN, INVENTORY_STAFF
 from ..models.item import Item, Category, Status, Location
 from ..models.movement import Notification
 from ..models.user import User, Role
@@ -284,7 +285,7 @@ def save_image(image_data, prefix="item"):
     return image_data
 
 @items_bp.route('/', methods=['POST'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def add_item():
     data = request.json
     if not data:
@@ -425,7 +426,7 @@ def add_item():
         return jsonify({"error": "Error de validación: Verifique que todos los campos obligatorios estén llenos"}), 400
 
 @items_bp.route('/<int:id>', methods=['PUT'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def update_item(id):
     item = Item.query.get_or_404(id)
     data = request.json
@@ -538,7 +539,7 @@ def update_item(id):
         return jsonify({"error": "Error de validación: Verifique que todos los campos obligatorios estén llenos"}), 400
 
 @items_bp.route('/<int:id>', methods=['DELETE'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def delete_item(id):
     item = Item.query.get_or_404(id)
     requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
@@ -583,7 +584,7 @@ def delete_item(id):
         return jsonify({"error": "No se pudo eliminar el elemento."}), 400
 # --- CATEGORIES CRUD ---
 @items_bp.route('/categories', methods=['POST'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def add_category():
     data = request.json
     print(f"[DEBUG] add_category data: {data}")
@@ -643,7 +644,7 @@ def add_category():
         return jsonify({"error": "Error al crear la categoría."}), 400
 
 @items_bp.route('/categories/<int:id>', methods=['PUT'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def update_category(id):
     cat = Category.query.get_or_404(id)
     data = request.json
@@ -675,7 +676,7 @@ def update_category(id):
         return jsonify({"error": "Error al actualizar la categoría."}), 400
 
 @items_bp.route('/categories/<int:id>', methods=['DELETE'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def delete_category(id):
     cat = Category.query.get_or_404(id)
     requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
@@ -696,7 +697,7 @@ def delete_category(id):
 
 # --- LOCATIONS CRUD ---
 @items_bp.route('/locations', methods=['POST'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def add_location():
     data = request.json
     print(f"[DEBUG] add_location data: {data}")
@@ -760,7 +761,7 @@ def add_location():
         return jsonify({"error": "Error al crear la ubicación."}), 400
 
 @items_bp.route('/locations/<int:id>', methods=['PUT'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def update_location(id):
     loc = Location.query.get_or_404(id)
     data = request.json
@@ -794,7 +795,7 @@ def update_location(id):
         return jsonify({"error": "Error al actualizar la ubicación."}), 400
 
 @items_bp.route('/locations/<int:id>', methods=['DELETE'])
-@jwt_required()
+@role_required(*INVENTORY_STAFF)
 def delete_location(id):
     loc = Location.query.get_or_404(id)
     requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
