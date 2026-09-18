@@ -37,6 +37,9 @@ def create_reservation():
     item_id = data.get('item_id')
     if not item_id:
         return jsonify({"error": "item_id es obligatorio"}), 400
+    if isinstance(item_id, bool) or not isinstance(item_id, (int, str)) or not str(item_id).isdigit():
+        return jsonify({"error": "item_id debe ser un número."}), 400
+    item_id = int(item_id)
 
     user_id = get_jwt_identity()
     res, err = enqueue_reservation(user_id=user_id, item_id=item_id)

@@ -450,14 +450,16 @@ class EmailService:
         """Aviso de intento de acceso desde un dispositivo no reconocido, con botón
         de autorización que vence en 15 minutos."""
         subject = "¿Estás intentando iniciar sesión? — Biblioteca SENA"
+        # device_label sale del User-Agent y location/ip del cliente: son texto que
+        # controla quien intenta entrar, así que se escapan antes de ir al HTML.
         rows = []
         if device_label:
-            rows.append(("Dispositivo", device_label))
-        rows.append(("Ubicación aproximada", location or "No disponible"))
+            rows.append(("Dispositivo", _esc(device_label)))
+        rows.append(("Ubicación aproximada", _esc(location or "No disponible")))
         if ip:
-            rows.append(("Dirección IP", ip))
+            rows.append(("Dirección IP", _esc(ip)))
         if when:
-            rows.append(("Fecha y hora", when))
+            rows.append(("Fecha y hora", _esc(when)))
 
         inner = (
             _panel(_rows_table(rows))

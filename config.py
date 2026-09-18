@@ -52,6 +52,7 @@ class Config:
     # Flask-Limiter: configuración de almacenamiento
     # Para desarrollo: memory:// (almacenamiento en memoria)
     # Para producción: redis://localhost:6379 o similar
+    RATELIMIT_ENABLED              = os.environ.get('RATELIMIT_ENABLED', 'true').lower() != 'false'
     RATELIMIT_STORAGE_URL          = os.environ.get('RATELIMIT_STORAGE_URL', 'memory://')
     RATELIMIT_STRATEGY             = os.environ.get('RATELIMIT_STRATEGY', 'fixed-window')
 
@@ -77,5 +78,6 @@ config_map = {
 }
 
 def get_config():
-    env = os.environ.get('FLASK_ENV', 'development')
+    # Sin FLASK_ENV se asume producción: arrancar en modo debug por omisión es el error peligroso.
+    env = os.environ.get('FLASK_ENV', 'production')
     return config_map.get(env, DevelopmentConfig)

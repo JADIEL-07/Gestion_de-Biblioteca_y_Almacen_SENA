@@ -279,6 +279,14 @@ def save_image(image_data, prefix="item"):
         return image_data
     if not image_data.startswith('data:image'):
         return image_data  # Ya es una URL/ruta existente (http, /uploads/..., etc.) — se deja igual.
+    from ..utils.media import is_safe_image_data_url
+    if not is_safe_image_data_url(image_data):
+        print("[item-image] imagen rechazada: formato no permitido")
+        return None
+    from ..utils.media import is_safe_image_data_url
+    if not is_safe_image_data_url(image_data):
+        print("[item-image] imagen rechazada: formato no permitido")
+        return None
     if len(image_data) > 8_000_000:
         print(f"[item-image] imagen rechazada por tamaño ({len(image_data)} bytes)")
         return None

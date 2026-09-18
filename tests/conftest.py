@@ -6,6 +6,7 @@ por defecto y PostgreSQL sí), y una base limpia por cada prueba.
 import os
 
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ.setdefault("RATELIMIT_ENABLED", "false")
 
 import pytest
 from sqlalchemy import event

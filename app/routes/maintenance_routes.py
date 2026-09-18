@@ -108,6 +108,8 @@ def create_maintenance():
     description = (data.get('description') or '').strip()
     if not item_id:
         return jsonify({"error": "El elemento es obligatorio."}), 400
+    if isinstance(item_id, bool) or not isinstance(item_id, int):
+        return jsonify({"error": "item_id debe ser un número."}), 400
     if not description:
         return jsonify({"error": "La descripción de la falla es obligatoria."}), 400
 
@@ -240,7 +242,8 @@ def complete_maintenance(id):
     # el disco del contenedor no sobrevive a un redeploy). Mismo criterio que
     # las fotos de inventario, perfil y chat de soporte.
     evidence_photo_b64 = data.get('evidence_photo')
-    if evidence_photo_b64 and evidence_photo_b64.startswith('data:image'):
+    from ..utils.media import is_safe_image_data_url
+    if evidence_photo_b64 and is_safe_image_data_url(evidence_photo_b64):
         if len(evidence_photo_b64) <= 8_000_000:
             m.evidence_photo = evidence_photo_b64
             db.session.commit()

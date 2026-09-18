@@ -52,6 +52,14 @@ def _validate_phone(phone: Optional[str]) -> Optional[str]:
     return None
 
 
+_COMMON_PASSWORDS = {
+    "password1", "password12", "password123", "contraseña1", "contrasena1", "contraseña123", "contrasena123",
+    "qwerty123", "qwertyui1", "abc12345", "abcd1234", "abcdefg1", "admin123", "admin1234", "administrador1",
+    "sena1234", "sena12345", "sena2024", "sena2025", "sena2026", "12345678a", "a1234567", "a12345678",
+    "iloveyou1", "welcome1", "welcome123", "colombia1", "colombia123", "test1234", "usuario123", "aprendiz123",
+}
+
+
 def _validate_password_strength(password: str) -> Optional[str]:
     """Valida fortaleza mínima de contraseña."""
     if not password:
@@ -60,6 +68,10 @@ def _validate_password_strength(password: str) -> Optional[str]:
         return "La contraseña debe tener al menos 8 caracteres"
     if " " in password:
         return "La contraseña no puede contener espacios"
+    if not (any(c.isalpha() for c in password) and any(c.isdigit() for c in password)):
+        return "La contraseña debe combinar letras y números"
+    if password.lower() in _COMMON_PASSWORDS or len(set(password)) <= 2:
+        return "Esa contraseña es demasiado común. Elige otra."
     return None
 
 
@@ -102,10 +114,9 @@ _PRIVATE_IP_PREFIXES = ('127.', '10.', '192.168.', '172.16.', '172.17.', '172.18
 
 def _client_ip() -> str:
     """IP real del cliente, teniendo en cuenta el proxy de Coolify/Traefik."""
-    xff = request.headers.get('X-Forwarded-For', '')
-    if xff:
-        return xff.split(',')[0].strip()
-    return (request.headers.get('X-Real-IP') or request.remote_addr or '').strip()
+    # ProxyFix ya dejó en remote_addr la IP que vio el proxy de confianza; el primer
+    # valor de X-Forwarded-For lo puede escribir cualquiera.
+    return (request.remote_addr or '').strip()
 
 
 def _describe_user_agent(ua: str) -> str:

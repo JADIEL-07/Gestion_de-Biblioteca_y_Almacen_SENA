@@ -227,6 +227,14 @@ def create_app():
     )
     app.config.from_object(config)
 
+    # Detrás de Traefik/Coolify todas las peticiones llegan desde la IP del proxy:
+    # sin esto el limitador de intentos y el registro de auditoría verían UNA sola
+    # IP para todos los usuarios. TRUSTED_PROXY_HOPS = cuántos proxies hay delante.
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    hops = int(os.environ.get('TRUSTED_PROXY_HOPS', '1'))
+    if hops > 0:
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=hops, x_proto=hops, x_host=0, x_port=0, x_prefix=0)
+
     # ── Extensions ────────────────────────────────────────────────────────────
     db.init_app(app)
     ma.init_app(app)
@@ -253,6 +261,14 @@ def create_app():
     # haya vencido. Los tokens antiguos sin `sid` se ignoran (se vencen solos).
     @jwt.token_in_blocklist_loader
     def _session_revoked(_jwt_header, jwt_payload):
+        # Un usuario desactivado, bloqueado o eliminado pierde el acceso de inmediato,
+        # aunque su token no haya vencido (dura días).
+        try:
+            _u = User.query.filter_by(id=str(jwt_payload.get("sub"))).first()
+        except Exception:
+            _u = None
+        if _u is None or bool(_u.is_deleted) or _u.is_active is False or bool(_u.is_blocked):
+            return True
         # El token temporal del 2FA (se entrega tras validar solo la contraseña)
         # únicamente sirve para completar el 2FA; en cualquier otra ruta sería un
         # acceso completo sin segundo factor.
@@ -339,6 +355,19 @@ def create_app():
         response.headers['Referrer-Policy']        = 'strict-origin-when-cross-origin'
         if not app.debug:
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+        # Política de contenido: scripts solo propios; estilos inline (la app los usa)
+        # y las fuentes de Google; imágenes propias, data:/blob: (fotos y QR) y https.
+        response.headers['Content-Security-Policy'] = (
+            "default-src 'self'; script-src 'self'; "
+            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            "font-src 'self' https://fonts.gstatic.com data:; "
+            "img-src 'self' data: blob: https:; media-src 'self' data: blob:; "
+            "connect-src 'self'; object-src 'none'; base-uri 'self'; "
+            "form-action 'self'; frame-ancestors 'none'"
+        )
+        # Las respuestas de la API llevan datos personales: nada de cachés compartidas.
+        if request.path.startswith('/api/'):
+            response.headers['Cache-Control'] = 'no-store'
         
         # Prevent caching of index.html and HTML responses so frontend updates are loaded instantly
         if request.path == '/' or request.path.endswith('.html') or response.mimetype == 'text/html':
@@ -431,7 +460,6 @@ def create_app():
         return jsonify({
             "status": "ok" if db_ok else "degraded",
             "database": "up" if db_ok else "down",
-            "gemini_key": bool(os.environ.get('GEMINI_API_KEY')),
         }), status_code
 
     # ── Uploads Config & Route ────────────────────────────────────────────────

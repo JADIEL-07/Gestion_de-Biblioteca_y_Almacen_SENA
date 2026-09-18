@@ -59,6 +59,8 @@ def create_output():
     
     if not item_id or not output_type:
         return jsonify({"error": "Item ID y Tipo de Salida son obligatorios"}), 400
+    if isinstance(item_id, bool) or not isinstance(item_id, int) or not isinstance(output_type, str):
+        return jsonify({"error": "item_id o tipo_salida con formato inválido."}), 400
 
     estimated_dt = None
     if estimated_return:

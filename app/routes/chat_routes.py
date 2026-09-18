@@ -157,6 +157,12 @@ def post_ticket_message(ticket_id):
         mime = media.get('mimeType') or 'image/jpeg'
         media_url = f"data:{mime};base64,{media_url}"
 
+    if media_url:
+        from ..utils.media import is_safe_image_data_url, is_safe_audio_data_url
+        ok_media = is_safe_audio_data_url(media_url) if media_type == 'audio' else is_safe_image_data_url(media_url)
+        if not ok_media:
+            return jsonify({'error': 'Tipo de archivo adjunto no permitido.'}), 400
+
     if not body and not media_url:
         return jsonify({'error': 'El mensaje no puede estar vacío.'}), 400
     if len(body) > 4000:

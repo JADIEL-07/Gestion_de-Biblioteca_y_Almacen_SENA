@@ -124,6 +124,12 @@ def create_loan():
     
     if not user_id or not item_ids:
         return jsonify({"error": "Faltan datos obligatorios"}), 400
+    if not isinstance(user_id, (str, int)) or isinstance(user_id, bool) or not isinstance(item_ids, list) \
+            or not all(isinstance(i, int) and not isinstance(i, bool) for i in item_ids):
+        return jsonify({"error": "user_id y item_ids tienen un formato inválido."}), 400
+    user_id = str(user_id)
+    if not isinstance(days, int) or isinstance(days, bool) or not (1 <= days <= 365):
+        return jsonify({"error": "days debe ser un número entre 1 y 365."}), 400
         
     user = User.query.get(user_id)
     if not user:
@@ -143,12 +149,18 @@ def create_loan():
     db.session.add(loan)
     db.session.flush()
 
+    from .item_routes import _requester_scope
+    _u, _role, _scoped, _own_dep = _requester_scope()
+
     item_names = []
     for item_id in item_ids:
         item = Item.query.get(item_id)
         if not item or item.is_deleted:
             db.session.rollback()
             return jsonify({"error": f"Ítem {item_id} no existe"}), 404
+        if _scoped and (not _own_dep or (item.location is not None and item.location.dependency_id not in (None, _own_dep))):
+            db.session.rollback()
+            return jsonify({"error": "No puedes prestar elementos de otra área de servicio."}), 403
         item_names.append(item.name)
 
         # ¿Este usuario tiene una reserva READY de este ítem? Consumirla.
@@ -235,6 +247,11 @@ def create_loan_from_reservation():
     
     if not item:
         return jsonify({"error": "El ítem reservado ya no existe"}), 404
+
+    from .item_routes import _requester_scope
+    _u, _role, _scoped, _own_dep = _requester_scope()
+    if _scoped and (not _own_dep or (item.location is not None and item.location.dependency_id not in (None, _own_dep))):
+        return jsonify({"error": "No puedes prestar elementos de otra área de servicio."}), 403
         
     from ..services.reservation_queue import push_notification
     

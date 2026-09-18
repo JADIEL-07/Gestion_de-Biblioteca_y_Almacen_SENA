@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from ..services.auth_service import AuthService
 from ..services.token_service import TokenService
-from ..extensions import db
+from ..extensions import db, limiter
 from ..models.token import RefreshToken
 from ..models.audit_log import AuditLog
 from ..models.user import User
@@ -17,6 +17,7 @@ import bcrypt
 auth_bp = Blueprint('auth', __name__)
 
 @auth_bp.route('/register', methods=['POST'])
+@limiter.limit("10 per hour")
 def register():
     data = request.get_json()
     if not data:
@@ -47,6 +48,7 @@ def register():
     return jsonify(result), status
 
 @auth_bp.route('/login', methods=['POST'])
+@limiter.limit("40 per minute")
 def login():
     data = request.get_json()
     if not data:
@@ -58,6 +60,9 @@ def login():
 
     if not identifier or not password:
         return jsonify({"error": "Se requiere el número de documento y la contraseña"}), 400
+    if not isinstance(identifier, (str, int)) or isinstance(identifier, bool) or not isinstance(password, str):
+        return jsonify({"error": "Datos de inicio de sesión inválidos."}), 400
+    identifier = str(identifier)
 
     result, status = AuthService.login(
         identifier, password,
@@ -162,7 +167,14 @@ def refresh():
         return jsonify({"error": "Session expired"}), 401
     return jsonify({"access_token": access, "refresh_token": refresh}), 200
 
+def _forgot_key():
+    body = request.get_json(silent=True) or {}
+    return str(body.get('email') or body.get('correo') or '').strip().lower() or 'sin-correo'
+
+
 @auth_bp.route('/forgot-password', methods=['POST'])
+@limiter.limit("10 per hour")
+@limiter.limit("3 per hour", key_func=_forgot_key)
 def forgot_password():
     data = request.get_json()
     email = data.get('email') or data.get('correo')
@@ -243,6 +255,7 @@ def change_password_legacy():
 # ─── Verificación de cuenta tras registro ────────────────────────────
 
 @auth_bp.route('/verify-account', methods=['POST'])
+@limiter.limit("30 per hour")
 def verify_account():
     """Verifica la cuenta del usuario con código de 6 dígitos. Auto-loguea al confirmar."""
     data = request.get_json() or {}
@@ -253,6 +266,7 @@ def verify_account():
 
 
 @auth_bp.route('/resend-verification', methods=['POST'])
+@limiter.limit("6 per hour")
 def resend_verification():
     """Reenvía el código de verificación si la cuenta sigue sin verificar."""
     data = request.get_json() or {}

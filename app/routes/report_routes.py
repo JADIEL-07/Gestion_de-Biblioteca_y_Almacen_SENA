@@ -127,7 +127,8 @@ def create_report():
     # Se guarda DIRECTAMENTE en la BD como data URL (no como archivo en disco:
     # el disco del contenedor no sobrevive a un redeploy). Mismo criterio que
     # las fotos de inventario, perfil, mantenimiento y chat de soporte.
-    if photo and photo.startswith('data:image'):
+    from ..utils.media import is_safe_image_data_url
+    if photo and is_safe_image_data_url(photo):
         if len(photo) <= 8_000_000:
             ticket.photo = photo
             db.session.commit()

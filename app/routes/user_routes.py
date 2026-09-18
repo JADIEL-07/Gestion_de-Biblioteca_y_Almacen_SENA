@@ -753,7 +753,10 @@ def update_profile_image():
     # el disco del contenedor no sobrevive a un redeploy, así que la foto
     # "desaparecía" en el siguiente despliegue aunque la ruta siguiera en la
     # BD. Mismo criterio que las fotos de inventario y del chat de soporte.
-    if image_data and image_data.startswith('data:image'):
+    if image_data and image_data.startswith('data:'):
+        from ..utils.media import is_safe_image_data_url
+        if not is_safe_image_data_url(image_data):
+            return jsonify({"error": "Formato de imagen no válido (usa PNG, JPG, WEBP o GIF)."}), 400
         if len(image_data) > 8_000_000:
             return jsonify({"error": "La imagen es demasiado grande."}), 400
         user.profile_image = image_data
