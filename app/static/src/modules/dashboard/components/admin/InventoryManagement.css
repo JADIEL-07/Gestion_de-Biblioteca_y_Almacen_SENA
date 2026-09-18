@@ -352,8 +352,10 @@
 .inv-modal {
     background: var(--admin-bg-card);
     width: 90%;
-    max-width: 640px;
-    max-height: 86vh; /* Altura máxima para evitar que se salga de la pantalla */
+    max-width: 560px;
+    /* Deja ~4.5rem libres arriba y abajo: así el panel nunca llega hasta las
+       barras superiores (topnav / barra del navegador móvil) que lo tapaban. */
+    max-height: calc(100vh - 9rem);
     border-radius: 20px;
     border: 1px solid var(--admin-border-color);
     box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5);
@@ -408,7 +410,7 @@
 .btn-close:hover { color: #ef4444; }
 
 .inv-form {
-    padding: 1.5rem 1.75rem;
+    padding: 1.15rem 1.4rem;
     overflow-y: auto;
     flex: 1;
 }
@@ -431,13 +433,13 @@
 .form-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem 1.25rem;
+    gap: 0.8rem 1rem;
 }
 
 .form-group {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.4rem;
     position: relative;
 }
 
@@ -460,7 +462,7 @@
 }
 
 .form-group input, .form-group select, .form-group textarea {
-    padding: 0.65rem 0.9rem;
+    padding: 0.55rem 0.8rem;
     background: var(--admin-bg-main);
     border: 1px solid var(--admin-border-color);
     border-radius: 10px;
@@ -712,6 +714,10 @@
 
 /* El gap de arriba ya separa .form-actions del campo anterior — su propio
    margin-top (pensado para el modal grande, sin ese gap) sumaría de más. */
+.mini-modal .form-group {
+    gap: 0.5rem;
+}
+
 .mini-modal .form-actions {
     margin-top: 0.35rem;
 }

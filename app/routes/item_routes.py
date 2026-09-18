@@ -29,7 +29,18 @@ def _requester_scope():
         return None, '', False, None
     role_name = (user.role.name if user.role else '').strip().upper()
     is_staff_scoped = role_name in STAFF_INVENTORY_ROLES
-    return user, role_name, is_staff_scoped, user.dependency_id
+    own_dep_id = user.dependency_id
+    if is_staff_scoped and not own_dep_id:
+        # Cuentas de staff creadas sin área asignada: se deduce por el rol
+        # (Bibliotecario -> área "Biblioteca…", Almacenista -> "Almacén…") en
+        # vez de dejarlas viendo el inventario completamente vacío.
+        from ..models.dependency import Dependency
+        hint = 'biblio' if role_name == 'BIBLIOTECARIO' else 'almac'
+        for dep in Dependency.query.all():
+            if hint in (dep.name or '').lower():
+                own_dep_id = dep.id
+                break
+    return user, role_name, is_staff_scoped, own_dep_id
 
 
 def _pick_default(model, dependency_id):
