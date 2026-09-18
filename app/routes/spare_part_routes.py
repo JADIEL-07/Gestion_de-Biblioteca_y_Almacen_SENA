@@ -69,6 +69,13 @@ def create_spare_part_request():
     if not all([item_id, reason, cost, supplier, invoice_image]):
         return jsonify({"error": "Missing required fields"}), 400
 
+    try:
+        cost = float(cost)
+    except (TypeError, ValueError):
+        return jsonify({"error": "El costo debe ser un número."}), 400
+    if cost <= 0:
+        return jsonify({"error": "El costo debe ser mayor a 0."}), 400
+
     item = Item.query.get(item_id)
     if not item:
         return jsonify({"error": "Item not found"}), 404
@@ -77,7 +84,7 @@ def create_spare_part_request():
         item_id=item_id,
         requested_by=user.id,
         reason=reason,
-        cost=float(cost),
+        cost=cost,
         supplier=supplier,
         invoice_image=invoice_image,
         status='PENDING'

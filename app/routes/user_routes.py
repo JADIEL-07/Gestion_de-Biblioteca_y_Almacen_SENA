@@ -504,7 +504,12 @@ def update_preferences():
     if 'sms'   in channels: pref.channel_sms   = bool(channels['sms'])
 
     alerts = data.get('alerts', {})
-    if 'reminderDays' in alerts: pref.alert_reminder_days = int(alerts['reminderDays'])
+    if 'reminderDays' in alerts:
+        try:
+            pref.alert_reminder_days = max(0, min(int(alerts['reminderDays']), 30))
+        except (TypeError, ValueError):
+            db.session.rollback()
+            return jsonify({"error": "reminderDays debe ser un número de días."}), 400
     if 'quietStart'   in alerts: pref.quiet_start = alerts['quietStart']
     if 'quietEnd'     in alerts: pref.quiet_end   = alerts['quietEnd']
 
@@ -713,7 +718,11 @@ def delete_my_account():
         return jsonify({"error": "Contraseña incorrecta"}), 401
 
     # Verificar préstamos activos
-    active_loans = Loan.query.filter_by(user_id=user_id, status='ACTIVE').count()
+    # ACTIVE, OVERDUE y NOT_RETURNED: si no, un préstamo vencido o una sanción
+    # por no devolver se podían esquivar borrando la cuenta.
+    active_loans = Loan.query.filter(
+        Loan.user_id == user_id, Loan.status.in_(['ACTIVE', 'OVERDUE', 'NOT_RETURNED'])
+    ).count()
     if active_loans > 0:
         return jsonify({"error": f"Tienes {active_loans} préstamo(s) activo(s). Debes devolverlos antes de eliminar tu cuenta."}), 400
 
@@ -748,6 +757,8 @@ def update_profile_image():
         if len(image_data) > 8_000_000:
             return jsonify({"error": "La imagen es demasiado grande."}), 400
         user.profile_image = image_data
+    elif image_data and not image_data.startswith(('/uploads/', 'http://', 'https://')):
+        return jsonify({"error": "Formato de imagen no válido."}), 400
     else:
         # Ruta /uploads o URL externa: se guarda tal cual (se normaliza al leer)
         user.profile_image = _full_media_url(image_data) if image_data else image_data

@@ -206,13 +206,20 @@ def update_status(id):
 @role_required(*ALL_STAFF)
 def complete_maintenance(id):
     m = Maintenance.query.get_or_404(id)
-    data = request.get_json()
-    
+    data = request.get_json(silent=True) or {}
+
+    try:
+        cost = float(data.get('cost') or 0.0)
+    except (TypeError, ValueError):
+        return jsonify({"error": "El costo debe ser un número."}), 400
+    if cost < 0:
+        return jsonify({"error": "El costo no puede ser negativo."}), 400
+
     m.status = 'COMPLETED'
     m.end_date = datetime.utcnow()
     m.solution = data.get('solution')
     m.diagnosis = data.get('diagnosis')
-    m.cost = data.get('cost', 0.0)
+    m.cost = cost
     m.evidence_photo = None # Se procesará a continuación si hay una
     
     # Liberar equipo

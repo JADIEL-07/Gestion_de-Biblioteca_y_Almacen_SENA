@@ -99,6 +99,7 @@ def get_audit_logs():
                 User.id.cast(String).ilike(search_filter),
                 AuditLog.action.ilike(search_filter),
                 AuditLog.entity.ilike(search_filter),
+                AuditLog.entity_name.ilike(search_filter),
                 AuditLog.ip.ilike(search_filter),
                 AuditLog.details.ilike(search_filter)
             )

@@ -59,6 +59,13 @@ def create_output():
     
     if not item_id or not output_type:
         return jsonify({"error": "Item ID y Tipo de Salida son obligatorios"}), 400
+
+    estimated_dt = None
+    if estimated_return:
+        try:
+            estimated_dt = datetime.fromisoformat(estimated_return)
+        except (TypeError, ValueError):
+            return jsonify({"error": "La fecha de retorno estimada no es válida."}), 400
         
     # 1. Bloquear fila para evitar concurrencia
     item = Item.query.with_for_update().get(item_id)
@@ -92,7 +99,7 @@ def create_output():
         destination=destination,
         description=description,
         reason_code=reason_code,
-        estimated_return_date=datetime.fromisoformat(estimated_return) if estimated_return else None
+        estimated_return_date=estimated_dt
     )
     
     # 5. Actualizar estado del ítem
@@ -123,7 +130,7 @@ def create_output():
 @role_required(*ALL_STAFF)
 def register_return(id):
     output = ItemOutput.query.get_or_404(id)
-    data = request.get_json()
+    data = request.get_json(silent=True) or {}
     
     if output.status != OutputStatus.ACTIVE:
         return jsonify({"error": "Esta salida no está activa"}), 400

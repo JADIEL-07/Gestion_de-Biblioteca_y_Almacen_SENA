@@ -24,8 +24,11 @@ def _serialize(n):
 @jwt_required()
 def list_notifications():
     user_id = get_jwt_identity()
-    limit = min(int(request.args.get('limit', 30)), 100)
-    offset = max(int(request.args.get('offset', 0)), 0)
+    try:
+        limit = max(1, min(int(request.args.get('limit', 30)), 100))
+        offset = max(int(request.args.get('offset', 0)), 0)
+    except (TypeError, ValueError):
+        return jsonify({"error": "limit y offset deben ser números."}), 400
     only_unread = request.args.get('unread_only', 'false').lower() == 'true'
 
     q = Notification.query.filter_by(user_id=str(user_id))

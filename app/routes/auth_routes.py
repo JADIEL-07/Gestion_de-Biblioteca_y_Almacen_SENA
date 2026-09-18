@@ -9,6 +9,7 @@ from ..models.user import User
 from ..models.user_preference import EmailChangeToken
 from datetime import datetime, timedelta
 import json
+import os
 import secrets
 import hashlib
 import bcrypt
@@ -263,7 +264,12 @@ def resend_verification():
 def _login_diag():
     """[TEMPORAL] Dice qué hay realmente en la BD para un documento dado.
     Uso: /api/v1/auth/_diag?key=sena-diag-2026&doc=NUMERO"""
-    if request.args.get('key') != 'sena-diag-2026':
+    # La clave YA NO está en el código: solo existe si se define DIAG_KEY en el
+    # entorno (Coolify). Sin esa variable el endpoint no existe.
+    import hmac
+    expected = os.environ.get('DIAG_KEY', '')
+    given = request.args.get('key', '')
+    if not expected or not hmac.compare_digest(given.encode(), expected.encode()):
         return jsonify({"error": "not found"}), 404
 
     from sqlalchemy import or_ as _or
