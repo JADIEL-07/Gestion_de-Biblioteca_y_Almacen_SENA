@@ -253,6 +253,13 @@ def create_app():
     # haya vencido. Los tokens antiguos sin `sid` se ignoran (se vencen solos).
     @jwt.token_in_blocklist_loader
     def _session_revoked(_jwt_header, jwt_payload):
+        # El token temporal del 2FA (se entrega tras validar solo la contraseña)
+        # únicamente sirve para completar el 2FA; en cualquier otra ruta sería un
+        # acceso completo sin segundo factor.
+        if jwt_payload.get("type") == "2fa_temp":
+            from flask import request as _rq
+            if _rq.endpoint not in ("auth.verify_2fa", "auth.send_2fa_email"):
+                return True
         sid = jwt_payload.get("sid")
         if not sid:
             return False

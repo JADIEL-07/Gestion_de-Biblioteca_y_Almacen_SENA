@@ -359,9 +359,28 @@ def _tool_propose_close_session(user_id, objetivo_text):
     return {"pending_confirmation": True, "resumen": resumen, "token": token}
 
 
+# Palabras clave del modo sin conexión: una palabra suelta coincide si alguna
+# palabra del mensaje EMPIEZA con ella (así "préstamo" encuentra "préstamos", pero
+# "hora" ya no se activa con "ahora"; antes era substring en cualquier parte). Las
+# frases con espacio siguen comparándose como texto.
+def _kw(q, keys):
+    words = re.findall(r"\w+", q)
+    for k in keys:
+        if ' ' in k:
+            if k in q:
+                return True
+        elif any(w.startswith(k) for w in words):
+            return True
+    return False
+
+
+# string.punctuation no incluye los signos de apertura del español (¿ ¡) ni comillas tipográficas.
+_PUNCT_TABLE = str.maketrans('', '', string.punctuation + '¿¡«»“”‘’…')
+
+
 def get_query_keywords(text):
     stopwords = {'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas', 'y', 'o', 'de', 'para', 'en', 'por', 'a', 'con', 'que', 'qué', 'como', 'cómo', 'cual', 'cuál', 'te', 'me', 'se', 'lo', 'al', 'del'}
-    words = text.lower().translate(str.maketrans('', '', string.punctuation)).split()
+    words = text.lower().translate(_PUNCT_TABLE).split()
     return " ".join([w for w in words if w not in stopwords and len(w) > 2])
 
 
@@ -384,7 +403,7 @@ IDENTITY_QUESTIONS = {
 def classify_greeting(text):
     """Clasifica un mensaje: 'identity' (pregunta de identidad conocida),
     'greeting' (saludo puro: todas sus palabras son de saludo/relleno) o None."""
-    q = (text or '').lower().translate(str.maketrans('', '', string.punctuation)).strip()
+    q = (text or '').lower().translate(_PUNCT_TABLE).strip()
     if not q:
         return None
     if q in IDENTITY_QUESTIONS:
@@ -1136,11 +1155,11 @@ INSTRUCCIONES DE RESPUESTA:
         return jsonify(_dispatch_assistant_tool('navegar_a', {'destino': destino}, user, user_role))
 
     # CATEGORÍA 1: Saludos, Presentación y Ayuda General
-    elif any(k in q for k in ['hola', 'saludos', 'buenos dias', 'buenas tardes', 'buen dia', 'buena tarde', 'que tal', 'como estas', 'quien eres', 'quién eres', 'ayuda', 'asistente', 'sena bot']):
+    elif _kw(q, ['hola', 'saludos', 'buenos dias', 'buenas tardes', 'buen dia', 'buena tarde', 'que tal', 'como estas', 'quien eres', 'quién eres', 'ayuda', 'asistente', 'sena bot']):
         fallback_text = f"Puedo ayudarte con reservas, préstamos, horarios, ubicaciones y configuración de la plataforma. ¿Con qué necesitas ayuda?"
 
     # CATEGORÍA 2: Préstamos y deudas (RAG en tiempo real)
-    elif any(k in q for k in ['prestamo', 'préstamo', 'tengo prestado', 'mis herramientas', 'mis libros', 'mis prestamos', 'mis deudas', 'debo', 'entregar']):
+    elif _kw(q, ['prestamo', 'préstamo', 'tengo prestado', 'mis herramientas', 'mis libros', 'mis prestamos', 'mis deudas', 'debo', 'entregar']):
         if not user:
             fallback_text = "Actualmente estás navegando como **Usuario Invitado**, por lo que no posees préstamos activos asignados. 🔒 ¡Inicia sesión para poder solicitar materiales!"
         elif not active_loans_list:
@@ -1155,29 +1174,29 @@ INSTRUCCIONES DE RESPUESTA:
     # Estas no necesitan "adivinar" ningún parámetro libre (no hay nombre de
     # elemento que identificar), así que es seguro ejecutarlas también desde
     # el sistema de reglas, sin depender de que Gemini esté disponible.
-    elif user and any(k in q for k in ['sesion activa', 'sesión activa', 'sesiones activas',
+    elif user and _kw(q, ['sesion activa', 'sesión activa', 'sesiones activas',
                                         'mis sesiones', 'mis dispositivos', 'dispositivos conectados',
                                         'dispositivo conectado', 'donde tengo sesion', 'dónde tengo sesión']):
         return jsonify(_dispatch_assistant_tool('listar_sesiones_activas', {}, user, user_role))
 
     # CATEGORÍA 2C: Cerrar sesión / dispositivo (ACCIÓN — sin Gemini, con confirmación)
-    elif user and any(k in q for k in ['cerrar sesion', 'cerrar sesión', 'cierra sesion', 'cierra la sesion',
+    elif user and _kw(q, ['cerrar sesion', 'cerrar sesión', 'cierra sesion', 'cierra la sesion',
                                         'cierra la sesión', 'cierra mi sesion', 'cierra mi sesión',
                                         'cerrar mi sesion', 'cerrar mi sesión', 'cerrar dispositivo',
                                         'cerrar todas mis sesiones', 'salir de todos los dispositivos']):
-        objetivo = 'todas' if any(k in q for k in ['todas', 'todos', 'todo']) else 'actual'
+        objetivo = 'todas' if _kw(q, ['todas', 'todos', 'todo']) else 'actual'
         return jsonify(_dispatch_assistant_tool('cerrar_sesion_dispositivo', {'objetivo': objetivo}, user, user_role))
 
     # CATEGORÍA 3B: Mis reservas — datos reales (ACCIÓN — sin Gemini)
     # Distinto de la CATEGORÍA 3 (guía genérica de "cómo reservo"): aquí el
     # usuario pregunta explícitamente por SUS reservas, así que respondemos
     # con datos reales en vez de instrucciones.
-    elif user and any(k in q for k in ['mis reservas', 'mi reserva', 'tengo reservas', 'tengo una reserva',
+    elif user and _kw(q, ['mis reservas', 'mi reserva', 'tengo reservas', 'tengo una reserva',
                                         'reservas activas', 'estado de mi reserva', 'estado de mis reservas']):
         return jsonify(_dispatch_assistant_tool('listar_mis_reservas', {}, user, user_role))
 
     # CATEGORÍA 3: Reservas y apartados (Límite de 15 min)
-    elif any(k in q for k in ['reserva', 'reservar', 'apartar', 'separar', 'agendar', 'guardar', 'rentar']):
+    elif _kw(q, ['reserva', 'reservar', 'apartar', 'separar', 'agendar', 'guardar', 'rentar']):
         fallback_text = f"📅 **Guía de Reservas en la Plataforma:**\n\n" \
                         "Para asegurar cualquier elemento de la biblioteca o del almacén antes de recogerlo, haz lo siguiente:\n" \
                         "1. 🔍 Ve al apartado **'Explorar elementos'** en tu menú lateral izquierdo.\n" \
@@ -1186,7 +1205,7 @@ INSTRUCCIONES DE RESPUESTA:
                         "⚠️ **REGLA DE ORO (15 MINUTOS):** Una vez que realices la reserva, cuentas con un plazo máximo de **15 minutos** para retirarlo físicamente en la ventanilla con el encargado. Si no te presentas en ese tiempo, la reserva expirará y se liberará de inmediato para otros compañeros."
 
     # CATEGORÍA 4: Eliminación de Cuenta y Privacidad
-    elif any(k in q for k in ['eliminar cuenta', 'borrar cuenta', 'eliminar mi cuenta', 'borrar mi cuenta', 'desactivar cuenta', 'privacidad', 'datos', 'descargar datos']):
+    elif _kw(q, ['eliminar cuenta', 'borrar cuenta', 'eliminar mi cuenta', 'borrar mi cuenta', 'desactivar cuenta', 'privacidad', 'datos', 'descargar datos']):
         fallback_text = f"⚙️ **Procedimiento de Eliminación de Cuenta y Privacidad:**\n\n" \
                         "La plataforma respeta las leyes de privacidad de datos. Si deseas eliminar tu cuenta permanentemente:\n" \
                         "1. ⚙️ Dirígete al menú lateral izquierdo y haz clic en **'Configuración'**.\n" \
@@ -1194,7 +1213,7 @@ INSTRUCCIONES DE RESPUESTA:
                         "3. ✍️ Lee detalladamente el mensaje de advertencia (esto borrará permanentemente tus préstamos, historial y registros) y escribe la frase de confirmación exacta solicitada para proceder."
 
     # CATEGORÍA 5: Roles, Permisos y Acciones Administrativas (consciente del rol)
-    elif any(k in q for k in ['agregar usuario', 'crear usuario', 'nuevo usuario', 'añadir usuario', 'añadir aprendiz', 'agregar aprendiz', 'borrar usuario', 'eliminar usuario', 'modificar usuario', 'cambiar rol', 'subir de rol', 'ser admin', 'modificar inventario', 'agregar libro', 'agregar herramienta', 'borrar item', 'reportes', 'auditoria', 'auditoría']):
+    elif _kw(q, ['agregar usuario', 'crear usuario', 'nuevo usuario', 'añadir usuario', 'añadir aprendiz', 'agregar aprendiz', 'borrar usuario', 'eliminar usuario', 'modificar usuario', 'cambiar rol', 'subir de rol', 'ser admin', 'modificar inventario', 'agregar libro', 'agregar herramienta', 'borrar item', 'reportes', 'auditoria', 'auditoría']):
         if user_role == 'ADMIN':
             fallback_text = "Como **Administrador**, tienes acceso completo. Para gestionar usuarios ve al menú lateral → **Usuarios** y usa el botón **Nuevo usuario** arriba a la derecha. Para inventario → **Inventario**, para reportes → **Reportes**, para auditoría → **Auditoría**. Dime exactamente qué operación quieres realizar y te guío paso a paso."
         elif user_role in ('BIBLIOTECARIO', 'ALMACENISTA', 'SOPORTE'):
@@ -1203,7 +1222,7 @@ INSTRUCCIONES DE RESPUESTA:
             fallback_text = "Esa acción está reservada para el **Administrador** del sistema. Como aprendiz/usuario solo puedes consultar el catálogo, hacer reservas y ver tus préstamos. Si necesitas que se modifique algo (por ejemplo, recuperar tu cuenta), escala al equipo de Soporte."
 
     # CATEGORÍA 6: Horarios de Atención
-    elif any(k in q for k in ['horario', 'hora', 'abierto', 'cierran', 'abren', 'atencion', 'atención', 'sabado', 'domingo', 'festivo', 'calendario', 'dias', 'días']):
+    elif _kw(q, ['horario', 'hora', 'abierto', 'cierran', 'abren', 'atencion', 'atención', 'sabado', 'domingo', 'festivo', 'calendario', 'dias', 'días']):
         fallback_text = f"🕒 **Horarios de Atención Oficiales — Sede Vélez:**\n\n" \
                         "*   **Lunes a Viernes:** 6:00 AM – 10:00 PM (Jornada continua).\n" \
                         "*   *(Nota pedagógica: Los miércoles abrimos a partir de las 6:30 AM debido a reuniones de instructores)*.\n" \
@@ -1211,14 +1230,14 @@ INSTRUCCIONES DE RESPUESTA:
                         "Te aconsejamos realizar cualquier trámite de entrega o devolución al menos 15 minutos antes de la hora de cierre para evitar congestiones en el sistema."
 
     # CATEGORÍA 7: Ubicaciones de los Bloques
-    elif any(k in q for k in ['ubicacion', 'ubicación', 'donde', 'dónde', 'queda', 'sede', 'velez', 'vélez', 'bloque', 'ventanilla', 'pasillo', 'taller']):
+    elif _kw(q, ['ubicacion', 'ubicación', 'donde', 'dónde', 'queda', 'sede', 'velez', 'vélez', 'bloque', 'ventanilla', 'pasillo', 'taller']):
         fallback_text = f"📍 **Ubicación de Puntos Físicos en la Sede Vélez:**\n\n" \
                         "Para reclamar tus reservas o devolver materiales, dirígete a:\n" \
                         "*   **Biblioteca (Libros y material académico):** Bloque Principal, primer piso, contiguo al pasillo administrativo central.\n" \
                         "*   **Almacén de Equipos (Herramientas, kits de desarrollo, soldadores):** Al fondo del pasillo técnico de talleres, justo al lado de las aulas de electricidad y mantenimiento industrial."
 
     # CATEGORÍA 8: Configuración, Perfil y Preferencias
-    elif any(k in q for k in ['contraseña', 'contrasena', 'password', 'cambiar clave', 'clave', 'perfil', 'avatar', 'foto', 'correo', 'email', 'notificaciones', '2fa', 'seguridad', 'editar']):
+    elif _kw(q, ['contraseña', 'contrasena', 'password', 'cambiar clave', 'clave', 'perfil', 'avatar', 'foto', 'correo', 'email', 'notificaciones', '2fa', 'seguridad', 'editar']):
         fallback_text = f"⚙️ **Manual de Configuración y Gestión de Perfil:**\n\n" \
                         "Puedes personalizar tu perfil ingresando al menú lateral izquierdo en **'Configuración'**. Allí verás un panel avanzado con pestañas dedicadas para:\n" \
                         "1. 👤 **Información personal:** Para actualizar tu foto de perfil (avatar), biografía y número de documento.\n" \
@@ -1228,7 +1247,7 @@ INSTRUCCIONES DE RESPUESTA:
                         "5. 💻 **Sesiones activas:** Ver qué dispositivos están conectados y cerrarlos remotamente si lo deseas."
 
     # CATEGORÍA 9: Pérdidas, Daños, Sanciones y Demoras
-    elif any(k in q for k in ['perdí', 'perdi', 'pérdida', 'perdida', 'daño', 'dañó', 'rompí', 'rompi', 'malogrado', 'dañado', 'multa', 'sancion', 'sanción', 'castigo', 'atrasado', 'retraso', 'demora', 'suspension', 'suspensión']):
+    elif _kw(q, ['perdí', 'perdi', 'pérdida', 'perdida', 'daño', 'dañó', 'rompí', 'rompi', 'malogrado', 'dañado', 'multa', 'sancion', 'sanción', 'castigo', 'atrasado', 'retraso', 'demora', 'suspension', 'suspensión']):
         fallback_text = f"⚠️ **Políticas de Sanciones, Demoras y Pérdidas del SENA:**\n\n" \
                         "El reglamento de biblioteca y almacén vela por el cuidado de los bienes del centro de formación:\n" \
                         "*   ⌛ **Retrasos:** Si no entregas a tiempo, tu cuenta será suspendida para préstamos nuevos por **1 día por cada día de retraso** por cada elemento pendiente.\n" \
@@ -1236,7 +1255,7 @@ INSTRUCCIONES DE RESPUESTA:
                         "*   👨‍🏫 **Comité Pedagógico:** Demoras superiores a 10 días o la negación de reponer un bien público serán reportadas formalmente a coordinación académica para comité disciplinario."
 
     # CATEGORÍA 10: Requisitos para préstamos
-    elif any(k in q for k in ['requisitos', 'reglamento', 'normas', 'politicas', 'políticas', 'quienes pueden', 'puedo pedir', 'carnet', 'documento', 'ficha', 'aprendiz', 'instructor']):
+    elif _kw(q, ['requisitos', 'reglamento', 'normas', 'politicas', 'políticas', 'quienes pueden', 'puedo pedir', 'carnet', 'documento', 'ficha', 'aprendiz', 'instructor']):
         fallback_text = f"🎓 **Requisitos Obligatorios para Solicitar Préstamos:**\n\n" \
                         "Para que el bibliotecario o almacenista apruebe tu entrega física en ventanilla, debes cumplir con:\n" \
                         "1. ✅ Tener una cuenta activa en la plataforma web (no estar en estado 'Invitado').\n" \
@@ -1245,7 +1264,7 @@ INSTRUCCIONES DE RESPUESTA:
                         "4. ✍️ **Para herramientas pesadas:** Presentar la firma o autorización física o digital de tu instructor de taller."
 
     # CATEGORÍA 11: Exploración del Catálogo e Inventario (RAG en tiempo real)
-    elif any(k in q for k in ['catalogo', 'catálogo', 'inventario', 'buscar', 'encontrar', 'tienen', 'hay', 'disponi', 'libro', 'herramienta', 'equipo', 'arduino', 'kit', 'computador', 'maquina', 'herramientas', 'elementos']):
+    elif _kw(q, ['catalogo', 'catálogo', 'inventario', 'buscar', 'encontrar', 'tienen', 'hay', 'disponi', 'libro', 'herramienta', 'equipo', 'arduino', 'kit', 'computador', 'maquina', 'herramientas', 'elementos']):
         matches = [i for i in Item.query.all() if any(k in i.name.lower() for k in keywords)]
         if matches:
             fallback_text = f"🔍 **Resultados del Catálogo en Tiempo Real (Offline):**\n\n" \
@@ -1259,7 +1278,7 @@ INSTRUCCIONES DE RESPUESTA:
             fallback_text = "Estuve revisando el catálogo físico de inventario y no encontré un elemento con ese nombre exacto. 🧐 ¿Podrías intentar buscarlo con otro término, o explorar el catálogo principal?"
 
     # CATEGORÍA 12: Creadores del sistema y Tecnología
-    elif any(k in q for k in ['tecnologia', 'tecnología', 'desarrolladores', 'creadores', 'hecho con', 'programado', 'lenguaje', 'react', 'flask', 'python', 'javascript', 'sqlite', 'creó', 'creo']):
+    elif _kw(q, ['tecnologia', 'tecnología', 'desarrolladores', 'creadores', 'hecho con', 'programado', 'lenguaje', 'react', 'flask', 'python', 'javascript', 'sqlite', 'creó']):
         fallback_text = f"💻 **Ficha Técnica y Creadores del Sistema:**\n\n" \
                         "Este portal web de Biblioteca y Almacén SENA ha sido desarrollado como una solución integral moderna utilizando las siguientes tecnologías:\n" \
                         "*   ⚛️ **Frontend:** React, TypeScript, React Icons y Vanilla CSS (Diseño premium interactivo).\n" \
@@ -1268,20 +1287,20 @@ INSTRUCCIONES DE RESPUESTA:
                         "*   🤖 **Inteligencia Artificial:** Google Gemini API (Modelo Flash) con un motor avanzado de RAG."
 
     # CATEGORÍA 13: Humor, Relaciones y Preguntas Personales (Easter Egg)
-    elif any(k in q for k in ['novia', 'novio', 'pareja', 'amor', 'te amo', 'te quiero', 'casar', 'sentimientos', 'humano', 'amigo', 'amiga']):
+    elif _kw(q, ['novia', 'novio', 'pareja', 'amor', 'te amo', 'te quiero', 'casar', 'sentimientos', 'humano', 'amigo', 'amiga']):
         fallback_text = f"🤖 **¿Relaciones amorosas? ¡Mi único verdadero amor es poder ayudarte!**\n\n" \
                         "Como soy una Inteligencia Artificial programada en Python, Flask y React, no tengo sentimientos físicos, corazón ni capacidad para tener una pareja convencional. 💙\n\n" \
                         "Mi verdadera pasión es serte de utilidad, facilitarte el acceso al conocimiento y asegurarme de que consigas todos tus materiales a tiempo para tus clases de taller. ¡Así que mejor cuéntame en qué puedo ayudarte hoy!"
 
     # CATEGORÍA 14: Respeto, Límites de Vocabulario y Moderación
-    elif any(k in q for k in ['perra', 'puta', 'mierda', 'maricon', 'maricón', 'bobo', 'pendejo', 'estupido', 'estúpido', 'malo', 'inservible', 'basura', 'hpta', 'gonorrea', 'boba', 'pendeja', 'estupida', 'estúpida', 'grosería', 'groseria', 'malparido', 'hijueputa']):
+    elif _kw(q, ['perra', 'puta', 'mierda', 'maricon', 'maricón', 'bobo', 'pendejo', 'estupido', 'estúpido', 'malo', 'inservible', 'basura', 'hpta', 'gonorrea', 'boba', 'pendeja', 'estupida', 'estúpida', 'grosería', 'groseria', 'malparido', 'hijueputa']):
         fallback_text = f"⚠️ **Llamado al Respeto y Convivencia Académica SENA:**\n\n" \
                         "Como asistente inteligente educativo, estoy diseñado exclusivamente para apoyar el aprendizaje y organizar los activos del Centro de Formación.\n\n" \
                         "El reglamento del aprendiz promueve una cultura de respeto, tolerancia y uso de lenguaje profesional en todos los canales institucionales. " \
                         "Te invito cordialmente a reformular tu pregunta de manera respetuosa para poder asistirte con el inventario, libros, préstamos o reservas."
 
     # CATEGORÍA 15: Guía de Navegación y Uso Exacto de la Interfaz Web
-    elif any(k in q for k in ['navegar', 'plataforma', 'interfaz', 'menu', 'menú', 'historial', 'mis reservas', 'notificaciones', 'como funciona', 'cómo funciona', 'donde encuentro', 'dónde encuentro', 'barra', 'navegacion', 'navegación']):
+    elif _kw(q, ['navegar', 'plataforma', 'interfaz', 'menu', 'menú', 'historial', 'mis reservas', 'notificaciones', 'como funciona', 'cómo funciona', 'donde encuentro', 'dónde encuentro', 'barra', 'navegacion', 'navegación']):
         fallback_text = f"🧭 **Guía Exacta de Navegación de la Plataforma SENA:**\n\n" \
                         "Nuestra interfaz web está estructurada en un **Panel Lateral Izquierdo** (Menú Principal) y una **Barra Superior**. Aquí tienes la ubicación exacta de cada módulo:\n\n" \
                         "1. 🏠 **Inicio (Dashboard):** Panel de control con el resumen de tus actividades, estadísticas en tiempo real y accesos rápidos.\n" \
@@ -1293,7 +1312,7 @@ INSTRUCCIONES DE RESPUESTA:
                         "7. ⚙️ **Configuración (Panel de Seguridad):** Ubicado en el menú lateral, incluye sub-pestañas para cambiar tu foto, correo, activar autenticación 2FA, ver sesiones activas y modificar contraseñas."
 
     # CATEGORÍA 16: Frustración del Usuario, Reclamaciones o Feedback Negativo
-    elif any(k in q for k in ['gracias por nada', 'no sirves', 'no ayudas', 'peor asistente', 'inutil', 'inútil', 'pésimo', 'pesimo', 'lento', 'no funciona', 'ayuda en nada']):
+    elif _kw(q, ['gracias por nada', 'no sirves', 'no ayudas', 'peor asistente', 'inutil', 'inútil', 'pésimo', 'pesimo', 'lento', 'no funciona', 'ayuda en nada']):
         fallback_text = f"😔 **Lamento mucho escuchar eso, {user_name}.**\n\n" \
                         "Mi objetivo principal es serte de gran utilidad y facilitarte todos tus trámites en la biblioteca y el almacén de herramientas.\n\n" \
                         "Dado que actualmente mi conexión con los servidores de inteligencia de Google está inactiva y opero en **modo local de respaldo (offline)**, entiendo que mis respuestas puedan sentirse limitadas frente a tus expectativas.\n\n" \
@@ -1302,7 +1321,7 @@ INSTRUCCIONES DE RESPUESTA:
         suggest_support = can_escalate
 
     # CATEGORÍA 17: Capacidad de Lectura de Audios e Imágenes (Multimedia Offline)
-    elif any(k in q for k in ['audio', 'audios', 'grabar', 'escuchar', 'imagen', 'imágenes', 'imagenes', 'foto', 'fotos', 'tomar foto', 'cargar', 'subir foto', 'leer audio', 'ver foto', 'reproducir']):
+    elif _kw(q, ['audio', 'audios', 'grabar', 'escuchar', 'imagen', 'imágenes', 'imagenes', 'foto', 'fotos', 'tomar foto', 'cargar', 'subir foto', 'leer audio', 'ver foto', 'reproducir']):
         fallback_text = f"🎙️ **Análisis de Audios, Fotos e Imágenes (Soporte Multimedia):**\n\n" \
                         "Como tu asistente, **puedo procesar y analizar audios e imágenes únicamente cuando me encuentro en Modo Online** conectado con la API de Google Gemini.\n\n" \
                         "Aquí te explico la diferencia técnica de lo que ocurre en cada estado:\n\n" \
@@ -1511,8 +1530,11 @@ def list_learned_responses():
         return err
 
     search = (request.args.get('search') or '').strip()
-    page = max(1, int(request.args.get('page', 1)))
-    per_page = min(100, max(1, int(request.args.get('per_page', 25))))
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+        per_page = min(100, max(1, int(request.args.get('per_page', 25))))
+    except (TypeError, ValueError):
+        return jsonify({"error": "page y per_page deben ser números."}), 400
 
     query = AILearnedResponse.query
     if search:
@@ -1564,8 +1586,11 @@ def list_response_feedback():
         return err
 
     only = (request.args.get('only') or '').strip()  # 'useful' | 'not_useful' | ''
-    page = max(1, int(request.args.get('page', 1)))
-    per_page = min(100, max(1, int(request.args.get('per_page', 25))))
+    try:
+        page = max(1, int(request.args.get('page', 1)))
+        per_page = min(100, max(1, int(request.args.get('per_page', 25))))
+    except (TypeError, ValueError):
+        return jsonify({"error": "page y per_page deben ser números."}), 400
 
     query = AIResponseFeedback.query
     if only == 'useful':
@@ -1759,8 +1784,17 @@ def create_thread():
         # No se persiste nada, pero se responde éxito para que el frontend
         # (que trata esta cuenta igual que un invitado) no falle.
         return jsonify({'id': data.get('id', f"thread_{int(time.time() * 1000)}")}), 201
+    thread_id = data.get('id', f"thread_{int(time.time() * 1000)}")
+    existing = AssistantThread.query.get(thread_id)
+    if existing:
+        # El frontend crea el hilo al abrir "Nueva conversación" y otra vez con el
+        # primer mensaje: repetirlo es inofensivo. Pero un id que ya es de OTRA
+        # persona nunca se pisa.
+        if existing.user_id != user_id:
+            return jsonify({'error': 'Ese id de conversación ya está en uso.'}), 409
+        return jsonify({'id': existing.id}), 200
     thread = AssistantThread(
-        id=data.get('id', f"thread_{int(time.time() * 1000)}"),
+        id=thread_id,
         user_id=user_id,
         title=data.get('title', 'Nueva conversación'),
         messages=json.dumps(data.get('messages', [])),

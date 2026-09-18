@@ -895,6 +895,14 @@ class AuthService:
             ok = not isinstance(vc, dict)
 
         if not ok:
+            # Mismo criterio que el login: 5 fallos seguidos bloquean la cuenta. Sin
+            # esto, con el token temporal se podían probar los 1.000.000 de códigos.
+            user.failed_attempts = (user.failed_attempts or 0) + 1
+            user.last_failed_login = datetime.utcnow()
+            if user.failed_attempts >= 5:
+                user.is_blocked = True
+                AuthService._log_audit(user.id, "USER_BLOCKED_AUTO", ip=_client_ip())
+            db.session.commit()
             return {"error": "Código 2FA incorrecto"}, 401
 
         # Éxito
@@ -1264,7 +1272,9 @@ class AuthService:
         reset_token = PasswordResetToken.query.filter_by(token_hash=token, is_used=False).first()
         if not reset_token or reset_token.expires_at < datetime.utcnow():
             return {"error": "Token inválido o expirado"}, 400
-        user = reset_token.user
+        user = User.query.get(reset_token.user_id)
+        if not user:
+            return {"error": "Token inválido o expirado"}, 400
         user.password = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
         user.must_change_password = False
         reset_token.is_used = True

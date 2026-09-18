@@ -39,7 +39,9 @@ def register():
         document_number=document_number,
         document_type=document_type,
         phone=phone,
-        role_id=data.get('role_id'),  # None -> register_user asigna APRENDIZ por nombre
+        # El registro público SIEMPRE crea un Aprendiz: aceptar un role_id del cliente
+        # permitía autoasignarse ADMIN. Los otros roles los asigna un Admin.
+        role_id=None,
         formation_ficha=data.get('formation_ficha')
     )
     return jsonify(result), status
@@ -570,6 +572,11 @@ def request_email_change():
 
     if not new_email or not password:
         return jsonify({"error": "Nuevo correo y contraseña son requeridos"}), 400
+
+    from ..services.auth_service import _validate_email
+    email_err = _validate_email(new_email)
+    if email_err:
+        return jsonify({"error": email_err}), 400
 
     user = User.query.get(user_id)
     if not user:
