@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { alertDialog } from '../../../../components/ui/ConfirmDialog';
-import { FiGrid, FiClock, FiAlertCircle, FiArchive, FiPackage, FiEye, FiAlertTriangle } from 'react-icons/fi';
+import { FiGrid, FiClock, FiAlertCircle, FiArchive, FiPackage, FiEye, FiAlertTriangle, FiCalendar, FiHash, FiTag, FiDollarSign } from 'react-icons/fi';
 import './AprendizLoans.css';
 
 interface LoanItem {
@@ -62,6 +62,19 @@ export const AprendizLoans: React.FC = () => {
   const [reportSeverity, setReportSeverity] = useState('MEDIUM');
   const [reportPhoto, setReportPhoto] = useState<string | null>(null);
   const [submittingReport, setSubmittingReport] = useState(false);
+
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedItemForDetail, setSelectedItemForDetail] = useState<FlattenedLoanItem | null>(null);
+
+  const handleOpenDetailModal = (item: FlattenedLoanItem) => {
+    setSelectedItemForDetail(item);
+    setShowDetailModal(true);
+  };
+
+  const handleCloseDetailModal = () => {
+    setShowDetailModal(false);
+    setSelectedItemForDetail(null);
+  };
 
   const handleOpenReportModal = (item: FlattenedLoanItem) => {
     setSelectedItemForReport(item);
@@ -321,7 +334,7 @@ export const AprendizLoans: React.FC = () => {
                     </td>
                     <td>
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                        <button className="btn-icon-loan" title="Ver detalle">
+                        <button className="btn-icon-loan" title="Ver detalle" onClick={() => handleOpenDetailModal(fi)}>
                           <FiEye size={16} />
                         </button>
                         {(fi.status === 'ACTIVE' || fi.status === 'OVERDUE') && (
@@ -342,6 +355,88 @@ export const AprendizLoans: React.FC = () => {
           </table>
         </div>
       )}
+
+      {/* PANEL DE VER DETALLE */}
+      {showDetailModal && selectedItemForDetail && (() => {
+        const parentLoan = loans.find(l => l.id === selectedItemForDetail.loan_id);
+        const conf = getStatusConfig(selectedItemForDetail.status, selectedItemForDetail.due_date);
+        const lDate = formatDateObj(selectedItemForDetail.loan_date);
+        const dDate = formatDateObj(selectedItemForDetail.due_date);
+        const rDate = parentLoan?.return_date ? formatDateObj(parentLoan.return_date) : null;
+        return (
+          <div className="detail-modal-overlay" onClick={handleCloseDetailModal}>
+            <div className="detail-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="detail-modal-header">
+                <h3>Detalle del Préstamo</h3>
+                <button className="btn-close-modal" onClick={handleCloseDetailModal}>&times;</button>
+              </div>
+              <div className="detail-modal-body">
+                <div className="detail-item-top">
+                  <div className="detail-item-img">
+                    {selectedItemForDetail.item.image_url ? (
+                      <img src={selectedItemForDetail.item.image_url} alt={selectedItemForDetail.item.name} />
+                    ) : (
+                      <FiPackage size={28} />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="detail-item-name">{selectedItemForDetail.item.name}</h4>
+                    <span className={`status-text ${conf.type}`}>{conf.text}</span>
+                  </div>
+                </div>
+
+                <div className="detail-info-list">
+                  <div className="detail-info-row">
+                    <span className="detail-info-label"><FiHash size={14} /> Código</span>
+                    <span className="detail-info-value">{selectedItemForDetail.item.code}</span>
+                  </div>
+                  <div className="detail-info-row">
+                    <span className="detail-info-label"><FiTag size={14} /> Categoría</span>
+                    <span className="detail-info-value">{selectedItemForDetail.item.category}</span>
+                  </div>
+                  <div className="detail-info-row">
+                    <span className="detail-info-label"><FiCalendar size={14} /> Fecha de préstamo</span>
+                    <span className="detail-info-value">{lDate.dateStr} · {lDate.timeStr}</span>
+                  </div>
+                  {rDate ? (
+                    <div className="detail-info-row">
+                      <span className="detail-info-label"><FiCalendar size={14} /> Fecha de devolución</span>
+                      <span className="detail-info-value">{rDate.dateStr} · {rDate.timeStr}</span>
+                    </div>
+                  ) : (
+                    <div className="detail-info-row">
+                      <span className="detail-info-label"><FiCalendar size={14} /> Fecha límite</span>
+                      <span className="detail-info-value">{dDate.dateStr} · {dDate.timeStr}</span>
+                    </div>
+                  )}
+                  {!!parentLoan?.fine_amount && parentLoan.fine_amount > 0 && (
+                    <div className="detail-info-row">
+                      <span className="detail-info-label"><FiDollarSign size={14} /> Multa generada</span>
+                      <span className="detail-info-value detail-fine-value">
+                        ${parentLoan.fine_amount.toLocaleString('es-CO')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="detail-modal-footer">
+                {(selectedItemForDetail.status === 'ACTIVE' || selectedItemForDetail.status === 'OVERDUE') && (
+                  <button
+                    type="button"
+                    className="btn-report-cancel"
+                    onClick={() => { handleCloseDetailModal(); handleOpenReportModal(selectedItemForDetail); }}
+                  >
+                    Reportar Daño
+                  </button>
+                )}
+                <button type="button" className="btn-report-submit" onClick={handleCloseDetailModal}>
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* GLASSMORPHISM BLUR-BACKDROP MODAL */}
       {showReportModal && selectedItemForReport && (
@@ -364,7 +459,7 @@ export const AprendizLoans: React.FC = () => {
                   <textarea
                     id="report-desc"
                     className="report-form-control"
-                    rows={4}
+                    rows={3}
                     placeholder="Describe en detalle el problema o daño presentado en el elemento..."
                     value={reportDescription}
                     onChange={(e) => setReportDescription(e.target.value)}

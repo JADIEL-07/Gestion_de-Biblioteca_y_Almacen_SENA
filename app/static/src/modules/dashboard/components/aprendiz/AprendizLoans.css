@@ -316,7 +316,8 @@
 }
 
 /* Glassmorphism / Backdrop Blur Modal */
-.report-modal-overlay {
+.report-modal-overlay,
+.detail-modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
@@ -330,32 +331,46 @@
   justify-content: center;
   z-index: 1000;
   padding: 1rem;
+  /* Con overflow-y en el overlay + max-height/overflow-y en el panel de abajo,
+     el panel nunca crece más allá de lo que cabe en la pantalla visible — sin
+     esto, en móvil (donde la barra de direcciones y la barra inferior del
+     navegador ocupan espacio variable) el panel quedaba más alto que el
+     viewport y sus bordes quedaban tapados por esas barras. */
+  overflow-y: auto;
   animation: fadeIn 0.2s ease-out;
 }
 
-.report-modal {
+.report-modal,
+.detail-modal {
   background: var(--bg-card, rgba(30, 41, 59, 0.95));
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   border-radius: 16px;
   width: 100%;
-  max-width: 500px;
+  max-width: 440px;
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
-  overflow: hidden;
   animation: scaleIn 0.2s ease-out;
 }
 
-.report-modal-header {
-  padding: 1.2rem 1.5rem;
+.report-modal-header,
+.detail-modal-header {
+  padding: 1rem 1.25rem;
   border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.05));
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: sticky;
+  top: 0;
+  background: inherit;
 }
 
-.report-modal-header h3 {
+.report-modal-header h3,
+.detail-modal-header h3 {
   margin: 0;
   color: var(--text-primary, #ffffff);
-  font-size: 1.25rem;
+  font-size: 1.1rem;
   font-weight: 700;
 }
 
@@ -375,12 +390,13 @@
   color: var(--text-primary, #ffffff);
 }
 
-.report-modal-body {
-  padding: 1.5rem;
+.report-modal-body,
+.detail-modal-body {
+  padding: 1.1rem 1.25rem;
 }
 
 .report-form-group {
-  margin-bottom: 1.2rem;
+  margin-bottom: 0.9rem;
 }
 
 .report-form-group label {
@@ -389,7 +405,7 @@
   font-size: 0.85rem;
   font-weight: 600;
   text-transform: uppercase;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
   letter-spacing: 0.05em;
 }
 
@@ -399,8 +415,8 @@
   border: 1px solid var(--border-color, #334155);
   color: var(--text-primary, #ffffff);
   border-radius: 8px;
-  padding: 0.75rem 1rem;
-  font-size: 0.95rem;
+  padding: 0.6rem 0.85rem;
+  font-size: 0.9rem;
   font-family: inherit;
   transition: border-color 0.2s;
 }
@@ -418,7 +434,7 @@
   justify-content: center;
   border: 2px dashed var(--border-color, #334155);
   border-radius: 8px;
-  padding: 1.5rem;
+  padding: 1.1rem;
   text-align: center;
   background: var(--bg-main, #0f172a);
   cursor: pointer;
@@ -440,9 +456,9 @@
 }
 
 .upload-icon {
-  font-size: 1.8rem;
+  font-size: 1.5rem;
   color: var(--text-muted, #94a3b8);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.4rem;
 }
 
 .upload-text {
@@ -495,12 +511,16 @@
   background: #ef4444;
 }
 
-.report-modal-footer {
-  padding: 1.2rem 1.5rem;
+.report-modal-footer,
+.detail-modal-footer {
+  padding: 1rem 1.25rem;
   border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.05));
   display: flex;
   justify-content: flex-end;
   gap: 0.75rem;
+  position: sticky;
+  bottom: 0;
+  background: inherit;
 }
 
 .btn-report-submit {
@@ -536,6 +556,76 @@
 
 .btn-report-cancel:hover {
   background: #334155;
+}
+
+/* Panel "Ver detalle" */
+.detail-item-top {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.detail-item-img {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 8px;
+  background: var(--bg-card-light, #334155);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  color: var(--text-muted, #94a3b8);
+}
+
+.detail-item-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detail-item-name {
+  margin: 0 0 0.35rem 0;
+  color: var(--text-primary, #ffffff);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.detail-info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.detail-info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-main, #0f172a);
+  border: 1px solid var(--border-color, #334155);
+  border-radius: 8px;
+}
+
+.detail-info-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.8rem;
+}
+
+.detail-info-value {
+  color: var(--text-primary, #ffffff);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: right;
+}
+
+.detail-fine-value {
+  color: #ef4444;
 }
 
 @keyframes fadeIn {
