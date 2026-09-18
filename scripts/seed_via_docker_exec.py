@@ -6,6 +6,7 @@ Genera hashes bcrypt localmente, construye el SQL y lo ejecuta por SSH.
 """
 import sys
 import os
+import shlex
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from dotenv import load_dotenv
@@ -18,11 +19,18 @@ ssh_host = os.environ.get('SSH_HOST')
 ssh_user = os.environ.get('SSH_USER')
 ssh_password = os.environ.get('SSH_PASSWORD')
 
-PG_USER = 'Jadiel_Zz'
-PG_DB = 'biblioteca_db'
-CONTAINER_NAME = 'db-fn9ed6r5qkr5l1t2fg3ug20b-025215602365'
+# Nada de esto va escrito en el código: se lee del entorno (.env, que no se sube a git).
+PG_USER = os.environ.get('POSTGRES_USER')
+PG_PASSWORD = os.environ.get('POSTGRES_PASSWORD')
+PG_DB = os.environ.get('POSTGRES_DB', 'biblioteca_db')
+CONTAINER_NAME = os.environ.get('DB_CONTAINER_NAME')
+if not (PG_USER and PG_PASSWORD and CONTAINER_NAME):
+    sys.exit("Faltan POSTGRES_USER, POSTGRES_PASSWORD y DB_CONTAINER_NAME en el entorno.")
 
-PASSWORD = "root12872"
+# Contraseña de las cuentas de prueba: la que definas en TEST_USERS_PASSWORD o, si no,
+# una aleatoria que se imprime al final (antes era una fija y conocida).
+import secrets
+PASSWORD = os.environ.get('TEST_USERS_PASSWORD') or secrets.token_urlsafe(12)
 
 USERS = [
     ("1101755660", "Admin Test",         "admin.test@sena.edu.co",         "ADMIN"),
@@ -126,7 +134,7 @@ print("Conectado.\n")
 
 # Pasar el SQL via stdin al psql dentro del container
 cmd = (
-    f"docker exec -i -e PGPASSWORD='12872Jadiel#' "
+    f"docker exec -i -e PGPASSWORD={shlex.quote(PG_PASSWORD)} "
     f"{CONTAINER_NAME} "
     f"psql -U {PG_USER} -d {PG_DB} -v ON_ERROR_STOP=1"
 )
