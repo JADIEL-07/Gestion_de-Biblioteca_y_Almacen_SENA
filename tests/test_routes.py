@@ -4,6 +4,7 @@ Ejecutar desde la raíz:  python -m unittest tests.test_routes -v
 """
 import os
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta
 
 
@@ -107,8 +108,13 @@ class TestAuthRoutes(RouteCase):
 
     def test_new_device_does_not_issue_token(self):
         u = self.make()
-        r = self.login(u.id, device="never-seen")
+        # El correo se simula: sin SMTP configurado (como en CI) la app deja entrar a propósito
+        # para no bloquear a nadie, y esa es otra prueba distinta.
+        with mock.patch("app.services.auth_service.EmailService") as mail,                 mock.patch("app.services.auth_service._geolocate", return_value=None):
+            mail.send_new_device_alert.return_value = True
+            r = self.login(u.id, device="never-seen")
         self.assertNotIn("access_token", r.get_json() or {})
+        self.assertTrue(r.get_json()["requires_device_approval"])
 
     def test_login_is_by_document_not_email(self):
         u = self.make(); self.trusted(u)
