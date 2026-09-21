@@ -13,7 +13,6 @@ import unittest
 from datetime import datetime, timedelta
 from unittest import mock
 
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 import jwt as pyjwt
 

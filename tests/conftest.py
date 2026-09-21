@@ -1,13 +1,9 @@
 """Fixtures compartidos de pytest para las pruebas de modelos.
 
-Usan SQLite en memoria con las llaves foráneas activadas (SQLite no las valida
-por defecto y PostgreSQL sí), y una base limpia por cada prueba.
+La base sale de TEST_DATABASE_URL (PostgreSQL) o, si no existe, SQLite en memoria con
+las llaves foráneas activadas. Una base limpia por cada prueba.
 """
-import os
-
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
-os.environ.setdefault("RATELIMIT_ENABLED", "false")
-
+import tests  # noqa: F401  (fija DATABASE_URL antes de importar la app)
 import pytest
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -19,7 +15,8 @@ from app.models import Category, Item, Location, Role, Status, User
 
 @event.listens_for(Engine, "connect")
 def _foreign_keys_on(dbapi_conn, _record):
-    dbapi_conn.execute("PRAGMA foreign_keys=ON")
+    if dbapi_conn.__class__.__module__.startswith("sqlite3"):  # PostgreSQL ya las valida
+        dbapi_conn.execute("PRAGMA foreign_keys=ON")
 
 
 @pytest.fixture(scope="session")

@@ -108,6 +108,8 @@ def create_report():
     
     if not subject or not description:
         return jsonify({"error": "El asunto y la descripción son obligatorios."}), 400
+    if len(subject) > 200:
+        return jsonify({"error": "El asunto no puede superar los 200 caracteres."}), 400
         
     if severity not in ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']:
         severity = 'MEDIUM'

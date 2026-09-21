@@ -7,7 +7,6 @@ import os
 import unittest
 from datetime import datetime, timedelta
 
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 from app.extensions import db
 from app.models import (

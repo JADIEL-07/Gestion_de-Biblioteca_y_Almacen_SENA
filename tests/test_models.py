@@ -8,7 +8,6 @@ import time
 import unittest
 from datetime import datetime, timedelta
 
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 from sqlalchemy import event
 from sqlalchemy.engine import Engine
@@ -30,7 +29,8 @@ from app.models import (
 @event.listens_for(Engine, "connect")
 def _fk_on(dbapi_conn, _):
     # SQLite no valida llaves foráneas salvo que se pida — Postgres sí.
-    dbapi_conn.execute("PRAGMA foreign_keys=ON")
+    if dbapi_conn.__class__.__module__.startswith("sqlite3"):
+        dbapi_conn.execute("PRAGMA foreign_keys=ON")
 
 
 class ModelTestCase(unittest.TestCase):

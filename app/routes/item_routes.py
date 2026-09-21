@@ -124,12 +124,24 @@ def get_items():
             )
         )
 
-    # Filtros específicos
-    if cat_id and cat_id not in ['ALL', '', 'undefined', 'null']:
+    # Filtros específicos. Son enteros: PostgreSQL rechaza comparar una columna entera con
+    # texto ("' OR '1'='1"), lo que antes terminaba en un error 500.
+    def _int_arg(v):
+        if not v or v in ['ALL', '', 'undefined', 'null']:
+            return None
+        if not str(v).isdigit():
+            raise ValueError(v)
+        return int(v)
+    try:
+        cat_id, stat_id, loc_id = _int_arg(cat_id), _int_arg(stat_id), _int_arg(loc_id)
+        dep_arg = _int_arg(request.args.get('dependency_id'))
+    except ValueError:
+        return jsonify({"error": "Los filtros deben ser números."}), 400
+    if cat_id:
         query = query.filter(Item.category_id == cat_id)
-    if stat_id and stat_id not in ['ALL', '', 'undefined', 'null']:
+    if stat_id:
         query = query.filter(Item.status_id == stat_id)
-    if loc_id and loc_id not in ['ALL', '', 'undefined', 'null']:
+    if loc_id:
         query = query.filter(Item.location_id == loc_id)
         
     # Filtro de seguridad/separación por Dependencia (Biblioteca vs Almacén).
@@ -144,8 +156,8 @@ def get_items():
         # nada (mejor eso a verlo "todo" por accidente).
         query = query.filter(Item.id < 0)
     else:
-        dep_id = own_dep_id if is_staff_scoped else request.args.get('dependency_id')
-        if dep_id and dep_id not in ['ALL', '', 'undefined', 'null']:
+        dep_id = own_dep_id if is_staff_scoped else dep_arg
+        if dep_id:
             # OJO: se incluyen también los elementos cuya ubicación tiene
             # dependency_id NULL ("compartida"/de antes de esta separación
             # por áreas) — si no, TODO el inventario creado antes de esta
@@ -225,7 +237,10 @@ def get_item_filters():
     # recibe las ubicaciones/categorías de la otra área, sin importar qué
     # dependency_id venga en la URL.
     requester, role_name, is_staff_scoped, own_dep_id = _requester_scope()
-    dep_id = own_dep_id if is_staff_scoped else request.args.get('dependency_id')
+    dep_raw = request.args.get('dependency_id')
+    if not is_staff_scoped and dep_raw and dep_raw not in ['ALL', '', 'undefined', 'null'] and not str(dep_raw).isdigit():
+        return jsonify({"error": "dependency_id debe ser un número."}), 400
+    dep_id = own_dep_id if is_staff_scoped else dep_raw
     try:
         from ..models.dependency import Dependency
         statuses = Status.query.all()

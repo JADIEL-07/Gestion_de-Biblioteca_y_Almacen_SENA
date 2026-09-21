@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from unittest import mock
 from urllib.parse import urlparse, parse_qs
 
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ.pop("GEMINI_API_KEY", None)
 
 import bcrypt

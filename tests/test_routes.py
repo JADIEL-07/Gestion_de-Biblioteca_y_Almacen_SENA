@@ -6,7 +6,6 @@ import os
 import unittest
 from datetime import datetime, timedelta
 
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 
 import bcrypt
 from flask_jwt_extended import create_access_token
